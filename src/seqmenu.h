@@ -61,6 +61,7 @@ class seqmenu : public virtual Glib::ObjectBase
     void on_realize();
 
     void seq_edit();
+    void open_clip_editor();
     void seq_new();
 
     void seq_copy();   

@@ -20,7 +20,46 @@
 
 #include "seqmenu.h"
 #include "seqedit.h"
+#include "trackeredit.h"
 #include "font.h"
+
+#include <gtkmm/dialog.h>
+#include <gtkmm/stock.h>
+#include <gtkmm/label.h>
+
+/* clip-type chooser result */
+enum clip_view_e { CLIP_PIANO_ROLL = 0, CLIP_TRACKER = 1 };
+
+/* Small monochrome dialog asking which editor view to open for a pattern.
+   Returns CLIP_PIANO_ROLL or CLIP_TRACKER (defaults to piano roll on cancel). */
+static int
+choose_clip_view( const char *a_name )
+{
+    Gtk::Dialog dialog( "Open Clip As", true );    /* modal */
+    dialog.set_size_request( 260, -1 );
+
+    /* black & white look */
+    Gdk::Color black; black.set_rgb_p( 0.0, 0.0, 0.0 );
+    Gdk::Color white; white.set_rgb_p( 0.93, 0.93, 0.93 );
+    dialog.modify_bg( Gtk::STATE_NORMAL, black );
+
+    Gtk::Label *lbl = Gtk::manage(
+        new Gtk::Label( std::string("Choose an editor for \"") +
+                        ( a_name ? a_name : "" ) + "\":" ) );
+    lbl->modify_fg( Gtk::STATE_NORMAL, white );
+    lbl->set_padding( 8, 8 );
+    dialog.get_vbox()->pack_start( *lbl, false, false );
+    lbl->show();
+
+    /* response ids: 1 = piano roll, 2 = tracker */
+    dialog.add_button( "Piano Roll", 1 );
+    dialog.add_button( "Tracker",    2 );
+
+    int resp = dialog.run();
+    if ( resp == 2 )
+        return CLIP_TRACKER;
+    return CLIP_PIANO_ROLL;
+}
 
 
 // Constructor
@@ -215,19 +254,29 @@ seqmenu::mute_all_tracks( void )
 }
 
 
-// Menu callback, Lanches Editor Window
-void 
-seqmenu::seq_edit(){
+// Opens the chosen editor (piano roll or tracker) for the current seq.
+void
+seqmenu::open_clip_editor()
+{
+    sequence *s = m_mainperf->get_sequence( m_current_seq );
 
-    seqedit *seq_edit;
+    /* present the B/W clip-type chooser */
+    int view = choose_clip_view( s->get_name() );
+
+    if ( view == CLIP_TRACKER )
+        new trackeredit( s, m_mainperf, m_current_seq );
+    else
+        new seqedit( s, m_mainperf, m_current_seq );
+}
+
+// Menu callback, Lanches Editor Window
+void
+seqmenu::seq_edit(){
 
     if ( m_mainperf->is_active( m_current_seq )) {
         if ( !m_mainperf->get_sequence( m_current_seq )->get_editing())
         {
-            seq_edit = new seqedit( m_mainperf->get_sequence( m_current_seq ), 
-                    m_mainperf, 
-                    m_current_seq
-                    );
+            open_clip_editor();
         }
         else {
             m_mainperf->get_sequence( m_current_seq )->set_raise(true);
@@ -235,11 +284,8 @@ seqmenu::seq_edit(){
     }
     else {
         this->seq_new();
-        seq_edit = new seqedit( m_mainperf->get_sequence( m_current_seq ), 
-                m_mainperf, 
-                m_current_seq
-                );
-    }    
+        open_clip_editor();
+    }
 }
 
 // Makes a New sequence 
