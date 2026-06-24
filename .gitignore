@@ -1,0 +1,11 @@
+build/
+build-*/
+*.o
+*.obj
+*.exe
+*.dll
+*.a
+vendor/*/build/
+spikes/*/build/
+CMakeCache.txt
+CMakeFiles/
