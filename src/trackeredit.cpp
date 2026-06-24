@@ -655,8 +655,16 @@ trackeredit::move_cursor( int a_drow, int a_dcol )
 void
 trackeredit::on_realize( void )
 {
+    // The child DrawingArea's GdkWindow may not exist yet when this signal
+    // fires (unlike a DrawingArea subclass that chains the default realize
+    // first), so guard for NULL.  If it's not ready, the GC/pixmap are created
+    // lazily on the first expose, where the window is guaranteed to exist.
     m_window = m_draw->get_window();
-    m_gc = Gdk::GC::create( m_window );
+    if ( !m_window )
+        return;
+
+    if ( !m_gc )
+        m_gc = Gdk::GC::create( m_window );
     m_window->clear();
 
     update_sizes();
@@ -667,6 +675,17 @@ trackeredit::on_realize( void )
 bool
 trackeredit::on_expose( GdkEventExpose *e )
 {
+    // Lazy one-time setup: by the time an expose arrives the window exists.
+    if ( !m_window )
+        m_window = m_draw->get_window();
+    if ( !m_window )
+        return true;
+    if ( !m_gc )
+    {
+        m_gc = Gdk::GC::create( m_window );
+        update_sizes();
+        update_pixmap();
+    }
     if ( !m_pixmap )
         return true;
     m_window->draw_drawable( m_gc, m_pixmap,

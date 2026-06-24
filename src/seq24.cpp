@@ -29,6 +29,7 @@
 #include "userfile.h"
 #include "font.h"
 #include "lash.h"
+#include "audio_app.h"
 
 /* struct for command parsing */
 static struct 
@@ -268,8 +269,17 @@ main (int argc, char *argv[])
     mainwnd mainwnd( &p );
 
 	lash_driver->start( &p );
+
+    /* start the hand-rolled audio engine + master mixer graph (VST host).
+       Failure is non-fatal: seq24 then runs as a pure-MIDI sequencer.
+       Set SEQ24_NOAUDIO=1 to skip (diagnostics). */
+    if ( getenv( "SEQ24_NOAUDIO" ) == NULL )
+        seq24::app::audio_app_init();
+
     kit.run();
-    
+
+    seq24::app::audio_app_shutdown();
+
     p.deinit_jack();
     
     if ( getenv( "HOME" ) != NULL ){
