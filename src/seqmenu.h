@@ -36,6 +36,7 @@ class seqedit;
 #include <gtkmm/main.h>
 #include <gtkmm/menu.h>
 #include <gtkmm/menubar.h>
+#include <gtkmm/checkmenuitem.h>
 #include <gtkmm/eventbox.h>
 #include <gtkmm/window.h>
 #include <gtkmm/table.h>
@@ -70,6 +71,12 @@ class seqmenu : public virtual Glib::ObjectBase
 
     void set_bus_and_midi_channel( int a_bus, int a_ch );
     void mute_all_tracks();
+
+    /* SCALE-MASTER / SCALE-FOLLOW menu handlers -- see docs/scale-follow.md */
+    void seq_set_scale_master();
+    void seq_toggle_follows_master();
+    void seq_set_master_key( int a_key );
+    void seq_set_master_scale( int a_scale );
     
     virtual void redraw( int a_sequence ) = 0;
 

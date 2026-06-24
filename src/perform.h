@@ -75,6 +75,10 @@ class perform
 
     bool m_seqs_active[ c_max_sequence ];
 
+    /* SCALE-MASTER / SCALE-FOLLOW: index of the scale master sequence in
+       m_seqs[], or -1 == none.  See docs/scale-follow.md. */
+    int m_scale_master_seq;
+
     bool m_was_active_main[ c_max_sequence ];
     bool m_was_active_edit[ c_max_sequence ];
     bool m_was_active_perf[ c_max_sequence ];
@@ -236,6 +240,14 @@ class perform
     sequence * get_sequence( int a_sequence );
 
     void reset_sequences( void );
+
+    /* SCALE-MASTER / SCALE-FOLLOW.
+       set_scale_master enforces a single master: it clears the previous
+       master's flag, sets the new one (-1 clears).  set_follows_master toggles
+       a sequence's follow flag.  See docs/scale-follow.md section 2. */
+    void set_scale_master( int a_seq );
+    int  get_scale_master( void );
+    void set_follows_master( int a_seq, bool a_follow );
 
     void set_bpm(int a_bpm);
     int  get_bpm( );

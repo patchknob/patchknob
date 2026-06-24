@@ -32,8 +32,16 @@ class mastermidibus;
 #include "event.h"
 #include "sequence.h"
 #include <string>
+#include <vector>
+#include <deque>
 #include "mutex.h"
 #include "globals.h"
+
+/* RtMidi (WinMM) backend.  RtMidi.h is on the include path for all seq24
+   sources (see CMakeLists.txt), so include it directly rather than forward-
+   declaring (the real classes carry a visibility attribute that makes plain
+   forward declarations ambiguous). */
+#include "RtMidi.h"
 
 const int c_midibus_output_size = 0x100000;
 const int c_midibus_input_size =  0x100000;
@@ -74,6 +82,17 @@ class midibus
 
     /* last tick */
     long m_lasttick;
+
+    /* RtMidi (WinMM) backend objects: one of these is non-NULL per bus
+       depending on whether it is an output or input bus. */
+    RtMidiOut *m_rtmidi_out;
+    RtMidiIn  *m_rtmidi_in;
+
+    /* RtMidi port index this bus maps to (into getPortCount() enumeration) */
+    int m_port_index;
+
+    /* send a single raw byte (realtime/system messages) */
+    void send_byte( unsigned char a_byte );
 
     /* locking */
     seq24mutex m_mutex;
@@ -169,6 +188,10 @@ class mastermidibus
     /* for dumping midi input to sequence for recording */
     bool m_dumping_input;
     sequence *m_seq;
+
+    /* buffered raw input messages pulled from RtMidiIn during poll_for_midi,
+       drained one at a time by get_midi_event */
+    std::deque< std::vector<unsigned char> > m_in_queue;
 
     /* locking */
     seq24mutex m_mutex;

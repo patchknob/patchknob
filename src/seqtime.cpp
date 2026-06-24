@@ -20,6 +20,7 @@
 #include "event.h"
 #include "seqtime.h"
 #include "font.h"
+#include "ui/palette.h"
 
 
 seqtime::seqtime(sequence *a_seq, int a_zoom,
@@ -37,9 +38,10 @@ seqtime::seqtime(sequence *a_seq, int a_zoom,
     // get_window() returns 0 because we have not be realized
     Glib::RefPtr<Gdk::Colormap> colormap = get_default_colormap();
 
-    m_black = Gdk::Color( "black" );
-    m_white = Gdk::Color( "white" );
-    m_grey  = Gdk::Color( "grey" );
+    /* synthwave palette (1111 reskin) */
+    m_black = synth::gdk_color( synth::cChordBg );  // ruler background
+    m_white = synth::gdk_color( synth::cHi );       // text / tick lines
+    m_grey  = synth::gdk_color( synth::cDim );
 
     colormap->alloc_color( m_black );
     colormap->alloc_color( m_white );
@@ -170,23 +172,19 @@ seqtime::update_pixmap()
 
   
     
+    Cairo::RefPtr<Cairo::Context> cr = m_pixmap->create_cairo_context();
+    cr->set_line_width( 1.0 );
+
     /* clear background */
-    m_gc->set_foreground(m_white);
-    m_pixmap->draw_rectangle(m_gc,true,
-                             0,
-                             0, 
-                             m_window_x, 
-                             m_window_y );
+    synth::set_source( cr, synth::cChordBg );
+    cr->rectangle( 0, 0, m_window_x, m_window_y );
+    cr->fill();
 
-   
-
-
-    m_gc->set_foreground(m_black);
-    m_pixmap->draw_line(m_gc,
-		       0,
-		       m_window_y - 1,
-		       m_window_x,
-		       m_window_y - 1 );
+    /* bottom border */
+    synth::set_source( cr, synth::cDim, 0.8 );
+    cr->move_to( 0, m_window_y - 0.5 );
+    cr->line_to( m_window_x, m_window_y - 0.5 );
+    cr->stroke();
 
     // at 32, a bar every measure
     // at 16
@@ -229,45 +227,37 @@ seqtime::update_pixmap()
     //printf ( "ticks_per_step[%d] start_tick[%d] end_tick[%d]\n",
     //         ticks_per_step, start_tick, end_tick );
 
-    /* draw vert lines */
-    m_gc->set_foreground(m_black);
+    /* draw vert measure lines (accent) */
     for ( int i=start_tick; i<end_tick; i += ticks_per_step )
     {
         int base_line = i / m_zoom;
-        
-        /* beat */
-        m_pixmap->draw_line(m_gc,
-                            base_line -  m_scroll_offset_x ,
-                            0,
-                            base_line -  m_scroll_offset_x ,
-                            m_window_y );
-        
-            
+        double x = (double)(base_line - m_scroll_offset_x) + 0.5;
+
+        synth::set_source( cr, synth::cAccent, 0.85 );
+        cr->move_to( x, 0 );
+        cr->line_to( x, m_window_y );
+        cr->stroke();
+
         char bar[5];
-        sprintf( bar, "%d", (i/ ticks_per_measure ) + 1  ); 
-        
-        m_gc->set_foreground(m_black);
-        
+        sprintf( bar, "%d", (i/ ticks_per_measure ) + 1  );
+
         p_font_renderer->render_string_on_drawable(m_gc,
-                                                   base_line + 2 -  m_scroll_offset_x , 
+                                                   base_line + 2 -  m_scroll_offset_x ,
                                                    0,
-                                                   m_pixmap, bar, font::BLACK );           
-    
+                                                   m_pixmap, bar, font::WHITE );
     }
 
     long end_x = m_seq->get_length() / m_zoom - m_scroll_offset_x;
 
-    m_gc->set_foreground(m_black);
-    m_pixmap->draw_rectangle(m_gc,true,
-                             end_x,
-                             9, 
-                             19, 
-                             8 );
-       
+    /* END marker */
+    synth::set_source( cr, synth::cActive, 0.85 );
+    cr->rectangle( end_x, 9, 19, 8 );
+    cr->fill();
+
     p_font_renderer->render_string_on_drawable(m_gc,
-                                               end_x + 1, 
+                                               end_x + 1,
                                                9,
-                                               m_pixmap, "END", font::WHITE );
+                                               m_pixmap, "END", font::BLACK );
 }
 
 

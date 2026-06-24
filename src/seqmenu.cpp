@@ -110,8 +110,92 @@ seqmenu::popup_menu( void )
         }        
     }
 
+    /* SCALE-MASTER / SCALE-FOLLOW -- see docs/scale-follow.md section 5 */
+    if ( m_mainperf->is_active( m_current_seq )) {
+
+        m_menu->items().push_back(SeparatorElem());
+
+        Menu *menu_scale = manage( new Menu() );
+        m_menu->items().push_back( MenuElem( "Scale Follow", *menu_scale ) );
+
+        sequence *s = m_mainperf->get_sequence( m_current_seq );
+
+        CheckMenuItem *master_item =
+            manage( new CheckMenuItem("Set as scale master") );
+        master_item->set_active( s->get_scale_master() );
+        master_item->signal_activate().connect(
+            mem_fun(*this,&seqmenu::seq_set_scale_master) );
+        menu_scale->items().push_back( *master_item );
+
+        CheckMenuItem *follow_item =
+            manage( new CheckMenuItem("Follow scale master") );
+        follow_item->set_active( s->get_follows_master() );
+        follow_item->signal_activate().connect(
+            mem_fun(*this,&seqmenu::seq_toggle_follows_master) );
+        menu_scale->items().push_back( *follow_item );
+
+        /* master root key picker */
+        Menu *menu_mkey = manage( new Menu() );
+        menu_scale->items().push_back( MenuElem( "Master Root", *menu_mkey ) );
+        for ( int k=0; k<12; k++ ){
+            menu_mkey->items().push_back(MenuElem( c_key_text[k],
+                sigc::bind(mem_fun(*this,&seqmenu::seq_set_master_key), k )));
+        }
+
+        /* master scale picker */
+        Menu *menu_mscale = manage( new Menu() );
+        menu_scale->items().push_back( MenuElem( "Master Scale", *menu_mscale ) );
+        for ( int sc=0; sc<c_scale_size; sc++ ){
+            menu_mscale->items().push_back(MenuElem( c_scales_text[sc],
+                sigc::bind(mem_fun(*this,&seqmenu::seq_set_master_scale), sc )));
+        }
+    }
+
     m_menu->popup(0,0);
 
+}
+
+/* SCALE-MASTER / SCALE-FOLLOW menu handlers */
+
+void
+seqmenu::seq_set_scale_master( void )
+{
+    if ( ! m_mainperf->is_active( m_current_seq ) )
+        return;
+
+    /* toggle: if this seq is already the master, clear; otherwise designate it
+       (perform enforces a single master). */
+    if ( m_mainperf->get_scale_master() == m_current_seq )
+        m_mainperf->set_scale_master( -1 );
+    else
+        m_mainperf->set_scale_master( m_current_seq );
+
+    redraw( m_current_seq );
+}
+
+void
+seqmenu::seq_toggle_follows_master( void )
+{
+    if ( ! m_mainperf->is_active( m_current_seq ) )
+        return;
+
+    sequence *s = m_mainperf->get_sequence( m_current_seq );
+    m_mainperf->set_follows_master( m_current_seq, ! s->get_follows_master() );
+    redraw( m_current_seq );
+}
+
+void
+seqmenu::seq_set_master_key( int a_key )
+{
+    if ( m_mainperf->is_active( m_current_seq ) )
+        m_mainperf->get_sequence( m_current_seq )->set_master_key( a_key );
+}
+
+void
+seqmenu::seq_set_master_scale( int a_scale )
+{
+    if ( m_mainperf->is_active( m_current_seq ) )
+        m_mainperf->get_sequence( m_current_seq )->set_master_scale( a_scale );
 }
 
     void

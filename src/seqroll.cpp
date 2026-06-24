@@ -37,11 +37,13 @@ seqroll::seqroll(perform *a_perf,
 
     Glib::RefPtr<Gdk::Colormap> colormap = get_default_colormap();
 
-    m_black = Gdk::Color( "black" );
-    m_white = Gdk::Color( "white" );
-    m_grey  = Gdk::Color( "gray" );
-    m_dk_grey = Gdk::Color( "gray50" );
-    m_red = Gdk::Color( "orange" );
+    /* synthwave palette (1111 reskin); names kept for the legacy GDK
+       on-window drawing paths (selection / paste / grow rects, playhead). */
+    m_black   = synth::gdk_color( synth::cBg );      // background
+    m_white   = synth::gdk_color( synth::cHi );      // light chrome
+    m_grey    = synth::gdk_color( synth::cAccent );  // selection chrome (violet)
+    m_dk_grey = synth::gdk_color( synth::cDim );     // muted lines
+    m_red     = synth::gdk_color( synth::cActive );  // playhead (green)
 
     colormap->alloc_color( m_black );
     colormap->alloc_color( m_white );
@@ -256,133 +258,99 @@ seqroll::redraw()
 
 
 
-/* updates background */
-void 
+/* updates background -- Cairo synthwave grid (1111 reskin) */
+void
 seqroll::draw_background()
 {
-    
-    //printf ("draw_background()\n" );
-    
-    /* clear background */
-    m_gc->set_foreground(m_white);
-    m_pixmap->draw_rectangle(m_gc,true,
-                             0,
-                             0, 
-                             m_window_x, 
-                             m_window_y );
-    
-    /* draw horz grey lines */
-    m_gc->set_foreground(m_grey);
-    m_gc->set_line_attributes( 1,
-                               Gdk::LINE_ON_OFF_DASH,
-                               Gdk::CAP_NOT_LAST,
-                               Gdk::JOIN_MITER );
-    gint8 dash = 1;
-    m_gc->set_dashes( 0, &dash, 1 ); 
-    
-    for ( int i=0; i< (m_window_y / c_key_y) + 1; i++ )
+    Cairo::RefPtr<Cairo::Context> cr = m_pixmap->create_cairo_context();
+    cr->set_line_width( 1.0 );
+
+    /* clear background to near-black */
+    synth::set_source( cr, synth::cBg );
+    cr->rectangle( 0, 0, m_window_x, m_window_y );
+    cr->fill();
+
+    /* ---- horizontal row striping + octave separators --------------------- *
+       Rows are chromatic keys (c_key_y px each).  We stripe by note-in-octave
+       parity for the 1111 "alternating degree" feel, tint out-of-scale rows,
+       and draw a brighter separator line at each octave boundary (note C).    */
+    int rows = (m_window_y / c_key_y) + 1;
+    for ( int i = 0; i < rows; i++ )
     {
-        m_pixmap->draw_line(m_gc,
-                            0,
-                            i * c_key_y,
-                            m_window_x,
-                            i * c_key_y );
-        
-        if ( m_scale != c_scale_off ){
-            
+        /* the actual MIDI note for this screen row */
+        int note = (c_num_keys - 1) - ( i + m_scroll_offset_key );
+        int key  = ((note % 12) + 12) % 12;
+
+        double y = i * c_key_y;
+
+        /* base stripe by octave parity (subtle) */
+        bool even_oct = (((note / 12)) % 2) == 0;
+        synth::set_source( cr, even_oct ? synth::cPanel : synth::cBg );
+        cr->rectangle( 0, y + 1, m_window_x, c_key_y - 1 );
+        cr->fill();
+
+        /* shade out-of-scale rows darker, matching seq24 scale overlay */
+        if ( m_scale != c_scale_off )
+        {
             if ( !c_scales_policy[m_scale][ ((c_num_keys - i)
                                              - m_scroll_offset_key
                                              - 1 + ( 12 - m_key )) % 12] )
-                
-                m_pixmap->draw_rectangle(m_gc,true,
-                                         0,
-                                         i * c_key_y + 1,
-                                         m_window_x,
-                                         c_key_y - 1 );
-            
-        }
-    }
-
-
-    /*int measure_length_64ths =  m_seq->get_bpm() * 64 /
-        m_seq->get_bw();*/
-    
-    //printf ( "measure_length_64ths[%d]\n", measure_length_64ths );
-    
-    //int measures_per_line = (256 / measure_length_64ths) / (32 / m_zoom);
-    //if ( measures_per_line <= 0
-    int measures_per_line = 1;
-    
-    //printf( "measures_per_line[%d]\n", measures_per_line );
-
-    int ticks_per_measure =  m_seq->get_bpm() * (4 * c_ppqn) / m_seq->get_bw();
-    int ticks_per_beat =  (4 * c_ppqn) / m_seq->get_bw();
-    int ticks_per_step = 6 * m_zoom;
-    int ticks_per_m_line =  ticks_per_measure * measures_per_line;
-    int start_tick = m_scroll_offset_ticks - (m_scroll_offset_ticks % ticks_per_step );
-    int end_tick = (m_window_x * m_zoom) + m_scroll_offset_ticks;
-    
-
-    //printf ( "ticks_per_step[%d] start_tick[%d] end_tick[%d]\n",
-    //         ticks_per_step, start_tick, end_tick );
-
-    m_gc->set_foreground(m_grey);
-    
-    for ( int i=start_tick; i<end_tick; i += ticks_per_step )
-    {
-        int base_line = i / m_zoom;
-
-        if ( i % ticks_per_m_line == 0 ){
-            
-            /* solid line on every beat */
-            m_gc->set_foreground(m_black);
-            m_gc->set_line_attributes( 1,
-                                       Gdk::LINE_SOLID,
-                                       Gdk::CAP_NOT_LAST,
-                                       Gdk::JOIN_MITER );
-            
-        } else if (i % ticks_per_beat == 0 ){
-            
-            m_gc->set_foreground(m_dk_grey);
-            m_gc->set_line_attributes( 1,
-                                       Gdk::LINE_SOLID,
-                                       Gdk::CAP_NOT_LAST,
-                                       Gdk::JOIN_MITER );
-
-        }
-        
-      
-        else {
-
-            m_gc->set_line_attributes( 1,
-                        Gdk::LINE_ON_OFF_DASH,
-                        Gdk::CAP_NOT_LAST,
-                        Gdk::JOIN_MITER );
-  
-            
-            int i_snap = i - (i % m_snap);
-
-            if( i == i_snap ){
-                m_gc->set_foreground(m_dk_grey);
-            } else {
-                m_gc->set_foreground(m_grey);
+            {
+                synth::set_source( cr, synth::cBg, 0.55 );
+                cr->rectangle( 0, y + 1, m_window_x, c_key_y - 1 );
+                cr->fill();
             }
-            gint8 dash = 1;
-            m_gc->set_dashes( 0, &dash, 1 );
         }
-        
-        m_pixmap->draw_line(m_gc,
-                            base_line - m_scroll_offset_x,
-                            0,
-                            base_line - m_scroll_offset_x,
-                            m_window_y);
+
+        /* octave separator: brighter line below each C */
+        if ( key == 0 )
+        {
+            synth::set_source( cr, synth::cDim, 0.55 );
+            cr->move_to( 0, y + 0.5 );
+            cr->line_to( m_window_x, y + 0.5 );
+            cr->stroke();
+        }
+        else
+        {
+            /* faint divider between every row */
+            synth::set_source( cr, synth::cDim, 0.12 );
+            cr->move_to( 0, y + 0.5 );
+            cr->line_to( m_window_x, y + 0.5 );
+            cr->stroke();
+        }
     }
-    /* reset line style */
-    m_gc->set_line_attributes( 1,
-                               Gdk::LINE_SOLID,
-                               Gdk::CAP_NOT_LAST,
-                               Gdk::JOIN_MITER );
-    
+
+    /* ---- vertical beat lines with graded alpha / thickness --------------- */
+    int ticks_per_measure =  m_seq->get_bpm() * (4 * c_ppqn) / m_seq->get_bw();
+    int ticks_per_beat    =  (4 * c_ppqn) / m_seq->get_bw();
+    int ticks_per_half    =  ticks_per_beat / 2;
+    int ticks_per_step    =  6 * m_zoom;
+    if ( ticks_per_step < 1 ) ticks_per_step = 1;
+
+    int start_tick = m_scroll_offset_ticks - (m_scroll_offset_ticks % ticks_per_step );
+    int end_tick   = (m_window_x * m_zoom) + m_scroll_offset_ticks;
+
+    for ( int i = start_tick; i < end_tick; i += ticks_per_step )
+    {
+        double x = (double)(i / m_zoom) - m_scroll_offset_x + 0.5;
+
+        bool is_bar  = (i % ticks_per_measure) == 0;
+        bool is_beat = (i % ticks_per_beat)    == 0;
+        bool is_half = (i % ticks_per_half)    == 0;
+
+        double alpha = is_bar  ? 0.90
+                     : is_beat ? 0.50
+                     : is_half ? 0.22
+                     :           0.10;
+        double thick = is_bar ? 1.6 : (is_beat ? 1.0 : 0.75);
+
+        synth::set_source( cr, is_bar ? synth::cAccent : synth::cDim, alpha );
+        cr->set_line_width( thick );
+        cr->move_to( x, 0 );
+        cr->line_to( x, m_window_y );
+        cr->stroke();
+    }
+    cr->set_line_width( 1.0 );
 }
 
 /* sets zoom, resets */
@@ -458,14 +426,15 @@ seqroll::draw_progress_on_window()
 	
 	m_old_progress_x = (m_seq->get_last_tick() / m_zoom) - m_scroll_offset_x;
 
-	if ( m_old_progress_x != 0 ){	
-	    
-	    m_gc->set_foreground(m_black);
-	    m_window->draw_line(m_gc,
-			       m_old_progress_x,
-			       0,
-			       m_old_progress_x, 
-			       m_window_y);
+	if ( m_old_progress_x != 0 ){
+
+	    /* 1111 playhead: 2px green glowing line */
+	    Cairo::RefPtr<Cairo::Context> cr = m_window->create_cairo_context();
+	    synth::set_source( cr, synth::cActive, 0.85 );
+	    cr->set_line_width( 2.0 );
+	    cr->move_to( m_old_progress_x + 0.5, 0 );
+	    cr->line_to( m_old_progress_x + 0.5, m_window_y );
+	    cr->stroke();
 	}
 }
 
@@ -473,12 +442,10 @@ seqroll::draw_progress_on_window()
 
 void seqroll::draw_events_on( Glib::RefPtr<Gdk::Drawable> a_draw )
 {
-   
-    
     long tick_s;
     long tick_f;
     int note;
-    
+
     int note_x;
     int note_width;
     int note_y;
@@ -490,16 +457,17 @@ void seqroll::draw_events_on( Glib::RefPtr<Gdk::Drawable> a_draw )
 
     draw_type dt;
 
-    
-
     int start_tick = m_scroll_offset_ticks ;
     int end_tick = (m_window_x * m_zoom) + m_scroll_offset_ticks;
-    
+
+    Cairo::RefPtr<Cairo::Context> cr = a_draw->create_cairo_context();
+    cr->set_line_width( 1.0 );
+
     sequence *seq = NULL;
     for( int method=0; method<2; ++method ){
-        
+
         if ( method == 0 && m_drawing_background_seq  ){
-            
+
             if ( m_perform->is_active( m_background_sequence )){
                 seq =m_perform->get_sequence( m_background_sequence );
             }
@@ -510,90 +478,73 @@ void seqroll::draw_events_on( Glib::RefPtr<Gdk::Drawable> a_draw )
         else if ( method == 0 ){
             method++;
         }
-        
-        
+
         if ( method==1){
             seq = m_seq;
         }
 
-        /* draw boxes from sequence */
-        m_gc->set_foreground( m_black );
         seq->reset_draw_marker();
 
-        while ( (dt = seq->get_next_note_event( &tick_s, &tick_f, &note, 
+        while ( (dt = seq->get_next_note_event( &tick_s, &tick_f, &note,
                                                 &selected, &velocity )) != DRAW_FIN ){
-            
+
             if ( (tick_s >= start_tick && tick_s <= end_tick) ||
                  ((dt == DRAW_NORMAL_LINKED) &&
                   (tick_f >= start_tick && tick_f <= end_tick))){
-                
+
                 /* turn into screen corrids */
                 note_x = tick_s / m_zoom;
                 note_y = c_rollarea_y -(note * c_key_y) - c_key_y - 1 + 2;
                 note_height = c_key_y - 3;
-                
-                //printf( "drawing note[%d] tick_start[%d] tick_end[%d]\n",
-                //	    note, tick_start, tick_end );
-                
-                int in_shift = 0;
-                int length_add = 0;
-                
+
                 if ( dt == DRAW_NORMAL_LINKED ){
-                    
                     note_width = (tick_f - tick_s) / m_zoom;
                     if ( note_width < 1 ) note_width = 1;
-                    
                 }
                 else {
                     note_width = 8 / m_zoom;
+                    if ( note_width < 1 ) note_width = 1;
                 }
-                
-                if ( dt == DRAW_NOTE_ON ){
-                    
-                    in_shift = 0;
-                    length_add = 2;
-                }       
-                
-                if ( dt == DRAW_NOTE_OFF ){
-                    
-                    in_shift = -1;
-                    length_add = 1;
-                }
-                
+
                 note_x -= m_scroll_offset_x;
                 note_y -= m_scroll_offset_y;
-                
-                m_gc->set_foreground(m_black);
-                /* draw boxes from sequence */
 
-                if ( method == 0 )
-                    m_gc->set_foreground( m_dk_grey );
-                
-                a_draw->draw_rectangle(m_gc,true,
-                                       note_x,
-                                       note_y, 
-                                       note_width, 
-                                       note_height);
-                
-                /* draw inside box if there is room */
-                if ( note_width > 3 ){
-                    
-                    if ( selected )
-                        m_gc->set_foreground(m_red);
-                    else
-                        m_gc->set_foreground(m_white);
+                double nx = note_x;
+                double ny = note_y;
+                double nw = note_width;
+                double nh = note_height;
 
-                    if ( method == 1 )
-                        a_draw->draw_rectangle(m_gc,true,
-                                               note_x + 1 + in_shift,
-                                               note_y + 1, 
-                                               note_width - 3 + length_add, 
-                                               note_height - 3);	   
+                /* body fill: background seq = dim, selected = cyan, else violet */
+                unsigned int body = (method == 0) ? synth::cDim
+                                  : (selected     ? synth::cNoteSel
+                                                  : synth::cNote);
+
+                double radius = (nh >= 5.0 && nw >= 5.0) ? 2.0 : 0.0;
+                synth::rounded_rect( cr, nx, ny, nw, nh, radius );
+                synth::set_source( cr, body, (method == 0) ? 0.55 : 1.0 );
+                cr->fill();
+
+                if ( method == 1 && nw > 2.0 ){
+
+                    /* 1px translucent white outline */
+                    synth::rounded_rect( cr, nx + 0.5, ny + 0.5,
+                                         nw - 1.0, nh - 1.0, radius );
+                    synth::set_source( cr, synth::cWhite, 0.25 );
+                    cr->set_line_width( 1.0 );
+                    cr->stroke();
+
+                    /* right-edge resize handle hint */
+                    if ( nw >= 6.0 ){
+                        synth::set_source( cr, synth::cWhite, 0.45 );
+                        cr->rectangle( nx + nw - 3.0, ny + 1.0,
+                                       2.0, nh - 2.0 );
+                        cr->fill();
+                    }
                 }
             }
         }
     }
-} 
+}
 
 
 
@@ -657,11 +608,11 @@ seqroll::draw_selection_on_window()
         m_old.width = w;
         m_old.height = h + c_key_y;
         
-        m_gc->set_foreground(m_black);
+        m_gc->set_foreground(m_grey);
         m_window->draw_rectangle(m_gc,false,
                                  x,
-                                 y, 
-                                 w, 
+                                 y,
+                                 w,
                                  h + c_key_y );
     }
     
@@ -676,11 +627,11 @@ seqroll::draw_selection_on_window()
         x -= m_scroll_offset_x;
         y -= m_scroll_offset_y;
         
-        m_gc->set_foreground(m_black);
+        m_gc->set_foreground(m_white);
         m_window->draw_rectangle(m_gc,false,
                                  x,
-                                 y, 
-                                 m_selected.width, 
+                                 y,
+                                 m_selected.width,
                                  m_selected.height );
         m_old.x = x;
         m_old.y = y;
@@ -702,13 +653,13 @@ seqroll::draw_selection_on_window()
         x -= m_scroll_offset_x;
         y -= m_scroll_offset_y;
         
-        m_gc->set_foreground(m_black);
+        m_gc->set_foreground(m_white);
         m_window->draw_rectangle(m_gc,false,
                                  x,
-                                 y, 
-                                 width, 
+                                 y,
+                                 width,
                                  m_selected.height );
-        
+
         m_old.x = x;
         m_old.y = y;
         m_old.width = width;

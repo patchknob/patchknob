@@ -40,6 +40,8 @@ perform::perform()
 		
     }
 
+    m_scale_master_seq = -1;
+
     m_running = false;
     m_looping = false;
     m_inputing = true;
@@ -478,10 +480,44 @@ perform::is_dirty_names (int a_sequence)
     return was_active;
 }
 
-sequence* 
+sequence*
 perform::get_sequence( int a_sequence )
 {
     return m_seqs[a_sequence];
+}
+
+
+/* SCALE-MASTER / SCALE-FOLLOW -- see docs/scale-follow.md section 2.
+
+   Enforces a single master: clears the previous master's flag before setting
+   the new one.  Passing -1 (or an inactive sequence) clears the master. */
+void
+perform::set_scale_master( int a_seq )
+{
+    /* clear the previous master's flag */
+    if ( m_scale_master_seq >= 0 && is_active( m_scale_master_seq ) )
+        m_seqs[ m_scale_master_seq ]->set_scale_master( false );
+
+    if ( a_seq >= 0 && a_seq < c_max_sequence && is_active( a_seq ) ){
+        m_seqs[ a_seq ]->set_scale_master( true );
+        m_scale_master_seq = a_seq;
+    }
+    else {
+        m_scale_master_seq = -1;
+    }
+}
+
+int
+perform::get_scale_master( void )
+{
+    return m_scale_master_seq;
+}
+
+void
+perform::set_follows_master( int a_seq, bool a_follow )
+{
+    if ( a_seq >= 0 && a_seq < c_max_sequence && is_active( a_seq ) )
+        m_seqs[ a_seq ]->set_follows_master( a_follow );
 }
 
 mastermidibus* 
@@ -645,10 +681,30 @@ perform::play( long a_tick )
     //printf( "play [%d]\n", a_tick );
     
     m_tick = a_tick;	
+    /* SCALE-MASTER / SCALE-FOLLOW: resolve the active master once per tick into
+       plain scalars (each getter takes/releases the master's own mutex, no
+       nested locking), then push the snapshot to each follower before its
+       play() runs.  See docs/scale-follow.md section 2. */
+    bool master_on = false;
+    int  master_key = 0, master_scale = c_scale_off;
+    int  scale_m = m_scale_master_seq;
+    if ( scale_m >= 0 && is_active(scale_m) && m_seqs[scale_m]->get_playing()
+         && m_seqs[scale_m]->get_scale_master() ){
+        master_on    = true;
+        master_key   = m_seqs[scale_m]->get_master_key();
+        master_scale = m_seqs[scale_m]->get_master_scale();
+    }
+
     for (int i=0; i< c_max_sequence; i++ ){
 		
 		if ( is_active(i) ){
 			assert( m_seqs[i] );
+
+				/* a follower snaps only if it is not the master itself and
+				   has its follow flag set */
+				bool follow = master_on && ( i != m_scale_master_seq )
+				              && m_seqs[i]->get_follows_master();
+				m_seqs[i]->set_master_scale_context( follow, master_key, master_scale );
 			
 			
 			if ( m_seqs[i]->get_queued() &&

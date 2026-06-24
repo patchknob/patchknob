@@ -19,6 +19,7 @@
 //-----------------------------------------------------------------------------
 #include "seqkeys.h"
 #include "font.h"
+#include "ui/palette.h"
 
 
 seqkeys::seqkeys(sequence *a_seq,
@@ -45,10 +46,11 @@ seqkeys::seqkeys(sequence *a_seq,
     // get_window() returns 0 because we have not be realized
     Glib::RefPtr<Gdk::Colormap> colormap = get_default_colormap();
 
-    m_black = Gdk::Color( "black" );
-    m_white = Gdk::Color( "white" );
-    m_grey = Gdk::Color( "grey" );
-  
+    /* synthwave palette (1111 reskin) */
+    m_black = synth::gdk_color( synth::cBlk );     // strip background
+    m_white = synth::gdk_color( synth::cHi );      // white-key faces
+    m_grey  = synth::gdk_color( synth::cActive );  // hover hint (green)
+
     colormap->alloc_color( m_black );
     colormap->alloc_color( m_white );
     colormap->alloc_color( m_grey );
@@ -119,76 +121,73 @@ seqkeys::reset()
 
 
 
-void 
+void
 seqkeys::update_pixmap()
 {
-    m_gc->set_foreground(m_black);
-    m_pixmap->draw_rectangle(m_gc,true,
-                             0,
-                             0, 
-                             c_keyarea_x, 
-                             c_keyarea_y  );
-    
-    m_gc->set_foreground(m_white);
-    m_pixmap->draw_rectangle(m_gc,true,
-                             1,
-                             1, 
-                             c_keyoffset_x - 1, 
-                             c_keyarea_y - 2  );
-    
-    
+    Cairo::RefPtr<Cairo::Context> cr = m_pixmap->create_cairo_context();
+    cr->set_line_width( 1.0 );
+
+    /* whole strip background */
+    synth::set_source( cr, synth::cBlk );
+    cr->rectangle( 0, 0, c_keyarea_x, c_keyarea_y );
+    cr->fill();
+
+    /* left gutter (where note labels sit) */
+    synth::set_source( cr, synth::cBg );
+    cr->rectangle( 1, 1, c_keyoffset_x - 1, c_keyarea_y - 2 );
+    cr->fill();
+
     for ( int i=0; i<c_num_keys; i++ )
     {
-        m_gc->set_foreground(m_white);
-        m_pixmap->draw_rectangle(m_gc,true,
-                                 c_keyoffset_x + 1,
-                                 (c_key_y * i) + 1, 
-                                 c_key_x - 2, 
-                                 c_key_y - 1 );
-        
-        /* the the key in the octave */
+        /* the key in the octave */
         int key = (c_num_keys - i - 1) % 12;
-        
-        if ( key == 1 || 
-             key == 3 || 
-             key == 6 || 
-             key == 8 || 
-             key == 10 ){
-            
-            m_gc->set_foreground(m_black);
-            m_pixmap->draw_rectangle(m_gc,true,
-                                     c_keyoffset_x + 1,
-                                     (c_key_y * i) + 2, 
-                                     c_key_x - 3, 
-                                     c_key_y - 3 );
-        }
 
-        char notes[20];
-        
-        if ( key == m_key  ){
-            
-        
-            
-            /* notes */
+        bool is_black = ( key == 1 || key == 3 || key == 6 ||
+                          key == 8 || key == 10 );
+        bool is_root  = ( key == m_key );
+
+        double ky = (c_key_y * i) + 1;
+        double kh = c_key_y - 1;
+
+        /* key face: root rows accented (violet), white keys lavender,
+           black keys near-black -- matching the 1111 role colouring */
+        unsigned int face;
+        if ( is_root )      face = synth::cAccent;
+        else if ( is_black )face = synth::cBlk;
+        else                face = synth::cHi;
+
+        synth::set_source( cr, face, is_black ? 1.0 : 0.92 );
+        cr->rectangle( c_keyoffset_x + 1, ky, c_key_x - 2, kh );
+        cr->fill();
+
+        /* thin separator below each key */
+        synth::set_source( cr, synth::cBg, 0.6 );
+        cr->move_to( c_keyoffset_x + 1, ky + kh + 0.5 );
+        cr->line_to( c_keyarea_x, ky + kh + 0.5 );
+        cr->stroke();
+
+        /* octave label on each root row (C of the key) */
+        if ( is_root )
+        {
+            char notes[20];
             int octave = ((c_num_keys - i - 1) / 12) - 1;
             if ( octave < 0 )
                 octave *= -1;
-            
-            sprintf( notes, "%2s%1d", c_key_text[key], octave );
-            
-            p_font_renderer->render_string_on_drawable(m_gc,
-                                                       2, 
-                                                       c_key_y * i - 1,
-                                                       m_pixmap, notes, font::BLACK );
-        }
 
-        //sprintf( notes, "%c %d", c_scales_symbol[m_scale][key], m_scale );
-            
-        //p_font_renderer->render_string_on_drawable(m_gc,
-        //                                             2 + (c_text_x * 4), 
-        //                                             c_key_y * i - 1,
-        //                                             m_pixmap, notes, font::BLACK );
+            sprintf( notes, "%2s%1d", c_key_text[key], octave );
+
+            p_font_renderer->render_string_on_drawable(m_gc,
+                                                       2,
+                                                       c_key_y * i - 1,
+                                                       m_pixmap, notes, font::WHITE );
+        }
     }
+
+    /* right border of the strip */
+    synth::set_source( cr, synth::cDim, 0.8 );
+    cr->move_to( c_keyarea_x - 0.5, 0 );
+    cr->line_to( c_keyarea_x - 0.5, c_keyarea_y );
+    cr->stroke();
 }
 
 void 
@@ -351,44 +350,40 @@ seqkeys::set_hint_state( bool a_state )
         draw_key( m_hint_key, false );
 }
 
-/* a_state, false = normal, true = grayed */
-void 
+/* a_state, false = normal, true = hover-hint */
+void
 seqkeys::draw_key( int a_key, bool a_state )
 {
-
-  /* the the key in the octave */
+  /* the key in the octave */
   int key = a_key % 12;
+  bool is_black = ( key == 1 || key == 3 || key == 6 ||
+                    key == 8 || key == 10 );
+  bool is_root  = ( key == m_key );
 
-  a_key = c_num_keys - a_key - 1; 
+  a_key = c_num_keys - a_key - 1;
 
-  if ( key == 1 || 
-       key == 3 || 
-       key == 6 || 
-       key == 8 || 
-       key == 10 ){
-    
-    m_gc->set_foreground(m_black);
-  }
-  else
-    m_gc->set_foreground(m_white);
+  double ky = (c_key_y * a_key) + 2 - m_scroll_offset_y;
+  double kx = c_keyoffset_x + 1;
+  double kw = c_key_x - 3;
+  double kh = c_key_y - 3;
 
+  Cairo::RefPtr<Cairo::Context> cr = m_window->create_cairo_context();
 
-  m_window->draw_rectangle(m_gc,true,
-			  c_keyoffset_x + 1,
-			  (c_key_y * a_key) + 2 -  m_scroll_offset_y, 
-			  c_key_x - 3, 
-			  c_key_y - 3 );
+  /* restore the normal key face */
+  unsigned int face;
+  if ( is_root )       face = synth::cAccent;
+  else if ( is_black ) face = synth::cBlk;
+  else                 face = synth::cHi;
+
+  synth::set_source( cr, face, is_black ? 1.0 : 0.92 );
+  cr->rectangle( kx, ky, kw, kh );
+  cr->fill();
 
   if ( a_state ){
-
-    m_gc->set_foreground(m_grey);
- 
-    m_window->draw_rectangle(m_gc,true,
-			    c_keyoffset_x + 1,
-			    (c_key_y * a_key) + 2 - m_scroll_offset_y, 
-			    c_key_x - 3, 
-			    c_key_y - 3 );
-
+    /* green hover hint */
+    synth::set_source( cr, synth::cActive, 0.85 );
+    cr->rectangle( kx, ky, kw, kh );
+    cr->fill();
   }
 }
 

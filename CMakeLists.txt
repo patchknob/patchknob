@@ -33,12 +33,21 @@ pkg_check_modules(GTKMM REQUIRED gtkmm-2.4)
 file(GLOB SEQ24_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
 list(FILTER SEQ24_SOURCES EXCLUDE REGEX "/dump\\.cpp$")
 
-add_executable(seq24 ${SEQ24_SOURCES})
+# --- RtMidi (WinMM) backend ------------------------------------------------
+# RtMidi is vendored in the MAIN checkout (gitignored, so not present in git
+# worktrees); reference it by absolute path.  midibus.cpp uses it for real
+# Windows MIDI I/O via the WinMM backend (-D__WINDOWS_MM__, linked -lwinmm).
+set(RTMIDI_DIR "C:/Users/lain/Desktop/vibe/seq24-0.8.7/vendor/rtmidi")
+
+add_executable(seq24 ${SEQ24_SOURCES} "${RTMIDI_DIR}/RtMidi.cpp")
 
 target_include_directories(seq24 PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${RTMIDI_DIR}
     ${GTKMM_INCLUDE_DIRS}
 )
+
+target_compile_definitions(seq24 PRIVATE __WINDOWS_MM__)
 
 target_compile_options(seq24 PRIVATE ${GTKMM_CFLAGS_OTHER} -Wall)
 

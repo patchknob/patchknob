@@ -20,6 +20,7 @@
 #include "event.h"
 #include "seqdata.h"
 #include "font.h"
+#include "ui/palette.h"
 
 
 seqdata::seqdata(sequence *a_seq, int a_zoom,  Gtk::Adjustment   *a_hadjust): DrawingArea() 
@@ -39,9 +40,10 @@ seqdata::seqdata(sequence *a_seq, int a_zoom,  Gtk::Adjustment   *a_hadjust): Dr
 
     //m_text_font_5_7 = Gdk_Font( c_font_5_7 );
 
-    m_black = Gdk::Color( "black" );
-    m_white = Gdk::Color( "white" );
-    m_grey  = Gdk::Color( "grey" );
+    /* synthwave palette (1111 reskin) */
+    m_black = synth::gdk_color( synth::cHi );      // light line for drag
+    m_white = synth::gdk_color( synth::cPanel );   // panel background
+    m_grey  = synth::gdk_color( synth::cDim );     // grid lines
 
     colormap->alloc_color( m_black );
     colormap->alloc_color( m_white );
@@ -174,78 +176,75 @@ seqdata::update_pixmap()
     draw_events_on_pixmap();
 }
 
-void 
+void
 seqdata::draw_events_on(  Glib::RefPtr<Gdk::Drawable> a_draw  )
-{   
+{
     long tick;
 
     unsigned char d0,d1;
 
     int event_x;
-    int event_width;
     int event_height;
 
     bool selected;
 
     int start_tick = m_scroll_offset_ticks ;
     int end_tick = (m_window_x * m_zoom) + m_scroll_offset_ticks;
-    
-    //printf( "draw_events_on\n" );
 
-    m_gc->set_foreground( m_white );
-    a_draw->draw_rectangle(m_gc,true,
-                           0,
-                           0, 
-                           m_window_x, 
-                           m_window_y );
+    Cairo::RefPtr<Cairo::Context> cr = a_draw->create_cairo_context();
+    cr->set_line_width( 1.0 );
 
-    
-    m_gc->set_foreground( m_black );
+    /* panel background */
+    synth::set_source( cr, synth::cPanel );
+    cr->rectangle( 0, 0, m_window_x, m_window_y );
+    cr->fill();
+
+    /* horizontal reference grid lines at 25/50/75/100 % */
+    for ( int v = 0; v < 4; ++v )
+    {
+        int val = (v == 3) ? 127 : (32 * (v + 1));
+        double y = (double)c_dataarea_y - (double)val / 127.0 * (double)c_dataarea_y;
+        synth::set_source( cr, synth::cDim, 0.30 );
+        cr->move_to( 0, y + 0.5 );
+        cr->line_to( m_window_x, y + 0.5 );
+        cr->stroke();
+    }
 
     m_seq->reset_draw_marker();
     while ( m_seq->get_next_event( m_status,
 				   m_cc,
-				   &tick, &d0, &d1, 
+				   &tick, &d0, &d1,
 				   &selected ) == true )
     {
-
         if ( tick >= start_tick && tick <= end_tick ){
-            
+
             /* turn into screen corrids */
-            
             event_x = tick / m_zoom;
-            event_width  = c_data_x;
-            
+
             /* generate the value */
             event_height = d1;
-            
+
             if ( m_status == EVENT_PROGRAM_CHANGE ||
                  m_status == EVENT_CHANNEL_PRESSURE  ){
-                
                 event_height = d0;
             }
-            
-            m_gc->set_line_attributes( 2,
-                                       Gdk::LINE_SOLID,
-                                       Gdk::CAP_NOT_LAST,
-                                       Gdk::JOIN_MITER );
-            
-            /* draw vert lines */
-            a_draw->draw_line(m_gc,
-                              event_x -  m_scroll_offset_x +1,
-                              c_dataarea_y - event_height, 
-                              event_x -  m_scroll_offset_x + 1, 
-                              c_dataarea_y );
-            
-            a_draw->draw_drawable(m_gc,
-                                  m_numbers[event_height],
-                                  0,0,
-                                  event_x + 3 - m_scroll_offset_x,
-                                  c_dataarea_y - 25,
-                                  6,30);
+
+            double x = (double)(event_x - m_scroll_offset_x) + 1.0;
+            double y = (double)(c_dataarea_y - event_height);
+            double barH = (double)event_height;
+
+            /* stem */
+            synth::set_source( cr, selected ? synth::cNoteSel : synth::cNote,
+                               selected ? 0.85 : 0.65 );
+            cr->rectangle( x - 2.0, y, 5.0, barH );
+            cr->fill();
+
+            /* top cap */
+            synth::set_source( cr, selected ? synth::cWhite : synth::cHi );
+            cr->rectangle( x - 3.0, y, 7.0, 2.0 );
+            cr->fill();
         }
-    }        
-    
+    }
 }
 
 

@@ -103,9 +103,32 @@ class sequence
     /* outputs to sequence to this Bus on midichannel */
     mastermidibus *m_masterbus;
 
-    /* map for noteon, used when muting, to shut off current 
+    /* map for noteon, used when muting, to shut off current
        messages */
     int m_playing_notes[c_midi_notes];
+
+    /* SCALE-MASTER / SCALE-FOLLOW -- see docs/scale-follow.md */
+
+    /* this sequence carries the master scale */
+    bool m_is_scale_master;
+    /* this sequence snaps its emitted notes to the master scale */
+    bool m_follows_master;
+    /* master scale this sequence carries (index into c_scales_* tables) */
+    int  m_master_scale;
+    /* master root pitch-class 0..11 (C..B) */
+    int  m_master_key;
+
+    /* per-tick master snapshot pushed down by perform::play, read by
+       put_event_on_bus on the same (output) thread */
+    bool m_have_master;
+    int  m_follow_key;
+    int  m_follow_scale;
+
+    /* latch: on a follower's note-on we record the snapped pitch here,
+       indexed by the ORIGINAL pitch; on the matching note-off we reuse it so
+       the off always matches the on even if the master scale changed.  -1 ==
+       not currently latched. */
+    int  m_note_remap[c_midi_notes];
 
     /* states */
     bool m_was_playing;
@@ -238,6 +261,21 @@ class sequence
     void set_playing (bool);
     bool get_playing ();
     void toggle_playing ();
+
+    /* SCALE-MASTER / SCALE-FOLLOW accessors */
+    void set_scale_master (bool a_v);
+    bool get_scale_master (void);
+    void set_follows_master (bool a_v);
+    bool get_follows_master (void);
+
+    void set_master_scale (int a_scale);
+    int  get_master_scale (void);
+    void set_master_key (int a_key);
+    int  get_master_key (void);
+
+    /* called by perform::play once per tick to push the resolved master
+       context down to this follower before play() runs */
+    void set_master_scale_context (bool a_on, int a_key, int a_scale);
 
     void toggle_queued (void);
     void off_queued (void);

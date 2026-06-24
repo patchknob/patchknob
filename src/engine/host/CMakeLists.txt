@@ -1,0 +1,121 @@
+# src/engine/host/CMakeLists.txt
+#
+# seq24 unified plugin host + scanner (ZERO-JUCE, mingw64).
+#
+# Targets:
+#   seq24_pluginhost  : static library implementing seq24::engine::IPluginHost
+#                       (PluginHost). The rest of the engine links this.
+#   probe_vst2        : out-of-process VST2 introspection helper exe.
+#   probe_vst3        : out-of-process VST3 introspection helper exe (compiles
+#                       the same minimal Steinberg SDK hosting subset the vst3
+#                       spike uses).
+#   scan_test         : standalone inventory test exe. Links seq24_pluginhost
+#                       with WEAK stub plugin factories so it links without the
+#                       real vst2/vst3 host modules. Runs scan({}) and prints
+#                       the full plugin inventory.
+#
+# The scanner locates the probe exes next to the running executable, so all
+# three probe/test binaries are placed in the same output directory.
+#
+# Build (mingw64):
+#   export PATH="/c/msys64/mingw64/bin:$PATH"
+#   cmake -G Ninja -S . -B build
+#   cmake --build build
+#   ./build/scan_test.exe
+cmake_minimum_required(VERSION 3.16)
+project(seq24_pluginhost CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Keep all runtime artifacts together so PluginHost::findProbeExe() locates the
+# probe helpers next to scan_test.exe.
+set(OUTDIR ${CMAKE_BINARY_DIR})
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${OUTDIR})
+
+# Spike roots (read-only references).
+set(SPIKES ${CMAKE_CURRENT_SOURCE_DIR}/../../../spikes)
+set(VST3SDK ${SPIKES}/vst3host/vst3sdk)
+
+# -----------------------------------------------------------------------------
+# 1. The host library.
+# -----------------------------------------------------------------------------
+add_library(seq24_pluginhost STATIC
+    plugin_host.cpp
+)
+target_include_directories(seq24_pluginhost PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/..      # for plugin_api.h
+)
+
+# -----------------------------------------------------------------------------
+# 2. VST2 probe (self-contained; only needs the vestige header + Win32).
+# -----------------------------------------------------------------------------
+add_executable(probe_vst2 probe_vst2.cpp)
+target_compile_options(probe_vst2 PRIVATE -O2 -Wno-multichar)
+
+# -----------------------------------------------------------------------------
+# 3. VST3 probe (minimal Steinberg SDK hosting subset, mirroring the vst3 spike).
+# -----------------------------------------------------------------------------
+if(EXISTS ${VST3SDK}/pluginterfaces/vst/ivstaudioprocessor.h)
+    set(SDK_SOURCES
+        ${VST3SDK}/pluginterfaces/base/funknown.cpp
+        ${VST3SDK}/pluginterfaces/base/coreiids.cpp
+        ${VST3SDK}/pluginterfaces/base/conststringtable.cpp
+        ${VST3SDK}/pluginterfaces/base/ustring.cpp
+        ${VST3SDK}/base/source/baseiids.cpp
+        ${VST3SDK}/base/source/fbuffer.cpp
+        ${VST3SDK}/base/source/fdebug.cpp
+        ${VST3SDK}/base/source/fdynlib.cpp
+        ${VST3SDK}/base/source/fobject.cpp
+        ${VST3SDK}/base/source/fstreamer.cpp
+        ${VST3SDK}/base/source/fstring.cpp
+        ${VST3SDK}/base/source/updatehandler.cpp
+        ${VST3SDK}/base/thread/source/fcondition.cpp
+        ${VST3SDK}/base/thread/source/flock.cpp
+        ${VST3SDK}/public.sdk/source/common/commoniids.cpp
+        ${VST3SDK}/public.sdk/source/common/commonstringconvert.cpp
+        ${VST3SDK}/public.sdk/source/common/memorystream.cpp
+        ${VST3SDK}/public.sdk/source/common/pluginview.cpp
+        ${VST3SDK}/public.sdk/source/common/threadchecker_win32.cpp
+        ${VST3SDK}/public.sdk/source/vst/vstinitiids.cpp
+        ${VST3SDK}/public.sdk/source/vst/hosting/module.cpp
+        ${VST3SDK}/public.sdk/source/vst/hosting/module_win32.cpp
+        ${VST3SDK}/public.sdk/source/vst/hosting/plugprovider.cpp
+        ${VST3SDK}/public.sdk/source/vst/hosting/connectionproxy.cpp
+        ${VST3SDK}/public.sdk/source/vst/hosting/hostclasses.cpp
+        ${VST3SDK}/public.sdk/source/vst/hosting/pluginterfacesupport.cpp
+        ${VST3SDK}/public.sdk/source/vst/utility/stringconvert.cpp
+    )
+
+    add_executable(probe_vst3 probe_vst3.cpp ${SDK_SOURCES})
+    target_include_directories(probe_vst3 PRIVATE ${VST3SDK})
+    target_compile_definitions(probe_vst3 PRIVATE
+        UNICODE _UNICODE _WIN32_WINNT=0x0601 RELEASE=1)
+    target_compile_options(probe_vst3 PRIVATE -Wno-unknown-pragmas -Wno-multichar)
+    target_link_libraries(probe_vst3 PRIVATE ole32 uuid shlwapi)
+else()
+    message(WARNING "VST3 SDK not found at ${VST3SDK}; probe_vst3 will not be built. "
+                    "VST3 scanning will be unavailable at runtime.")
+endif()
+
+# -----------------------------------------------------------------------------
+# 4. Standalone inventory test (weak stub factories).
+# -----------------------------------------------------------------------------
+add_executable(scan_test
+    scan_test.cpp
+    # Recompile plugin_host.cpp here with SEQ24_HOST_WEAK_STUBS so the test
+    # gets weak createVst2/3Instance definitions. (Linking the static lib AND
+    # the stub object would otherwise duplicate symbols.)
+    plugin_host.cpp
+)
+target_compile_definitions(scan_test PRIVATE SEQ24_HOST_WEAK_STUBS)
+target_include_directories(scan_test PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/..)
+
+# scan_test depends on the probe exes existing alongside it.
+add_dependencies(scan_test probe_vst2)
+if(TARGET probe_vst3)
+    add_dependencies(scan_test probe_vst3)
+endif()

@@ -43,6 +43,9 @@
 #include "seqdata.h"
 #include "seqevent.h"
 #include "perform.h"
+#include "ui/palette.h"
+
+#include <gdkmm/general.h>
 
 
 using namespace Gtk;

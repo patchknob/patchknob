@@ -50,6 +50,17 @@ sequence::sequence( )
     for (int i=0; i< c_midi_notes; i++ )
         m_playing_notes[i] = 0;
 
+    /* SCALE-MASTER / SCALE-FOLLOW */
+    m_is_scale_master = false;
+    m_follows_master  = false;
+    m_master_scale    = c_scale_off;
+    m_master_key      = 0;
+    m_have_master     = false;
+    m_follow_key      = 0;
+    m_follow_scale    = c_scale_off;
+    for (int i=0; i< c_midi_notes; i++ )
+        m_note_remap[i] = -1;
+
     m_last_tick = 0;
 
     m_masterbus = NULL;
@@ -400,6 +411,10 @@ sequence::zero_markers( void )
     lock();
 
     m_last_tick = 0;
+
+    /* SCALE-FOLLOW: clear any stale snap latches on transport reset */
+    for ( int x=0; x< c_midi_notes; x++ )
+        m_note_remap[x] = -1;
 
     //m_masterbus->flush( );
 
@@ -2768,10 +2783,93 @@ sequence::toggle_playing()
     set_playing( ! get_playing() );
 }
 
-bool 
+bool
 sequence::get_playing( )
 {
     return m_playing;
+}
+
+
+/* SCALE-MASTER / SCALE-FOLLOW accessors -- see docs/scale-follow.md */
+
+void
+sequence::set_scale_master( bool a_v )
+{
+    lock();
+    m_is_scale_master = a_v;
+    unlock();
+}
+
+bool
+sequence::get_scale_master( void )
+{
+    lock();
+    bool r = m_is_scale_master;
+    unlock();
+    return r;
+}
+
+void
+sequence::set_follows_master( bool a_v )
+{
+    lock();
+    m_follows_master = a_v;
+    unlock();
+}
+
+bool
+sequence::get_follows_master( void )
+{
+    lock();
+    bool r = m_follows_master;
+    unlock();
+    return r;
+}
+
+void
+sequence::set_master_scale( int a_scale )
+{
+    lock();
+    m_master_scale = a_scale;
+    unlock();
+}
+
+int
+sequence::get_master_scale( void )
+{
+    lock();
+    int r = m_master_scale;
+    unlock();
+    return r;
+}
+
+void
+sequence::set_master_key( int a_key )
+{
+    lock();
+    m_master_key = a_key;
+    unlock();
+}
+
+int
+sequence::get_master_key( void )
+{
+    lock();
+    int r = m_master_key;
+    unlock();
+    return r;
+}
+
+/* Push the per-tick resolved master context into this follower.  Called by
+   perform::play on the output thread just before this sequence's play(). */
+void
+sequence::set_master_scale_context( bool a_on, int a_key, int a_scale )
+{
+    lock();
+    m_have_master  = a_on;
+    m_follow_key   = a_key;
+    m_follow_scale = a_scale;
+    unlock();
 }
 
 
@@ -2874,29 +2972,72 @@ sequence::put_event_on_bus( event *a_e )
 {		
     lock();
 
-    unsigned char note = a_e->get_note();
+    /* SCALE-MASTER / SCALE-FOLLOW
+       Snap is applied here, the single emit funnel, to a TEMPORARY copy of the
+       event -- the stored *a_e is never mutated.  Note-on latches its snapped
+       pitch in m_note_remap[orig]; note-off reuses that latch so the off always
+       matches the on (stuck-note safety), and m_playing_notes[] is indexed by
+       the snapped pitch.  See docs/scale-follow.md sections 1 and 4. */
+
+    bool is_on  = a_e->is_note_on();
+    bool is_off = a_e->is_note_off();
+
+    unsigned char orig = a_e->get_note();
+    unsigned char note = orig;     /* the pitch we will actually account/emit */
+
+    event tmp;                     /* local copy used only when we snap */
+    event *out = a_e;
+
+    if ( ( is_on || is_off ) && m_follows_master && m_have_master ){
+
+        int snapped;
+
+        if ( is_on ){
+            snapped = snap_to_scale( orig, m_follow_key, m_follow_scale );
+            m_note_remap[orig] = snapped;        /* latch for the matching off */
+        }
+        else {
+            /* note-off: reuse the latched mapping if present */
+            if ( m_note_remap[orig] >= 0 ){
+                snapped = m_note_remap[orig];
+                m_note_remap[orig] = -1;         /* consume the latch */
+            }
+            else {
+                snapped = snap_to_scale( orig, m_follow_key, m_follow_scale );
+            }
+        }
+
+        note = (unsigned char) snapped;
+
+        if ( note != orig ){
+            tmp = *a_e;
+            tmp.set_note( note );                /* mutate the COPY only */
+            out = &tmp;
+        }
+    }
+
     bool skip = false;
-	
-    if ( a_e->is_note_on() ){
-		
+
+    if ( is_on ){
+
         m_playing_notes[note]++;
     }
-    if ( a_e->is_note_off() ){
+    if ( is_off ){
 
         if (  m_playing_notes[note] <= 0 ){
             skip = true;
         }
         else {
             m_playing_notes[note]--;
-        }		
+        }
     }
 
     if ( !skip ){
-        m_masterbus->play( m_bus, a_e,  m_midi_channel );   
+        m_masterbus->play( m_bus, out,  m_midi_channel );
     }
 
     m_masterbus->flush();
-    
+
     unlock();
 }
 
@@ -2921,10 +3062,14 @@ sequence::off_playing_notes()
             m_playing_notes[x]--;
         }
     }
-    
+
+    /* SCALE-FOLLOW: nothing is sounding any more, drop all snap latches */
+    for ( int x=0; x< c_midi_notes; x++ )
+        m_note_remap[x] = -1;
+
     m_masterbus->flush();
-    
- 
+
+
     unlock();
 }
 

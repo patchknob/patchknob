@@ -242,6 +242,59 @@ const int c_scales_transpose_dn[c_scale_size][12] =
 
   };
 
+/* SCALE-MASTER / SCALE-FOLLOW
+ *
+ * Snap an absolute MIDI note (0..127) to the nearest in-scale pitch for the
+ * given master root (pitch-class 0..11) and scale type (c_scale_*).
+ * Non-destructive: the caller is expected to apply this to a temporary copy of
+ * the event.  See docs/scale-follow.md section 3.
+ *
+ * Implementation note: c_scales_policy[] is C-relative, so we rotate the
+ * incoming note's pitch-class by -master_key before testing membership.  We
+ * derive the snap distance directly from c_scales_policy[] (the authoritative
+ * "is this pc in the scale" table) rather than from c_scales_transpose_up/dn[]:
+ * in this codebase those transpose tables are 0 for OFF-scale pitch-classes and
+ * hold the step-to-next-degree for IN-scale ones (see sequence::transpose_notes,
+ * which treats a 0 entry as "off scale"), so they cannot give the nearest
+ * in-scale distance for an off-scale note.  Scanning the policy table is exact.
+ */
+inline int
+snap_to_scale( int note, int master_key /*0..11*/, int master_scale )
+{
+    if ( master_scale <= c_scale_off || master_scale >= c_scale_size )
+        return note;                       /* chromatic / invalid: no snap */
+
+    if ( note < 0 || note > 127 )
+        return note;
+
+    /* pitch-class relative to the master root */
+    int pc = ( ( note % 12 ) - master_key + 12 ) % 12;
+
+    if ( c_scales_policy[master_scale][pc] )
+        return note;                       /* already in scale -> pass through */
+
+    /* find nearest in-scale pitch-class by scanning out from pc.  Tie (equal
+       distance up and down) -> snap DOWN (deterministic musical convention). */
+    for ( int d = 1; d <= 6; d++ ){
+
+        int dn_pc = ( pc - d + 12 ) % 12;  /* prefer down on ties */
+        if ( c_scales_policy[master_scale][dn_pc] ){
+            int snapped = note - d;
+            if ( snapped < 0 ) snapped += 12;
+            return snapped;
+        }
+
+        int up_pc = ( pc + d ) % 12;
+        if ( c_scales_policy[master_scale][up_pc] ){
+            int snapped = note + d;
+            if ( snapped > 127 ) snapped -= 12;
+            return snapped;
+        }
+    }
+
+    return note;                           /* should not happen for valid scales */
+}
+
 const int c_scales_symbol[c_scale_size][12] =
 
   {

@@ -15,3 +15,11 @@ vendor/rtmidi/
 vendor/rtaudio/
 spikes/vst3host/vst3sdk/
 run.log
+
+# module build dirs + test artifacts
+src/engine/*/build/
+src/ui/*/build/
+src/engine/**/*.wav
+src/engine/host/scan_inventory.txt
+.integration_patches/
+.claude/worktrees/
