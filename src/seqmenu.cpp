@@ -51,14 +51,18 @@ choose_clip_view( const char *a_name )
     dialog.get_vbox()->pack_start( *lbl, false, false );
     lbl->show();
 
-    /* response ids: 1 = piano roll, 2 = tracker */
+    /* response ids: 1 = piano roll, 2 = tracker.  ONLY an explicit Tracker
+       click opens the tracker; a window-close / delete-event / cancel
+       (RESPONSE_DELETE_EVENT, RESPONSE_NONE, etc.) falls through to the safe
+       default of piano roll. */
     dialog.add_button( "Piano Roll", 1 );
     dialog.add_button( "Tracker",    2 );
+    dialog.set_default_response( 1 );
 
     int resp = dialog.run();
     if ( resp == 2 )
         return CLIP_TRACKER;
-    return CLIP_PIANO_ROLL;
+    return CLIP_PIANO_ROLL;        /* fail-safe default */
 }
 
 

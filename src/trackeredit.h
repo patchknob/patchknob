@@ -22,6 +22,11 @@
 //  and the tracker.  Rendered entirely in monochrome (black & white) with
 //  Cairo, matching the seq24 reskin palette in src/ui/palette.h.
 //
+//  The grid is a proper Gtk::DrawingArea SUBCLASS (trackergrid) that overrides
+//  on_realize()/on_expose_event() and chains the base-class realize FIRST --
+//  the proven seqroll/seqkeys pattern.  trackeredit (the Gtk::Window) only
+//  hosts the toolbar + grid + scrollbar.
+//
 //-----------------------------------------------------------------------------
 
 #ifndef SEQ24_TRACKEREDIT
@@ -44,14 +49,14 @@
 
 #include <string>
 
+class trackeredit;     /* forward */
+
 /*
- *  trackeredit : a tracker-grid window bound to one sequence*.
- *
- *  Rows are time steps; columns are note tracks.  A row spans
- *  ( c_ppqn / m_rows_per_beat ) ticks.  The number of rows is
- *  get_length() / ticks-per-row.
+ *  trackergrid : the drawing surface for the tracker.  A real DrawingArea
+ *  subclass (like seqroll), so on_realize() chains Gtk::DrawingArea::on_realize()
+ *  first and the GdkWindow / GC / pixmap are always valid afterwards.
  */
-class trackeredit : public Gtk::Window
+class trackergrid : public Gtk::DrawingArea
 {
  private:
 
@@ -59,25 +64,11 @@ class trackeredit : public Gtk::Window
     perform    *m_mainperf;
     int         m_pos;
 
-    /* drawing surface (back-buffer pixmap pattern, like seqroll) */
-    Gtk::DrawingArea           *m_draw;
+    Gtk::Adjustment *m_vadjust;
+
     Glib::RefPtr<Gdk::Window>   m_window;
     Glib::RefPtr<Gdk::GC>       m_gc;
     Glib::RefPtr<Gdk::Pixmap>   m_pixmap;
-    Gtk::VScrollbar            *m_vscroll;
-    Gtk::Adjustment            *m_vadjust;
-
-    /* toolbar widgets */
-    Gtk::Button *m_button_rpb;
-    Gtk::Entry  *m_entry_rpb;
-    Gtk::Button *m_button_octave;
-    Gtk::Entry  *m_entry_octave;
-    Gtk::Button *m_button_step;
-    Gtk::Entry  *m_entry_step;
-    Gtk::Button *m_button_length;
-    Gtk::Entry  *m_entry_length;
-
-    Gtk::Menu   *m_menu_rpb;
 
     /* geometry (pixels) */
     int  m_window_x;
@@ -105,48 +96,87 @@ class trackeredit : public Gtk::Window
     int  ticks_per_row( void );
     int  num_rows( void );
     int  visible_rows( void );
-
-    /* tick range covered by a row */
     long row_start_tick( int a_row );
-
-    /* find the note-on event (note, velocity) that begins on a row, or -1 */
     bool note_at_row( int a_row, int a_track, int *a_note, int *a_vel );
-
-    /* write / clear a cell */
     void set_note_at_cursor( int a_note );
     void clear_cell_at_cursor( void );
-
-    /* note name string e.g. "C-4", "---", "===" */
     std::string note_name( int a_note );
-
-    /* keymap: piano-style note from a GDK keyval, -1 if none.  Returns the
-       0-based pitch class (0..11 = C..B) plus an octave offset via *a_oct. */
-    int key_to_pitch( unsigned int a_keyval, int *a_oct_offset );
+    int  key_to_pitch( unsigned int a_keyval, int *a_oct_offset );
 
     /* drawing */
-    void update_sizes( void );
     void draw_background( void );
     void draw_grid( void );
     void update_pixmap( void );
     void force_draw( void );
-    void draw_progress_on_window( void );
 
-    /* toolbar */
+    void ensure_cursor_visible( void );
+
+    /* DrawingArea overrides (seqroll pattern) */
+    void on_realize();
+    bool on_expose_event( GdkEventExpose *a_e );
+    bool on_key_press_event( GdkEventKey *a_e );
+    bool on_button_press_event( GdkEventButton *a_e );
+    void on_size_allocate( Gtk::Allocation &a_r );
+
+    void change_vert( void );
+
+ public:
+
+    trackergrid( sequence *a_seq, perform *a_perf, int a_pos,
+                 Gtk::Adjustment *a_vadjust );
+    ~trackergrid();
+
+    /* called by trackeredit (window) */
+    void update_sizes( void );
+    void redraw( void );
+    void draw_progress_on_window( void );
+    void move_cursor( int a_drow, int a_dcol );
+
+    void set_rows_per_beat( int a_rpb );
+    int  get_rows_per_beat( void ) { return m_rows_per_beat; }
+    void set_octave( int a_oct )   { m_octave = a_oct; }
+    int  get_octave( void )        { return m_octave; }
+    void set_edit_step( int a_s )  { m_edit_step = a_s; }
+    int  get_edit_step( void )     { return m_edit_step; }
+
+    long length_measures( void );
+};
+
+/*
+ *  trackeredit : the top-level editor window.  Hosts a trackergrid plus a
+ *  monochrome toolbar and a vertical scrollbar.
+ */
+class trackeredit : public Gtk::Window
+{
+ private:
+
+    sequence   *m_seq;
+    perform    *m_mainperf;
+    int         m_pos;
+
+    trackergrid     *m_grid;
+    Gtk::VScrollbar *m_vscroll;
+    Gtk::Adjustment *m_vadjust;
+
+    /* toolbar widgets */
+    Gtk::Button *m_button_rpb;
+    Gtk::Entry  *m_entry_rpb;
+    Gtk::Button *m_button_octave;
+    Gtk::Entry  *m_entry_octave;
+    Gtk::Button *m_button_step;
+    Gtk::Entry  *m_entry_step;
+    Gtk::Button *m_button_length;
+    Gtk::Entry  *m_entry_length;
+
+    Gtk::Menu   *m_menu_rpb;
+
     void set_rows_per_beat( int a_rpb );
     void change_octave( int a_delta );
     void change_step( int a_delta );
     void popup_rpb_menu( void );
     void update_toolbar_entries( void );
 
-    void move_cursor( int a_drow, int a_dcol );
-    void ensure_cursor_visible( void );
-
-    /* events */
-    void on_realize( void );
-    bool on_expose( GdkEventExpose *a_e );
-    bool on_key_press( GdkEventKey *a_e );
-    bool on_button_press( GdkEventButton *a_e );
-    void change_vert( void );
+    void on_realize();
     bool timeout( void );
 
  public:
