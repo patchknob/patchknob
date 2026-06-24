@@ -9,3 +9,9 @@ vendor/*/build/
 spikes/*/build/
 CMakeCache.txt
 CMakeFiles/
+
+# Vendored third-party sources (cloned locally, not tracked in our history)
+vendor/rtmidi/
+vendor/rtaudio/
+spikes/vst3host/vst3sdk/
+run.log
