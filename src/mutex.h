@@ -24,7 +24,7 @@
 #ifndef SEQ24_MUTEX
 #define SEQ24_MUTEX
 
-class mutex {
+class seq24mutex {
     
 private:
 
@@ -37,14 +37,14 @@ protected:
     
 public:
     
-    mutex();
+    seq24mutex();
 
     void lock();
     void unlock();
 
 };
 
-class condition_var : public mutex {
+class condition_var : public seq24mutex {
 
 private:
 

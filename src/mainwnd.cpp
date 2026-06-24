@@ -294,8 +294,8 @@ mainwnd::file_saveas_dialog( void )
             if ( !result ){
                 
                 Gtk::MessageDialog errdialog(*this,
-                                              false,
-                                             "Error writing file.",
+                                              "Error writing file.",
+                                             false,
                                              Gtk::MESSAGE_ERROR,
                                              (Gtk::ButtonsType)(Gtk::BUTTONS_OK),
                                              true );

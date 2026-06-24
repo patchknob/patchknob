@@ -147,7 +147,7 @@ class sequence
     long m_time_beat_width;
 
     /* locking */
-    mutex m_mutex;
+    seq24mutex m_mutex;
 
     /* used to idenfity which events are ours in the out queue */
     //unsigned char m_tag;
