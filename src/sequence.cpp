@@ -18,7 +18,7 @@
 //
 //-----------------------------------------------------------------------------
 #include "sequence.h"
-#include "seqedit.h"
+// #include "seqedit.h"  (GUI; not used by engine)
 #include <stdlib.h>
     
 list < event > sequence::m_list_clipboard;

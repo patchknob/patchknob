@@ -21,14 +21,10 @@
 #include "perform.h"
 #include "midibus.h"
 #include "event.h"
+#include "keysyms_compat.h"   /* GDK_* default keybinding values, gtkmm-free */
 #include <stdio.h>
 #include <time.h>
 #include <sched.h>
-
-//For keys
-#include <gtkmm/accelkey.h>
-
-using namespace Gtk;
 
 perform::perform()
 {

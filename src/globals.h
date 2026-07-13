@@ -24,8 +24,14 @@
 #define SEQ24_GLOBALS
 
 #include <string>
-#include <gtkmm/main.h>
-#include <gtkmm/drawingarea.h>
+#include <map>
+#include <vector>
+#include <list>
+// NOTE: globals.h is included by the UI-agnostic engine core, so it must NOT
+// pull in gtkmm.  (It previously included <gtkmm/main.h> + <gtkmm/drawingarea.h>
+// but used no Gtk types.)  The STL headers above were formerly pulled in
+// transitively by gtkmm; the engine needs them directly.  GUI translation
+// units include gtkmm themselves.
 
 using namespace std;
 
