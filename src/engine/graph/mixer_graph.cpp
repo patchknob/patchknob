@@ -70,6 +70,13 @@ void MixerGraph::renderBlock(float** out, int numChannels, int nframes,
     for (int ti = 0; ti < nt; ++ti) {
         Track* t = tracks_[ti].get();
 
+        // Efficiency: a track with no instrument AND no insert FX can only ever
+        // produce silence, so skip it entirely.  With few instruments loaded
+        // this avoids processing the ~30 empty tracks every block, freeing CPU
+        // for audio (esp. on a minimal-Linux/framebuffer target).
+        if (t->instrument() == nullptr && t->fxCount() == 0)
+            continue;
+
         // Audibility: muted tracks are silent; with solo active, only soloed.
         const bool audible = !t->mute() && (!anySolo || t->solo());
 
