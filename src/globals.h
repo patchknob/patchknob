@@ -153,9 +153,12 @@ const int c_redraw_ms = 40;
 
 
 
-/* consts for perform editor */
-const int c_names_x = 6 * 24;
-const int c_names_y = 22;
+/* consts for perform editor (DAW arrangement view) */
+/* c_names_x : width of the left track-header column                    */
+/* c_names_y : height of a single track lane / header row (also the     */
+/*             arrangement canvas row height -- kept in sync)            */
+const int c_names_x = 6 * 30;   /* wider header: name + type + M/S + VU  */
+const int c_names_y = 30;       /* taller lanes, DAW-style               */
 const int c_perf_scale_x = 32; /*ticks per pixel */
 
 extern bool global_showmidi;

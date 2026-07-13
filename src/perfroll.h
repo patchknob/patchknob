@@ -41,6 +41,7 @@
 #include "globals.h"
 #include "perform.h"
 #include "mutex.h"
+#include "ui/palette.h"
 
 
 using namespace Gtk;
@@ -50,11 +51,14 @@ using namespace Gtk;
 class perfroll : public Gtk::DrawingArea
 {
 
- private: 
+ private:
 
     Glib::RefPtr<Gdk::GC> m_gc;
     Glib::RefPtr<Gdk::Window> m_window;
-    Gdk::Color    m_black, m_white, m_grey, m_lt_grey;
+    /* monochrome DAW palette (src/ui/palette.h, namespace synth)
+       m_panel : dark grey even-row lane fill
+       m_note  : light grey clip body */
+    Gdk::Color    m_black, m_white, m_grey, m_lt_grey, m_panel, m_note;
 
     Glib::RefPtr<Gdk::Pixmap> m_pixmap;
     Glib::RefPtr<Gdk::Pixmap> m_background;

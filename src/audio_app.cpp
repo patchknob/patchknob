@@ -45,6 +45,15 @@ ParamMsg               g_pring[RING_SIZE];
 std::atomic<unsigned>  g_phead{0};
 std::atomic<unsigned>  g_ptail{0};
 
+// Producer-side spinlocks.  audio_app_route_midi / _param can be called from
+// BOTH the sequencer output thread AND the GUI thread (piano-roll/tracker
+// preview + automation), so the enqueue (a non-atomic head RMW) must be
+// serialized between producers.  The audio consumer (audio_render) NEVER takes
+// these -- it only acquire-loads head and release-stores tail -- so the audio
+// thread stays lock-free.  Held for a few instructions only.
+std::atomic_flag g_midi_producer = ATOMIC_FLAG_INIT;
+std::atomic_flag g_param_producer = ATOMIC_FLAG_INIT;
+
 // --- per-block staging (audio thread only) ---------------------------------
 const int MAX_EV = 256;
 const int MAX_PC = 256;
@@ -234,27 +243,37 @@ bool audio_app_track_has_instrument( int track )
 void audio_app_route_midi( int track, unsigned char status,
                            unsigned char d1, unsigned char d2 )
 {
+    // serialize producers (sequencer thread + GUI preview); audio thread never
+    // takes this lock.
+    while ( g_midi_producer.test_and_set( std::memory_order_acquire ) ) { }
     unsigned head = g_head.load( std::memory_order_relaxed );
     unsigned tail = g_tail.load( std::memory_order_acquire );
-    if ( head - tail >= RING_SIZE ) return;   // full: drop (never blocks audio)
-    RouteMsg& m = g_ring[head & RING_MASK];
-    m.track  = (unsigned char) track;
-    m.status = status;
-    m.d1     = d1;
-    m.d2     = d2;
-    g_head.store( head + 1, std::memory_order_release );
+    if ( head - tail < RING_SIZE )            // full => drop (never blocks audio)
+    {
+        RouteMsg& m = g_ring[head & RING_MASK];
+        m.track  = (unsigned char) track;
+        m.status = status;
+        m.d1     = d1;
+        m.d2     = d2;
+        g_head.store( head + 1, std::memory_order_release );
+    }
+    g_midi_producer.clear( std::memory_order_release );
 }
 
 void audio_app_route_param( int track, unsigned int paramId, float value )
 {
+    while ( g_param_producer.test_and_set( std::memory_order_acquire ) ) { }
     unsigned head = g_phead.load( std::memory_order_relaxed );
     unsigned tail = g_ptail.load( std::memory_order_acquire );
-    if ( head - tail >= RING_SIZE ) return;
-    ParamMsg& m = g_pring[head & RING_MASK];
-    m.track = (unsigned char) track;
-    m.id    = paramId;
-    m.value = value;
-    g_phead.store( head + 1, std::memory_order_release );
+    if ( head - tail < RING_SIZE )
+    {
+        ParamMsg& m = g_pring[head & RING_MASK];
+        m.track = (unsigned char) track;
+        m.id    = paramId;
+        m.value = value;
+        g_phead.store( head + 1, std::memory_order_release );
+    }
+    g_param_producer.clear( std::memory_order_release );
 }
 
 int audio_app_track_param_count( int track )

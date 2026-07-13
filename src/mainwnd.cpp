@@ -42,9 +42,10 @@ mainwnd::mainwnd(perform *a_p)
 
     m_menubar   = manage(new MenuBar());
     m_menu_file = manage(new Menu());
+    m_menu_view = manage(new Menu());
     m_menu_control = manage( new Menu());
     m_menu_help    = manage( new Menu());
-    
+
     /* fill with items */
     m_menu_file->items().push_back(MenuElem("New", mem_fun(*this,&mainwnd::file_new_dialog)));
     m_menu_file->items().push_back(SeparatorElem());
@@ -58,9 +59,18 @@ mainwnd::mainwnd(perform *a_p)
     m_menu_file->items().push_back(SeparatorElem());
     m_menu_file->items().push_back(MenuElem("Exit", mem_fun(*this,&mainwnd::file_exit_dialog)));
 
+    /* View menu: arrangement-only (DAW) mode toggle.  When checked, the Live
+       32-slot clip grid is hidden and the Song (arrangement) editor is opened,
+       leaving just the arrangement + transport. */
+    m_menu_view->items().push_back(CheckMenuElem("Arrangement only (hide clip grid)",
+                                   mem_fun(*this,&mainwnd::toggle_clip_grid)));
+    m_menu_view->items().push_back(MenuElem("Song / Arrangement Editor...",
+                                   mem_fun(*this,&mainwnd::open_performance_edit)));
+
     m_menu_help->items().push_back(MenuElem("About", mem_fun(*this,&mainwnd::about_dialog)));
- 
-    m_menubar->items().push_front(MenuElem("File", *m_menu_file));
+
+    m_menubar->items().push_back(MenuElem("File", *m_menu_file));
+    m_menubar->items().push_back(MenuElem("View", *m_menu_view));
     m_menubar->items().push_back(MenuElem("Help", *m_menu_help));
 
     HBox *hbox = manage( new HBox( false, 2 ) );
@@ -178,11 +188,33 @@ mainwnd::timer_callback(  )
 }
 
 
-void 
+void
 mainwnd::open_performance_edit( void )
 {
     m_perf_edit->init_before_show();
     m_perf_edit->show_all();
+}
+
+
+/* View > "Arrangement only": hide the Live 32-slot clip grid so the app reads
+   as a DAW (arrangement + transport).  Toggling back restores the grid.  When
+   entering arrangement-only mode we also raise the Song/arrangement editor. */
+void
+mainwnd::toggle_clip_grid( void )
+{
+    if ( m_main_wid->is_visible() )
+    {
+        m_main_wid->hide();
+
+        /* make sure the arrangement is on screen in DAW mode */
+        m_perf_edit->init_before_show();
+        m_perf_edit->show_all();
+        m_perf_edit->present();
+    }
+    else
+    {
+        m_main_wid->show();
+    }
 }
 
 

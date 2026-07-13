@@ -11,15 +11,25 @@
 //
 //  ui/palette.h
 //
-//  The "1111" (ScaleJammer) synthwave palette, ported for the seq24 pattern
-//  editor reskin.  Source of truth: 1111/PianoRoll.h:235-248 (ARGB uint32).
+//  Custom-draw palette for the seq24 pattern-editor / tracker reskin.
 //
-//  Two flavours of accessor are provided so the legacy GDK draw paths and the
-//  new Cairo draw paths can share one palette:
+//  RUNTIME-SWITCHABLE.  The 13 color names below used to be enum constants;
+//  they are now plain `extern unsigned int` variables (ARGB) DEFINED in
+//  src/palette.cpp.  Reading e.g. `synth::cBg` therefore yields the CURRENTLY
+//  ACTIVE theme mode's value.  Call sites are unchanged: every name is still
+//  just an `unsigned int` argb handed to synth::set_source()/synth::gdk_color().
 //
-//    * gdk_color(hex)  -> Gdk::Color   (alpha dropped; for set_foreground)
-//    * a Cairo context helper set_source_rgba(cr, hex, alpha) for the Cairo
-//      paths that want translucency / grading.
+//  Switch the active table with synth::set_palette(mode):
+//      0 == ANCIENT  (grayscale black & white -- the original values)
+//      1 == MIDNIGHT (green-phosphor CRT terminal)
+//  (kept numerically in sync with seq24::theme::Mode).  The theme coordinator
+//  drives this through seq24::theme::set_mode(), which also reloads the GTK
+//  chrome RC -- see apptheme.h.
+//
+//  Two accessor flavours share one palette so the legacy GDK and the newer
+//  Cairo draw paths agree:
+//    * gdk_color(hex)          -> Gdk::Color (alpha dropped; for set_foreground)
+//    * set_source(cr, hex[,a]) -> sets a Cairo source (optionally translucent)
 //
 //-----------------------------------------------------------------------------
 
@@ -31,24 +41,31 @@
 
 namespace synth
 {
-    /* Monochrome (black & white) palette, ARGB.  Names mirror the original so
-       all draw code is unchanged; only neutral greys here -- NO hues. */
-    enum Color : unsigned int
-    {
-        cBg      = 0xFF000000u,   // pure black window background
-        cPanel   = 0xFF161616u,   // panel fill / even rows (dark grey)
-        cAccent  = 0xFFB4B4B4u,   // light grey - root rows, selection chrome
-        cSel     = 0xFFFFFFFFu,   // white - lasso, paste cursor
-        cActive  = 0xFFFFFFFFu,   // white - playhead, "active/playing"
-        cHi      = 0xFFEDEDEDu,   // near-white text
-        cDim     = 0xFF6E6E6Eu,   // mid grey - inactive
-        cWhite   = 0xFFF2F2F2u,   // white text
-        cBlk     = 0xFF0C0C0Cu,   // key strip background (near-black)
-        cNote    = 0xFFC8C8C8u,   // note body (light grey on black)
-        cNoteSel = 0xFFFFFFFFu,   // selected note (pure white)
-        cScale   = 0xFF050505u,   // scale tint (barely-there)
-        cChordBg = 0xFF0D0D0Du    // chord timeline bg
-    };
+    /* Active palette entries, ARGB.  Names mirror the original enum so every
+       existing draw call site is unchanged; the values now track the live
+       theme mode (see src/palette.cpp).  Strictly monochrome per mode: neutral
+       greys in ANCIENT, phosphor greens in MIDNIGHT -- never a foreign hue. */
+    extern unsigned int cBg;        // window background
+    extern unsigned int cPanel;     // panel fill / even rows
+    extern unsigned int cAccent;    // root rows, selection chrome
+    extern unsigned int cSel;       // lasso, paste cursor
+    extern unsigned int cActive;    // playhead, "active/playing"
+    extern unsigned int cHi;        // bright text / light chrome
+    extern unsigned int cDim;       // inactive / grid lines
+    extern unsigned int cWhite;     // brightest text
+    extern unsigned int cBlk;       // key strip background
+    extern unsigned int cNote;      // note body
+    extern unsigned int cNoteSel;   // selected note
+    extern unsigned int cScale;     // scale tint
+    extern unsigned int cChordBg;   // chord timeline background
+
+    /* Palette table ids -- kept numerically identical to seq24::theme::Mode. */
+    enum PaletteMode { PALETTE_ANCIENT = 0, PALETTE_MIDNIGHT = 1 };
+
+    /* Overwrite all 13 live colors above with the chosen mode's table.
+       Defined in src/palette.cpp.  Safe to call at any time; widgets that read
+       the colors in their draw handlers pick up the change on next redraw. */
+    void set_palette( int mode );
 
     /* extract 8-bit channels from an ARGB value */
     inline double r_of( unsigned int argb ) { return ((argb >> 16) & 0xFF) / 255.0; }

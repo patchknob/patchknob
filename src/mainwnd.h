@@ -79,6 +79,7 @@ class mainwnd : public Gtk::Window
     
     MenuBar  *m_menubar;
     Menu     *m_menu_file;
+    Menu     *m_menu_view;
     Menu     *m_menu_control;
     Menu     *m_menu_help;
 
@@ -134,6 +135,9 @@ class mainwnd : public Gtk::Window
     void test();
 
     void open_performance_edit( );
+
+    /* View: hide the Live 32-slot clip grid -> arrangement-only DAW mode */
+    void toggle_clip_grid( void );
 
     void sequence_key( int a_seq );
 

@@ -43,18 +43,20 @@
 using namespace Gtk;
 
 #include "globals.h"
+#include "ui/palette.h"
 
 /* holds the left side piano */
 class perfnames : public virtual Gtk::DrawingArea, public virtual seqmenu
 {
- private: 
+ private:
 
     Glib::RefPtr<Gdk::GC>       m_gc;
     Glib::RefPtr<Gdk::Window>   m_window;
-    Gdk::Color    m_black, m_white, m_grey;
+    /* monochrome DAW palette (see src/ui/palette.h, namespace synth) */
+    Gdk::Color    m_black, m_white, m_grey, m_dk_grey, m_panel;
 
     Glib::RefPtr<Gdk::Pixmap>   m_pixmap;
-   
+
     perform      *m_mainperf;
 
     Adjustment   *m_vadjust;
@@ -65,26 +67,39 @@ class perfnames : public virtual Gtk::DrawingArea, public virtual seqmenu
 
     bool         m_sequence_active[c_total_seqs];
 
+    /* UI-side solo state (the engine has no solo; perform is read-only, so
+       solo is derived from song-mute and the pre-solo mute state is snapshotted
+       so it can be restored when solo is released). */
+    bool         m_solo[c_total_seqs];
+    bool         m_mute_snapshot[c_total_seqs];
+    bool         m_solo_active;
+
     void on_realize();
     bool on_expose_event(GdkEventExpose* a_ev);
-    bool on_button_press_event(GdkEventButton* a_ev); 
+    bool on_button_press_event(GdkEventButton* a_ev);
     bool on_button_release_event(GdkEventButton* a_ev);
     void on_size_allocate(Gtk::Allocation& );
     bool on_scroll_event( GdkEventScroll* a_ev ) ;
 
     void draw_area();
     void update_pixmap();
- 
+
     void convert_y( int a_y, int *a_note);
 
     void draw_sequence( int a_sequence );
 
+    /* small helpers for the track-header widgets */
+    void draw_button( int a_x, int a_y, int a_w, int a_h,
+                      const char *a_label, bool a_engaged );
+    void apply_solo( void );
+    void rename_seq( int a_seq );
+
     void change_vert( void );
-    
+
     void redraw( int a_sequence );
 
  public:
-    
+
     void redraw_dirty_sequences( void );
 
     perfnames( perform *a_perf,

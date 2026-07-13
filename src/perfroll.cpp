@@ -19,6 +19,9 @@
 //-----------------------------------------------------------------------------
 #include "event.h"
 #include "perfroll.h"
+#include "font.h"
+
+#include <string.h>
 
 const int c_perfroll_background_x = (c_ppqn * 4 * 16) / c_perf_scale_x;
 const int c_perfroll_size_box_w = 3;
@@ -31,18 +34,21 @@ perfroll::perfroll( perform *a_perf,
     
     Glib::RefPtr<Gdk::Colormap> colormap = get_default_colormap();
 
-    m_black = Gdk::Color( "black" );
-    m_white = Gdk::Color( "white" );
-    m_grey = Gdk::Color( "grey" );
-    m_lt_grey = Gdk::Color( "light grey" );
-    
-    //m_text_font_6_12 = Gdk_Font( c_font_6_12 );
-  
+    /* monochrome DAW palette -- NO hues (src/ui/palette.h) */
+    m_black   = synth::gdk_color( synth::cBg );      // black canvas / odd lanes
+    m_white   = synth::gdk_color( synth::cHi );      // near-white playhead / chrome
+    m_grey    = synth::gdk_color( synth::cAccent );  // light grey bar lines
+    m_lt_grey = synth::gdk_color( synth::cDim );     // mid grey beat lines / markers
+    m_panel   = synth::gdk_color( synth::cPanel );   // dark grey even lanes
+    m_note    = synth::gdk_color( synth::cNote );    // light grey clip body
+
     colormap->alloc_color( m_black );
     colormap->alloc_color( m_white );
     colormap->alloc_color( m_grey );
     colormap->alloc_color( m_lt_grey );
-    
+    colormap->alloc_color( m_panel );
+    colormap->alloc_color( m_note );
+
     m_mainperf = a_perf;
     m_vadjust = a_vadjust;
     m_hadjust = a_hadjust;
@@ -206,81 +212,23 @@ perfroll::increment_size()
     update_sizes( );
 }
 
-/* updates background */
-void 
+/* The lane grid is now drawn directly in draw_background_on() (which lets us
+   alternate lane shading per track).  This tile is retained only so the old
+   call sites stay valid; we simply clear it to the dark lane colour. */
+void
 perfroll::fill_background_pixmap()
 {
-    /* clear background */
-    m_gc->set_foreground(m_white);
-    m_background->draw_rectangle(m_gc,true,
- 				0,
- 				0, 
- 				c_perfroll_background_x, 
- 				c_names_y );
-
-    /* draw horz grey lines */
-    m_gc->set_foreground(m_grey);
-
-    gint8 dash = 1;
-    m_gc->set_dashes( 0, &dash, 1 );  	
-    
-    m_gc->set_line_attributes( 1,
-                               Gdk::LINE_ON_OFF_DASH,
-                               Gdk::CAP_NOT_LAST,
-                               Gdk::JOIN_MITER );
-
-    m_background->draw_line(m_gc,
-			   0,
-			   0,
-			   c_perfroll_background_x,
-			   0 );
-    
-    int beats = m_measure_length / m_beat_length;
-
-    /* draw vert lines */
-    for ( int i=0; i< beats ; ){
-        
- 	if ( i == 0 ){
-            m_gc->set_line_attributes( 1,
-                                       Gdk::LINE_SOLID,
-                                       Gdk::CAP_NOT_LAST,
-                                       Gdk::JOIN_MITER );
-        }
-        else
-        {
-            m_gc->set_line_attributes( 1,
-                                       Gdk::LINE_ON_OFF_DASH,
-                                       Gdk::CAP_NOT_LAST,
-                                       Gdk::JOIN_MITER );
-        }
-	
-        m_gc->set_foreground(m_grey);
-        
- 	/* solid line on every beat */
- 	m_background->draw_line(m_gc,
- 			       i * m_beat_length / c_perf_scale_x,
- 			       0,
- 			       i * m_beat_length / c_perf_scale_x,
- 			       c_names_y );
-
-        // jump 2 if 16th notes
-        if ( m_beat_length < c_ppqn/2 )
-        {
-            i += (c_ppqn / m_beat_length);
-        }
-        else
-        {
-            ++i;
-        }
-            
-    }
-
-    /* reset line style */
-
     m_gc->set_line_attributes( 1,
                                Gdk::LINE_SOLID,
                                Gdk::CAP_NOT_LAST,
                                Gdk::JOIN_MITER );
+
+    m_gc->set_foreground(m_panel);
+    m_background->draw_rectangle(m_gc,true,
+ 				0,
+ 				0,
+ 				c_perfroll_background_x,
+ 				c_names_y );
 }
 
 
@@ -299,27 +247,31 @@ perfroll::set_guides( int a_snap, int a_measure, int a_beat )
     queue_draw();
 }
 
-void 
+void
 perfroll::draw_progress()
 {
-    long tick = m_mainperf->get_tick(); 
-    long tick_offset = m_4bar_offset * c_ppqn * 16;
-    
-    int progress_x =     ( tick - tick_offset ) / c_perf_scale_x ; 
-    int old_progress_x = ( m_old_progress_ticks - tick_offset ) / c_perf_scale_x ; 
+    if ( ! is_realized() )
+        return;
 
-    /* draw old */
-    m_window->draw_drawable(m_gc, 
-			 m_pixmap, 
+    long tick = m_mainperf->get_tick();
+    long tick_offset = m_4bar_offset * c_ppqn * 16;
+
+    int progress_x =     ( tick - tick_offset ) / c_perf_scale_x ;
+    int old_progress_x = ( m_old_progress_ticks - tick_offset ) / c_perf_scale_x ;
+
+    /* erase old playhead by re-blitting the canvas column beneath it */
+    m_window->draw_drawable(m_gc,
+			 m_pixmap,
 			 old_progress_x, 0,
 			 old_progress_x, 0,
 			 1, m_window_y );
 
-    m_gc->set_foreground(m_black);
+    /* bright moving playhead */
+    m_gc->set_foreground(m_white);
     m_window->draw_line(m_gc,
 		       progress_x, 0,
 		       progress_x, m_window_y);
-    
+
     m_old_progress_ticks = tick;
 }
 
@@ -366,17 +318,19 @@ void perfroll::draw_sequence_on( Glib::RefPtr<Gdk::Drawable> a_draw, int a_seque
                     // adjust to screen corrids
 		    x = x - x_offset;
 
+                    /* clip body: light grey, brighter (near-white) when
+                       selected -- clean B/W clip rectangle */
                     if ( selected )
-                        m_gc->set_foreground(m_grey);
-                    else
                         m_gc->set_foreground(m_white);
-                    
+                    else
+                        m_gc->set_foreground(m_note);
+
 		    a_draw->draw_rectangle(m_gc,true,
 					   x,
 					   y,
 					   w,
 					   h );
-		    
+
 		    m_gc->set_foreground(m_black);
 		    a_draw->draw_rectangle(m_gc,false,
 					   x,
@@ -478,7 +432,33 @@ void perfroll::draw_sequence_on( Glib::RefPtr<Gdk::Drawable> a_draw, int a_seque
                
                         
                         tick_marker += sequence_length;
-		    }   
+		    }
+
+                    /* clip title: pattern name on a dark title-bar (DAW-style),
+                       drawn last so it stays legible over the note preview */
+                    {
+                        const char *nm = seq->get_name();
+                        if ( nm != 0 && w > 10 )
+                        {
+                            int max_chars = (w - 4) / 6;
+                            if ( max_chars > 0 )
+                            {
+                                char lbl[32];
+                                strncpy( lbl, nm, sizeof(lbl)-1 );
+                                lbl[sizeof(lbl)-1] = 0;
+                                if ( (int)strlen(lbl) > max_chars )
+                                    lbl[max_chars] = 0;
+
+                                int tbh = 9;
+                                if ( tbh > h ) tbh = h;
+
+                                m_gc->set_foreground(m_black);
+                                a_draw->draw_rectangle(m_gc,true, x+1, y+1, w-1, tbh );
+                                p_font_renderer->render_string_on_drawable(m_gc,
+                                                   x+2, y+1, a_draw, lbl, font::WHITE );
+                            }
+                        }
+                    }
 		}
 	    }
 	}
@@ -491,44 +471,62 @@ void perfroll::draw_sequence_on( Glib::RefPtr<Gdk::Drawable> a_draw, int a_seque
 void perfroll::draw_background_on( Glib::RefPtr<Gdk::Drawable> a_draw, int a_sequence )
 {
     long tick_offset = m_4bar_offset * c_ppqn * 16;
-    long first_measure = tick_offset / m_measure_length;
 
-    a_sequence -= m_sequence_offset;
+    int abs_seq = a_sequence;             /* absolute track index (parity)      */
+    a_sequence -= m_sequence_offset;      /* on-screen row                      */
 
     int y = c_names_y * a_sequence;
     int h = c_names_y;
 
-    
-    m_gc->set_foreground(m_white);
-    a_draw->draw_rectangle(m_gc,true,
-                         0,
-                         y,
-                         m_window_x,
-                         h );
+    int beat_len = m_beat_length    > 0 ? m_beat_length    : c_ppqn;
+    int meas_len = m_measure_length > 0 ? m_measure_length : ( c_ppqn * 4 );
 
-    m_gc->set_foreground(m_black);
-    for ( int i = first_measure;
-              i < first_measure +
-                  (m_window_x * c_perf_scale_x /
-                   (m_measure_length)) + 1;
-          
-              i++ )
+    /* lane fill: subtle alternating grey striping (DAW arrangement lanes) */
+    m_gc->set_foreground( (abs_seq % 2) == 0 ? m_panel : m_black );
+    a_draw->draw_rectangle( m_gc, true, 0, y, m_window_x, h );
+
+    /* bar / beat grid, drawn directly:
+         - bar (measure) boundaries : solid, bright
+         - beat subdivisions        : dashed, dim (skipped if too dense)      */
+    int beat_px = beat_len / c_perf_scale_x;
+    bool draw_beats = ( beat_px >= 4 );
+
+    gint8 dash = 2;
+    m_gc->set_dashes( 0, &dash, 1 );
+
+    long first = tick_offset - ( tick_offset % beat_len );
+    for ( long tick = first; ; tick += beat_len )
     {
-        int x_pos = ((i * m_measure_length) - tick_offset) / c_perf_scale_x;
+        int x_pos = (int)( ( tick - tick_offset ) / c_perf_scale_x );
+        if ( x_pos > m_window_x )
+            break;
+        if ( x_pos < 0 )
+            continue;
 
+        bool measure = ( tick % meas_len ) == 0;
+        if ( !measure && !draw_beats )
+            continue;
 
-           a_draw->draw_drawable(m_gc, m_background,
-                                 0,
-                                 0,
-                                 x_pos,
-                                 y,
-                                 c_perfroll_background_x,
-                                 c_names_y );
-
+        if ( measure )
+        {
+            m_gc->set_line_attributes( 1, Gdk::LINE_SOLID,
+                                       Gdk::CAP_NOT_LAST, Gdk::JOIN_MITER );
+            m_gc->set_foreground( m_grey );
+        }
+        else
+        {
+            m_gc->set_line_attributes( 1, Gdk::LINE_ON_OFF_DASH,
+                                       Gdk::CAP_NOT_LAST, Gdk::JOIN_MITER );
+            m_gc->set_foreground( m_lt_grey );
+        }
+        a_draw->draw_line( m_gc, x_pos, y, x_pos, y + h );
     }
 
-    
-
+    /* reset line style + draw the lane bottom separator */
+    m_gc->set_line_attributes( 1, Gdk::LINE_SOLID,
+                               Gdk::CAP_NOT_LAST, Gdk::JOIN_MITER );
+    m_gc->set_foreground( m_lt_grey );
+    a_draw->draw_line( m_gc, 0, y + h - 1, m_window_x, y + h - 1 );
 }
 
 
@@ -574,8 +572,11 @@ perfroll::on_expose_event(GdkEventExpose* e)
 void
 perfroll::redraw_dirty_sequences( void )
 {
+    if ( ! is_realized() )
+        return;
+
     bool draw = false;
-    
+
     int y_s = 0;
     int y_f = m_window_y / c_names_y;
     

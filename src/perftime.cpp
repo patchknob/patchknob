@@ -20,23 +20,25 @@
 #include "event.h"
 #include "perftime.h"
 #include "font.h"
+#include "ui/palette.h"
 
 
-perftime::perftime( perform *a_perf, Adjustment *a_hadjust ): DrawingArea() 
-{     
+perftime::perftime( perform *a_perf, Adjustment *a_hadjust ): DrawingArea()
+{
     m_mainperf = a_perf;
 
-    add_events( Gdk::BUTTON_PRESS_MASK |  
+    add_events( Gdk::BUTTON_PRESS_MASK |
 		Gdk::BUTTON_RELEASE_MASK );
 
-    // in the construor you can only allocate colors, 
+    // in the construor you can only allocate colors,
     // get_window() returns 0 because we have not be realized
    Glib::RefPtr<Gdk::Colormap> colormap = get_default_colormap();
 
-    m_black = Gdk::Color( "black" );
-    m_white = Gdk::Color( "white" );
-    m_grey = Gdk::Color( "grey" );
-    
+    /* monochrome DAW palette (src/ui/palette.h) */
+    m_black = synth::gdk_color( synth::cBg );      // dark ruler background
+    m_white = synth::gdk_color( synth::cHi );      // near-white text
+    m_grey  = synth::gdk_color( synth::cAccent );  // light grey lines / markers
+
     colormap->alloc_color( m_black );
     colormap->alloc_color( m_white );
     colormap->alloc_color( m_grey );
@@ -128,23 +130,24 @@ perftime::draw_pixmap_on_window()
 bool
 perftime::on_expose_event(GdkEventExpose* a_e)
 {
-    /* clear background */
-    m_gc->set_foreground(m_white);
+    /* clear background (dark ruler) */
+    m_gc->set_foreground(m_black);
     m_window->draw_rectangle(m_gc,true,
 			    0,
-			    0, 
-			    m_window_x, 
+			    0,
+			    m_window_x,
 			    m_window_y );
 
-    m_gc->set_foreground(m_black);
+    /* baseline under the ruler */
+    m_gc->set_foreground(m_grey);
     m_window->draw_line(m_gc,
 		       0,
 		       m_window_y - 1,
 		       m_window_x,
 		       m_window_y - 1 );
-    
-    
-    /* draw vert lines */
+
+
+    /* draw vert measure lines */
     m_gc->set_foreground(m_grey);
 
     long tick_offset = (m_4bar_offset * 16 * c_ppqn);
@@ -172,14 +175,14 @@ perftime::on_expose_event(GdkEventExpose* a_e)
 			   m_window_y );
 	
 	char bar[5];
-	sprintf( bar, "%d", i + 1 ); 
-	
-	m_gc->set_foreground(m_black);
+	sprintf( bar, "%d", i + 1 );
+
+	m_gc->set_foreground(m_white);
 
         p_font_renderer->render_string_on_drawable(m_gc,
-                                                   x_pos + 2, 
+                                                   x_pos + 2,
                                                    0,
-                                                   m_window, bar, font::BLACK );
+                                                   m_window, bar, font::WHITE );
     }
 
     long left = m_mainperf->get_left_tick( );
@@ -192,32 +195,32 @@ perftime::on_expose_event(GdkEventExpose* a_e)
 
     if ( left >=0 && left <= m_window_x ){
 
-	m_gc->set_foreground(m_black);
+	m_gc->set_foreground(m_grey);
 	m_window->draw_rectangle(m_gc,true,
-				    left, m_window_y - 9, 
-				    7, 
+				    left, m_window_y - 9,
+				    7,
 				    10 );
 
-	m_gc->set_foreground(m_white);
+	m_gc->set_foreground(m_black);
     p_font_renderer->render_string_on_drawable(m_gc,
                                                left + 1,
                                                9,
-                                               m_window, "L", font::WHITE );
+                                               m_window, "L", font::BLACK );
     }
 
     if ( right >=0 && right <= m_window_x ){
-	
-	m_gc->set_foreground(m_black);
+
+	m_gc->set_foreground(m_grey);
 	m_window->draw_rectangle(m_gc,true,
-				    right - 6, m_window_y - 9, 
-				    7, 
+				    right - 6, m_window_y - 9,
+				    7,
 				    10 );
 
-	m_gc->set_foreground(m_white);
+	m_gc->set_foreground(m_black);
     p_font_renderer->render_string_on_drawable(m_gc,
                                                right - 6 + 1,
                                                9,
-                                               m_window, "R", font::WHITE );
+                                               m_window, "R", font::BLACK );
 
     }
 

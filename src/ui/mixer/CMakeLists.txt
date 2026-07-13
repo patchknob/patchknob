@@ -18,7 +18,9 @@
 cmake_minimum_required( VERSION 3.10 )
 project( seq24_mixer CXX )
 
-set( CMAKE_CXX_STANDARD 11 )
+# C++17: the live test compiles the engine graph sources (authored for C++17)
+# directly into the test executable.
+set( CMAKE_CXX_STANDARD 17 )
 set( CMAKE_CXX_STANDARD_REQUIRED ON )
 
 # Locate gtkmm-2.4 via pkg-config.
@@ -39,6 +41,32 @@ target_compile_options( seq24mixer PUBLIC ${GTKMM_CFLAGS_OTHER} )
 target_link_libraries( seq24mixer PUBLIC ${GTKMM_LIBRARIES} )
 target_link_directories( seq24mixer PUBLIC ${GTKMM_LIBRARY_DIRS} )
 
-# Standalone test / demo executable.
+# Standalone UI-only test / demo executable (dummy animated data).
 add_executable( mixer_test mixer_test.cpp )
 target_link_libraries( mixer_test PRIVATE seq24mixer )
+
+# -----------------------------------------------------------------------------
+# Live test: binds the mixer UI to a REAL engine::MixerGraph via
+# seq24::mixer::show_mixer() (src/mixerapp.cpp) and drives it with a fake
+# render loop so the strips show live, moving VU meters.
+#
+# It compiles the engine graph sources + mixerapp.cpp straight into the exe so
+# it builds both standalone (cmake -S src/ui/mixer) and in-tree, without needing
+# the top-level target graph.
+# -----------------------------------------------------------------------------
+set( SEQ24_SRC_DIR   "${CMAKE_CURRENT_SOURCE_DIR}/../.." )
+set( SEQ24_GRAPH_DIR "${SEQ24_SRC_DIR}/engine/graph" )
+
+add_executable( mixer_live_test
+    mixer_live_test.cpp
+    "${SEQ24_SRC_DIR}/mixerapp.cpp"
+    "${SEQ24_GRAPH_DIR}/track.cpp"
+    "${SEQ24_GRAPH_DIR}/mixer_graph.cpp"
+)
+target_include_directories( mixer_live_test PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}     # mixer widget headers ("mixer_window.h")
+    ${SEQ24_SRC_DIR}                # src root ("mixerapp.h", "engine/...", "ui/...")
+    ${GTKMM_INCLUDE_DIRS}
+)
+target_compile_options( mixer_live_test PRIVATE ${GTKMM_CFLAGS_OTHER} )
+target_link_libraries( mixer_live_test PRIVATE seq24mixer )
