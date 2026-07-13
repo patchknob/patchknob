@@ -46,15 +46,19 @@ void vline(SDL_Renderer* r, int x, int y0, int y1, Color c);
 // ---- monospace glyph atlas (one texture, built once) -----------------------
 class Font {
 public:
-    bool  load(SDL_Renderer* r, int pt);          // tries a cross-platform list
-    int   cw() const { return m_cw; }             // cell (advance) width
-    int   ch() const { return m_ch; }             // cell height
+    // pt is LOGICAL; the atlas is rasterized at pt*scale physical px so text is
+    // crisp under SDL_RenderSetScale(scale).  cw()/ch() are LOGICAL units.
+    bool  load(SDL_Renderer* r, int pt, float scale = 1.0f);
+    int   cw() const { return m_cw; }             // logical cell (advance) width
+    int   ch() const { return m_ch; }             // logical cell height
     int   text_w(const std::string& s) const { return int(s.size()) * m_cw; }
     void  draw(SDL_Renderer* r, int x, int y, const std::string& s, Color c) const;
     void  draw_centered(SDL_Renderer* r, const SDL_Rect& box, const std::string& s, Color c) const;
 private:
     SDL_Texture* m_atlas = nullptr;
-    int m_cw = 8, m_ch = 14, m_first = 32, m_last = 126;
+    int m_cw = 8, m_ch = 14;            // logical cell (for layout + dst rects)
+    int m_cwP = 8, m_chP = 14;          // physical atlas cell (src rects)
+    int m_first = 32, m_last = 126;
 };
 
 // ---- widget base -----------------------------------------------------------
@@ -116,7 +120,8 @@ struct App {
     SDL_Renderer* ren = nullptr;
     Font          font;      // UI font
     Font          mono;      // smaller monospace for grids
-    int           w = 1280, h = 800;
+    int           w = 1280, h = 800;   // LOGICAL size (physical / scale)
+    float         scale = 1.0f;         // HiDPI / high-res render scale
     bool          running = true;
     bool          dirty = true;                  // redraw requested
     bool          animating = false;             // continuous redraw (playback)

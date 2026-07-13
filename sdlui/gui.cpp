@@ -35,8 +35,10 @@ void hline(SDL_Renderer* r, int x0, int x1, int y, Color c) { set_color(r,c); SD
 void vline(SDL_Renderer* r, int x, int y0, int y1, Color c) { set_color(r,c); SDL_RenderDrawLine(r,x,y0,x,y1); }
 
 // ---- font atlas ------------------------------------------------------------
-bool Font::load(SDL_Renderer* r, int pt)
+bool Font::load(SDL_Renderer* r, int ptLogical, float scale)
 {
+    if (scale <= 0.f) scale = 1.0f;
+    int pt = (int)(ptLogical * scale + 0.5f);
     static const char* candidates[] = {
         "C:/Windows/Fonts/consola.ttf", "C:/Windows/Fonts/cour.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
@@ -48,18 +50,20 @@ bool Font::load(SDL_Renderer* r, int pt)
     if (!f) { fprintf(stderr, "[sdlui] no monospace TTF found\n"); return false; }
 
     int adv = 0; TTF_GlyphMetrics(f, 'M', nullptr,nullptr,nullptr,nullptr, &adv);
-    m_cw = adv > 0 ? adv : TTF_FontHeight(f)/2;
-    m_ch = TTF_FontHeight(f);
+    m_cwP = adv > 0 ? adv : TTF_FontHeight(f)/2;   // physical atlas cell
+    m_chP = TTF_FontHeight(f);
+    m_cw  = (int)(m_cwP / scale + 0.5f);           // logical cell (layout/dst)
+    m_ch  = (int)(m_chP / scale + 0.5f);
     int n = m_last - m_first + 1;
 
-    SDL_Surface* atlas = SDL_CreateRGBSurfaceWithFormat(0, m_cw*n, m_ch, 32, SDL_PIXELFORMAT_RGBA32);
+    SDL_Surface* atlas = SDL_CreateRGBSurfaceWithFormat(0, m_cwP*n, m_chP, 32, SDL_PIXELFORMAT_RGBA32);
     SDL_SetSurfaceBlendMode(atlas, SDL_BLENDMODE_NONE);
     SDL_Color white { 255,255,255,255 };
     for (int c = m_first; c <= m_last; ++c) {
         char s[2] = { (char)c, 0 };
         SDL_Surface* g = TTF_RenderText_Blended(f, s, white);
         if (g) {
-            SDL_Rect dst { (c - m_first)*m_cw, 0, g->w, g->h };
+            SDL_Rect dst { (c - m_first)*m_cwP, 0, g->w, g->h };
             SDL_SetSurfaceBlendMode(g, SDL_BLENDMODE_NONE);
             SDL_BlitSurface(g, nullptr, atlas, &dst);
             SDL_FreeSurface(g);
@@ -80,8 +84,8 @@ void Font::draw(SDL_Renderer* r, int x, int y, const std::string& s, Color c) co
     for (size_t i = 0; i < s.size(); ++i) {
         int ch = (unsigned char)s[i];
         if (ch < m_first || ch > m_last) continue;
-        SDL_Rect src { (ch - m_first)*m_cw, 0, m_cw, m_ch };
-        SDL_Rect dst { x + int(i)*m_cw, y, m_cw, m_ch };
+        SDL_Rect src { (ch - m_first)*m_cwP, 0, m_cwP, m_chP };   // physical atlas
+        SDL_Rect dst { x + int(i)*m_cw, y, m_cw, m_ch };          // logical (scaled)
         SDL_RenderCopy(r, m_atlas, &src, &dst);
     }
 }
@@ -159,13 +163,28 @@ bool App::init(const char* title) {
     if (SDL_Init(SDL_INIT_VIDEO) != 0) { fprintf(stderr,"SDL_Init: %s\n", SDL_GetError()); return false; }
     if (TTF_Init() != 0) { fprintf(stderr,"TTF_Init: %s\n", TTF_GetError()); return false; }
     window = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                              w, h, SDL_WINDOW_RESIZABLE);
+                              w, h, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
     if (!window) { fprintf(stderr,"CreateWindow: %s\n", SDL_GetError()); return false; }
     ren = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     if (!ren) ren = SDL_CreateRenderer(window, -1, 0);   // software fallback (e.g. headless)
     if (!ren) { fprintf(stderr,"CreateRenderer: %s\n", SDL_GetError()); return false; }
-    if (!font.load(ren, 15)) return false;
-    mono.load(ren, 13);
+
+    // HiDPI / high-res: env override, else auto from the physical/logical ratio.
+    scale = 1.0f;
+    if (const char* s = getenv("SEQ24SDL_SCALE")) {
+        float v = (float)atof(s); if (v >= 0.5f && v <= 4.0f) scale = v;
+    } else {
+        int pw,ph,ww,wh; SDL_GetRendererOutputSize(ren,&pw,&ph); SDL_GetWindowSize(window,&ww,&wh);
+        if (ww > 0) { float a = (float)pw/ww; if (a >= 1.0f && a <= 4.0f) scale = a; }
+    }
+    { int pw,ph; SDL_GetRendererOutputSize(ren,&pw,&ph);
+      w = (int)(pw/scale + 0.5f); h = (int)(ph/scale + 0.5f); }
+    // logical size scales rendering to the physical output AND maps mouse coords
+    // into logical space automatically.
+    SDL_RenderSetLogicalSize(ren, w, h);
+
+    if (!font.load(ren, 15, scale)) return false;
+    mono.load(ren, 13, scale);
     return true;
 }
 
@@ -177,7 +196,9 @@ void App::run(std::function<void(App&)> draw_extra) {
             case SDL_QUIT: running = false; break;
             case SDL_WINDOWEVENT:
                 if (ev.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
-                    w = ev.window.data1; h = ev.window.data2; dirty = true;
+                    int pw,ph; SDL_GetRendererOutputSize(ren,&pw,&ph);
+                    w = (int)(pw/scale + 0.5f); h = (int)(ph/scale + 0.5f);
+                    SDL_RenderSetLogicalSize(ren, w, h); dirty = true;
                 } else if (ev.window.event == SDL_WINDOWEVENT_EXPOSED) dirty = true;
                 break;
             case SDL_MOUSEBUTTONDOWN: case SDL_MOUSEBUTTONUP: {
