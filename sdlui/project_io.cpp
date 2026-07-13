@@ -266,6 +266,19 @@ bool load_project(perform& p, const std::string& path)
     using namespace seq24::engine;
     MixerGraph* graph = audio_app_running() ? audio_app_graph() : nullptr;
 
+    // Reset every track to a clean default first, so loading over a live
+    // session doesn't leave stale instruments / mix state on tracks the file
+    // doesn't mention (verify P1).
+    if (graph) {
+        for (int t = 0; t < graph->trackCount(); ++t) {
+            if (Track* trk = graph->track(t)) {
+                trk->setInstrument(nullptr);
+                trk->setGain(1.0f); trk->setPan(0.0f);
+                trk->setMute(false); trk->setSolo(false);
+            }
+        }
+    }
+
     // walk sections
     while (r.ok && r.pos + 8 <= r.n) {
         char tag[4];
