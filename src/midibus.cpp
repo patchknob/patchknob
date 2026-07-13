@@ -39,6 +39,8 @@
 #include <cstdio>
 #include <vector>
 #include <deque>
+#include <thread>
+#include <chrono>
 
 //=============================================================================
 //  midibus
@@ -591,6 +593,15 @@ mastermidibus::poll_for_midi()
 
     int count = (int) m_in_queue.size();
     unlock();
+
+    if ( count == 0 )
+    {
+        // The ALSA backend blocked in poll(); RtMidi's getMessage() is non-
+        // blocking, so without this the perform input thread (input_func) spins
+        // a full CPU core.  Throttle to ~1 kHz: sub-millisecond MIDI-in latency,
+        // negligible CPU.
+        std::this_thread::sleep_for( std::chrono::milliseconds( 1 ) );
+    }
     return count;
 }
 
