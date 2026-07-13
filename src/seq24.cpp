@@ -30,6 +30,7 @@
 #include "font.h"
 #include "lash.h"
 #include "audio_app.h"
+#include "apptheme.h"
 
 /* struct for command parsing */
 static struct 
@@ -104,6 +105,11 @@ main (int argc, char *argv[])
     /* all GTK applications must have a gtk_main(). Control ends here
        and waits for an event to occur (like a key press or mouse event). */
     Gtk::Main kit(argc, argv);
+
+    /* apply the default theme (Light: white bg + black/greyscale) to all chrome
+       and the custom-draw palette.  Toggle to Midnight (black + green) via the
+       View > Theme menu. */
+    seq24::theme::set_mode( seq24::theme::ANCIENT );
 
     p_font_renderer = new font();
 

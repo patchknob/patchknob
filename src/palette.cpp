@@ -29,21 +29,21 @@
 
 namespace synth
 {
-    //  Live palette entries.  Initialized to the ANCIENT table so that any
+    //  Live palette entries.  Initialized to the LIGHT (ancient) table so any
     //  static/early draw before set_palette() runs is already sensible.
-    unsigned int cBg      = 0xFF000000u;
-    unsigned int cPanel   = 0xFF161616u;
-    unsigned int cAccent  = 0xFFB4B4B4u;
-    unsigned int cSel     = 0xFFFFFFFFu;
-    unsigned int cActive  = 0xFFFFFFFFu;
-    unsigned int cHi      = 0xFFEDEDEDu;
-    unsigned int cDim     = 0xFF6E6E6Eu;
-    unsigned int cWhite   = 0xFFF2F2F2u;
-    unsigned int cBlk     = 0xFF0C0C0Cu;
-    unsigned int cNote    = 0xFFC8C8C8u;
-    unsigned int cNoteSel = 0xFFFFFFFFu;
-    unsigned int cScale   = 0xFF050505u;
-    unsigned int cChordBg = 0xFF0D0D0Du;
+    unsigned int cBg      = 0xFFFFFFFFu;
+    unsigned int cPanel   = 0xFFECECECu;
+    unsigned int cAccent  = 0xFF404040u;
+    unsigned int cSel     = 0xFF000000u;
+    unsigned int cActive  = 0xFF000000u;
+    unsigned int cHi      = 0xFF101010u;
+    unsigned int cDim     = 0xFF9A9A9Au;
+    unsigned int cWhite   = 0xFF000000u;
+    unsigned int cBlk     = 0xFFF0F0F0u;
+    unsigned int cNote    = 0xFF383838u;
+    unsigned int cNoteSel = 0xFF000000u;
+    unsigned int cScale   = 0xFFF7F7F7u;
+    unsigned int cChordBg = 0xFFF0F0F0u;
 
     namespace
     {
@@ -51,22 +51,24 @@ namespace synth
         //  Index: 0 Bg  1 Panel  2 Accent  3 Sel  4 Active  5 Hi  6 Dim
         //         7 White  8 Blk  9 Note  10 NoteSel  11 Scale  12 ChordBg
 
-        // ----- ANCIENT: grayscale black & white (original values) -----------
+        // ----- LIGHT ("ancient"): WHITE background, black/greyscale fg -------
+        //  A clean light theme: white canvas, dark-grey/black notes, text and
+        //  playhead; mid-grey grid lines.  Strictly greyscale (R==G==B).
         const unsigned int k_ancient[13] =
         {
-            0xFF000000u,  // cBg      pure black window background
-            0xFF161616u,  // cPanel   dark grey panel / even rows
-            0xFFB4B4B4u,  // cAccent  light grey root rows / selection chrome
-            0xFFFFFFFFu,  // cSel     white lasso / paste cursor
-            0xFFFFFFFFu,  // cActive  white playhead
-            0xFFEDEDEDu,  // cHi      near-white text
-            0xFF6E6E6Eu,  // cDim     mid grey inactive / grid
-            0xFFF2F2F2u,  // cWhite   white text
-            0xFF0C0C0Cu,  // cBlk     key strip near-black
-            0xFFC8C8C8u,  // cNote    light grey note body
-            0xFFFFFFFFu,  // cNoteSel white selected note
-            0xFF050505u,  // cScale   barely-there scale tint
-            0xFF0D0D0Du   // cChordBg chord timeline bg
+            0xFFFFFFFFu,  // cBg      white window background
+            0xFFECECECu,  // cPanel   light grey panel / even rows
+            0xFF404040u,  // cAccent  dark grey root rows / selection chrome
+            0xFF000000u,  // cSel     black lasso / paste cursor
+            0xFF000000u,  // cActive  black playhead
+            0xFF101010u,  // cHi      near-black text
+            0xFF9A9A9Au,  // cDim     mid grey grid / inactive
+            0xFF000000u,  // cWhite   black text (darkest)
+            0xFFF0F0F0u,  // cBlk     light key strip background
+            0xFF383838u,  // cNote    dark grey note body (on white)
+            0xFF000000u,  // cNoteSel black selected note
+            0xFFF7F7F7u,  // cScale   very light scale tint
+            0xFFF0F0F0u   // cChordBg light chord timeline bg
         };
 
         // ----- MIDNIGHT: green-phosphor CRT terminal ------------------------

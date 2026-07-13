@@ -22,10 +22,21 @@
 #include "midifile.h"
 #include "perfedit.h"
 
+#include "audio_app.h"
+#include "apptheme.h"
+#include "mixerapp.h"
+#include "rackapp.h"
+
 #include "play2.xpm"
 #include "stop.xpm"
 #include "perfedit.xpm"
 #include "seq24.xpm"
+
+/* menu handlers for the DAW additions (file-scope so mainwnd.h is untouched) */
+static void menu_theme_light()    { seq24::theme::set_mode( seq24::theme::ANCIENT ); }
+static void menu_theme_midnight() { seq24::theme::set_mode( seq24::theme::MIDNIGHT ); }
+static void menu_open_mixer()     { seq24::mixer::show_mixer( seq24::app::audio_app_graph() ); }
+static void menu_open_plugins()   { seq24::rack::show_plugin_browser( 0 ); }
  
 mainwnd::mainwnd(perform *a_p)
 {
@@ -66,11 +77,21 @@ mainwnd::mainwnd(perform *a_p)
                                    mem_fun(*this,&mainwnd::toggle_clip_grid)));
     m_menu_view->items().push_back(MenuElem("Song / Arrangement Editor...",
                                    mem_fun(*this,&mainwnd::open_performance_edit)));
+    m_menu_view->items().push_back(SeparatorElem());
+    m_menu_view->items().push_back(MenuElem("Mixer...",          sigc::ptr_fun(&menu_open_mixer)));
+    m_menu_view->items().push_back(MenuElem("Plugin Browser...", sigc::ptr_fun(&menu_open_plugins)));
+
+    /* Theme menu: the two strict modes -- Light (white/black-grey) and
+       Midnight (black/green). */
+    Menu *menu_theme = manage( new Menu() );
+    menu_theme->items().push_back(MenuElem("Light  (white / black)",   sigc::ptr_fun(&menu_theme_light)));
+    menu_theme->items().push_back(MenuElem("Midnight  (black / green)", sigc::ptr_fun(&menu_theme_midnight)));
 
     m_menu_help->items().push_back(MenuElem("About", mem_fun(*this,&mainwnd::about_dialog)));
 
     m_menubar->items().push_back(MenuElem("File", *m_menu_file));
     m_menubar->items().push_back(MenuElem("View", *m_menu_view));
+    m_menubar->items().push_back(MenuElem("Theme", *menu_theme));
     m_menubar->items().push_back(MenuElem("Help", *m_menu_help));
 
     HBox *hbox = manage( new HBox( false, 2 ) );

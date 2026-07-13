@@ -64,32 +64,32 @@ struct chrome_colors
     const char *tip_bg, *tip_fg;
 };
 
-// ----- ANCIENT: grayscale black & white -------------------------------------
+// ----- LIGHT ("ancient"): WHITE background, black/greyscale widgets ----------
 const chrome_colors k_ancient =
 {
-    /* fg   */ "#000000", "#000000", "#000000", "#ffffff", "#6f6f6f",
-    /* bg   */ "#b8b8b8", "#8f8f8f", "#cfcfcf", "#000000", "#b0b0b0",
-    /* base */ "#ffffff", "#000000", "#ffffff", "#000000", "#d8d8d8",
-    /* text */ "#000000", "#ffffff", "#000000", "#ffffff", "#808080",
+    /* fg   */ "#000000", "#000000", "#000000", "#ffffff", "#8a8a8a",
+    /* bg   */ "#f4f4f4", "#d6d6d6", "#ffffff", "#000000", "#ececec",
+    /* base */ "#ffffff", "#000000", "#ffffff", "#000000", "#f2f2f2",
+    /* text */ "#000000", "#ffffff", "#000000", "#ffffff", "#9a9a9a",
     /* mi   */ "#000000", "#ffffff",
     /* entry*/ "#ffffff",
     /* tip  */ "#ffffff", "#000000"
 };
 
 // ----- MIDNIGHT: green-phosphor CRT terminal --------------------------------
-//  Near-black green backgrounds, phosphor-green foreground/borders; selection
-//  is a bright-green bar with near-black text (classic inverted CRT highlight).
-//  Panel bg is a dark green (not pure black) so the default engine's derived
-//  bevels read as visible green edges.
+//  DEEP BLACK backgrounds with bright, HIGH-CONTRAST phosphor-green text so the
+//  green pops hard off the black.  Buttons lift only a hair on hover so the
+//  bevel is still perceptible; selection inverts to a bright-green bar with pure
+//  black text (classic CRT highlight).
 const chrome_colors k_midnight =
 {
-    /* fg   */ "#4dff80", "#7dffa0", "#7dffa0", "#04160a", "#2a7d45",
-    /* bg   */ "#0d2e14", "#061c0b", "#123c1b", "#33ff66", "#0a220f",
-    /* base */ "#04160a", "#33ff66", "#04160a", "#33ff66", "#0a1f0f",
-    /* text */ "#4dff80", "#04160a", "#7dffa0", "#04160a", "#2a7d45",
-    /* mi   */ "#33ff66", "#04160a",
-    /* entry*/ "#04160a",
-    /* tip  */ "#04160a", "#4dff80"
+    /* fg   */ "#48ff80", "#9fffc0", "#9fffc0", "#000000", "#1c8f42",
+    /* bg   */ "#030d06", "#010603", "#0a1f0f", "#33ff66", "#050d08",
+    /* base */ "#000000", "#33ff66", "#000000", "#33ff66", "#04120a",
+    /* text */ "#48ff80", "#000000", "#9fffc0", "#000000", "#1c8f42",
+    /* mi   */ "#33ff66", "#000000",
+    /* entry*/ "#000000",
+    /* tip  */ "#000000", "#48ff80"
 };
 
 //  Build a full RC string for one mode.  Style NAMES are identical across modes
