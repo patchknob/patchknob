@@ -26,3 +26,6 @@ src/engine/host/scan_inventory.txt
 
 sdlui/build/
 sdlui/*.png
+
+sdlui/views/*/build/
+sdlui/views/*/*.png

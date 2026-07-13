@@ -1,18 +1,20 @@
 cmake_minimum_required(VERSION 3.15)
-project(seq24sdl CXX)
+project(pianoroll_test CXX)
 
 # ---------------------------------------------------------------------------
-# seq24 SDL2 frontend -- links the gtkmm-free engine core + the engine module
-# libs, so the new UI drives the real sequencer / VST host / audio graph.
+# Stand-alone test build for the SDL2 Piano Roll view.  Mirrors
+# sdlui/CMakeLists.txt: it compiles the gtkmm-free engine core + the engine
+# module libs so the view drives a real seq24 `sequence`.
 #   export PATH="/c/msys64/mingw64/bin:$PATH"
-#   cmake -S sdlui -B sdlui/build -G "MinGW Makefiles"
-#   cmake --build sdlui/build -j
+#   cmake -S sdlui/views/piano_roll -B sdlui/views/piano_roll/build -G "MinGW Makefiles"
+#   cmake --build sdlui/views/piano_roll/build -j
 # ---------------------------------------------------------------------------
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(SRC   ${CMAKE_CURRENT_SOURCE_DIR}/../src)
-set(VEND  ${CMAKE_CURRENT_SOURCE_DIR}/../vendor)
+set(SDLUI ${CMAKE_CURRENT_SOURCE_DIR}/../..)
+set(SRC   ${SDLUI}/../src)
+set(VEND  ${SDLUI}/../vendor)
 set(RTMIDI_DIR ${VEND}/rtmidi)
 
 find_package(PkgConfig REQUIRED)
@@ -35,25 +37,21 @@ set(CORE_SRC
     ${RTMIDI_DIR}/RtMidi.cpp
 )
 
-set(VIEW_SRC
-    views/piano_roll/pianoroll.cpp
-    views/tracker/tracker_view.cpp
-    views/arrange/arrange_view.cpp
-    views/mixer/mixer_view.cpp
-    views/patchbay/patch_view.cpp
-    views/browser/browser_view.cpp
-)
+add_executable(pianoroll_test
+    test_main.cpp
+    pianoroll.cpp
+    ${SDLUI}/gui.cpp
+    ${SDLUI}/engine_globals.cpp
+    ${CORE_SRC})
 
-add_executable(seq24sdl main.cpp gui.cpp engine_globals.cpp ${VIEW_SRC} ${CORE_SRC})
-
-target_include_directories(seq24sdl PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR} ${SRC} ${SRC}/engine ${RTMIDI_DIR}
+target_include_directories(pianoroll_test PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR} ${SDLUI} ${SRC} ${SRC}/engine ${RTMIDI_DIR}
     ${SDL2_INCLUDE_DIRS} ${SDL2TTF_INCLUDE_DIRS})
-target_compile_definitions(seq24sdl PRIVATE __WINDOWS_MM__)
-target_compile_options(seq24sdl PRIVATE -Wall)
-target_link_directories(seq24sdl PRIVATE ${SDL2_LIBRARY_DIRS} ${SDL2TTF_LIBRARY_DIRS})
+target_compile_definitions(pianoroll_test PRIVATE __WINDOWS_MM__)
+target_compile_options(pianoroll_test PRIVATE -Wall)
+target_link_directories(pianoroll_test PRIVATE ${SDL2_LIBRARY_DIRS} ${SDL2TTF_LIBRARY_DIRS})
 
-target_link_libraries(seq24sdl PRIVATE
+target_link_libraries(pianoroll_test PRIVATE
     ${SDL2TTF_LIBRARIES} ${SDL2_LIBRARIES}
     seq24_pluginhost seq24_vst2 seq24_vst3 seq24_graph seq24_audio
     winmm pthread)
