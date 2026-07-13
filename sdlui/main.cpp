@@ -9,6 +9,7 @@
 #include "gui.h"
 #include "audio_app.h"
 #include "engine/plugin_api.h"
+#include "engine/audio/audio_engine.h"
 #include "perform.h"
 #include "sequence.h"
 
@@ -43,9 +44,39 @@ int main(int, char**)
     // --- engine model: a sequencer with a couple of demo sequences ----------
     perform perf;
     perf.init();
+    perf.launch_input_thread();
+    perf.launch_output_thread();
     perf.new_sequence(0);
     perf.new_sequence(1);
     sequence* seq0 = perf.is_active(0) ? perf.get_sequence(0) : nullptr;
+
+    // demo riff on seq 0 (bus 0 == graph track 0) so PLAY is audible
+    if (seq0) {
+        seq0->set_midi_bus(0);
+        seq0->set_midi_channel(0);
+        seq0->set_length(c_ppqn * 4);
+        seq0->add_note(0,        c_ppqn/2, 60);
+        seq0->add_note(c_ppqn,   c_ppqn/2, 64);
+        seq0->add_note(c_ppqn*2, c_ppqn/2, 67);
+        seq0->add_note(c_ppqn*3, c_ppqn/2, 72);
+        seq0->set_playing(true);
+        seq0->set_dirty();
+    }
+
+    // Headless proof: SEQ24SDL_PLAYTEST=<vst> loads it, PLAYS the riff, measures
+    // the master peak over ~1.5s -> proves transport -> sequencer -> VST -> audio.
+    if (const char* pt = getenv("SEQ24SDL_PLAYTEST")) {
+        seq24::app::audio_app_set_track_instrument(0, vst_desc(pt));
+        perf.start(false);
+        SDL_Delay(1500);
+        float pk = audio_ok ? seq24::app::audio_app_engine()->masterPeak() : -1.f;
+        perf.stop();
+        printf("[sdl-playtest] master peak while playing = %.4f  (%s)\n",
+               pk, pk>0.0001f ? "PLAYING AUDIO" : "silent");
+        fflush(stdout);
+        seq24::app::audio_app_shutdown(); app.shutdown();
+        return pk>0.0001f ? 0 : 2;
+    }
 
     // --- the six views, bound to the real model -----------------------------
     arrange::ArrangeView    vArrange(&perf);
@@ -86,8 +117,8 @@ int main(int, char**)
     static std::string synthPath; { const char* v=getenv("SEQ24SDL_VST");
         synthPath = v?v:"C:\\Program Files\\Common Files\\VST3\\Jup-8000 V.vst3"; }
     bSynth.clicked=[&]{ if(audio_ok) seq24::app::audio_app_set_track_instrument(0, vst_desc(synthPath.c_str())); };
-    bPlay.clicked =[&]{ if(audio_ok) seq24::app::audio_app_route_midi(0,0x90,60,110); };
-    bStop.clicked =[&]{ if(audio_ok) seq24::app::audio_app_route_midi(0,0x80,60,0); };
+    bPlay.clicked =[&]{ perf.start(false); app.animating=true;  app.request_redraw(); }; // live play
+    bStop.clicked =[&]{ perf.stop();        app.animating=false; app.request_redraw(); };
 
     topbar.children = { &tabs[0],&tabs[1],&tabs[2],&tabs[3],&tabs[4],&tabs[5],
                         &bSynth,&bPlay,&bStop,&bTheme };

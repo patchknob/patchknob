@@ -119,6 +119,7 @@ struct App {
     int           w = 1280, h = 800;
     bool          running = true;
     bool          dirty = true;                  // redraw requested
+    bool          animating = false;             // continuous redraw (playback)
     std::vector<Widget*> roots;                  // top-level widgets
     std::function<void(App&)> on_layout;         // called before each redraw
 

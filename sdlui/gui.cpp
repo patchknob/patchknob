@@ -204,8 +204,9 @@ void App::run(std::function<void(App&)> draw_extra) {
                 break;
             }
         }
-        // Retained + dirty: only render when something changed.
-        if (dirty) {
+        // Retained + dirty: render on change, or continuously while animating
+        // (playback playhead).  Idle otherwise so the CPU stays free for audio.
+        if (dirty || animating) {
             if (on_layout) on_layout(*this);
             fill_rect(ren, SDL_Rect{0,0,w,h}, theme().bg);
             for (auto* rt : roots) if (rt->visible) rt->draw(*this);
