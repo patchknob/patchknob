@@ -90,6 +90,8 @@ TrackerView::row_start_tick( int row ) const
 long
 TrackerView::length_measures( void ) const
 {
+    if ( !m_seq )
+        return 1;
     long bpm = m_seq->get_bpm();
     if ( bpm < 1 ) bpm = 4;
     long measures = m_seq->get_length() / ( c_ppqn * bpm );
@@ -598,6 +600,8 @@ TrackerView::set_edit_step( int s )
 bool
 TrackerView::poll_playhead( void )
 {
+    if ( !m_seq )
+        return false;
     if ( !m_seq->get_playing() )
     {
         m_last_fire_row = -1;
@@ -646,6 +650,18 @@ void
 TrackerView::draw( App& app )
 {
     const Theme& th = theme();
+
+    // No bound sequence -> paint an empty, themed panel instead of dereferencing
+    // a null pointer (the shell may mount us before a pattern is chosen).
+    if ( !m_seq )
+    {
+        SDL_RenderSetClipRect( app.ren, &rect );
+        fill_rect( app.ren, rect, th.bg );
+        frame_rect( app.ren, rect, th.dim );
+        SDL_RenderSetClipRect( app.ren, nullptr );
+        return;
+    }
+
     const int cw = app.mono.cw();
     const int ch = app.mono.ch();
     const int row_h    = ch + 2;
@@ -819,6 +835,8 @@ TrackerView::on_mouse( App& app, const MouseEv& e )
     // toolbar clicks / releases that happen outside the grid).
     if ( !hit( e.x, e.y ) )
         return false;
+    if ( !m_seq )
+        return true;
     if ( !e.pressed || e.button != SDL_BUTTON_LEFT )
         return true;
 
@@ -864,6 +882,8 @@ TrackerView::on_mouse( App& app, const MouseEv& e )
 bool
 TrackerView::on_wheel( App& app, int /*dx*/, int dy )
 {
+    if ( !m_seq )
+        return false;
     m_top_row -= dy;
     int maxtop = num_rows() - visible_rows( app );
     if ( maxtop < 0 ) maxtop = 0;
@@ -876,6 +896,8 @@ TrackerView::on_wheel( App& app, int /*dx*/, int dy )
 bool
 TrackerView::on_key( App& app, SDL_Keycode k )
 {
+    if ( !m_seq )
+        return false;
     switch ( k )
     {
         case SDLK_UP:       move_cursor( app, -1, 0 ); return true;

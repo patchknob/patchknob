@@ -75,6 +75,7 @@ ArrangeView::ArrangeView(perform* p)
 std::vector<int> ArrangeView::active_list() const
 {
     std::vector<int> v;
+    if (!m_perf) return v;
     for (int i = 0; i < c_max_sequence; ++i)
         if (m_perf->is_active(i)) v.push_back(i);
     return v;
@@ -115,6 +116,14 @@ void ArrangeView::draw(App& app)
 {
     if (!visible) return;
     const Theme& t = theme();
+
+    // No bound perform -> paint an empty themed frame rather than crash.
+    if (!m_perf) {
+        fill_rect(app.ren, rect, t.bg);
+        frame_rect(app.ren, rect, t.dim);
+        return;
+    }
+
     std::vector<int> act = active_list();
 
     fill_rect(app.ren, rect, t.bg);
@@ -192,6 +201,7 @@ void ArrangeView::draw_clips(App& app, int seq, int lane_y)
     if (!m_perf->is_active(seq)) return;
     const Theme& t = theme();
     sequence* s = m_perf->get_sequence(seq);
+    if (!s) return;
     s->reset_draw_trigger_marker();
 
     int cvx = canvas_x();
@@ -304,6 +314,7 @@ void ArrangeView::draw_headers(App& app, const std::vector<int>& act)
         if (idx < 0 || idx >= (int)act.size()) continue;
         int seq = act[idx];
         sequence* s = m_perf->get_sequence(seq);
+        if (!s) continue;
         bool muted = s->get_song_mute();
 
         // status spine
@@ -396,6 +407,8 @@ void ArrangeView::draw_ruler(App& app, const std::vector<int>& act)
 //----------------------------------------------------------------------------
 bool ArrangeView::on_mouse(App& app, const MouseEv& e)
 {
+    if (!m_perf) return false;
+
     // release ---------------------------------------------------------------
     if (!e.pressed) {
         m_mouse_down = m_moving = m_growing = m_adding = false;
@@ -469,6 +482,7 @@ void ArrangeView::press_canvas(App& app, const MouseEv& e, int seq)
 {
     if (!m_perf->is_active(seq)) return;
     sequence* s = m_perf->get_sequence(seq);
+    if (!s) return;
 
     // clear any prior selection on the previously-touched track
     if (m_drop_seq >= 0 && m_drop_seq != seq && m_perf->is_active(m_drop_seq))
@@ -531,6 +545,7 @@ void ArrangeView::drag_canvas(App& app, const MouseEv& e)
 {
     if (m_drop_seq < 0 || !m_perf->is_active(m_drop_seq)) return;
     sequence* s = m_perf->get_sequence(m_drop_seq);
+    if (!s) return;
     long tick = x_to_tick(e.x);
 
     if (m_adding) {
@@ -567,6 +582,7 @@ bool ArrangeView::on_wheel(App& app, int dx, int dy)
 
 bool ArrangeView::on_key(App& app, SDL_Keycode k)
 {
+    if (!m_perf) return false;
     long page = (long)(canvas_w() * m_scale_x / 4);
     switch (k) {
     case SDLK_LEFT:  m_scroll_ticks -= page; if (m_scroll_ticks < 0) m_scroll_ticks = 0; break;

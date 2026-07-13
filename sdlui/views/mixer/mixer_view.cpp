@@ -306,8 +306,15 @@ void MixerView::draw_strip(App& app, int i, const SDL_Rect& a) {
     draw_vu(app, barL, pkL, s.holdL);
     draw_vu(app, barR, pkR, s.holdR);
 
-    // sync toggle buttons to the model, then draw the interactive widgets
-    if (tk) { s.mute->on = tk->mute(); s.solo->on = tk->solo(); }
+    // Sync every interactive widget to the live model before drawing so the
+    // strip reflects external changes (project load / automation), not just its
+    // own edits.  Skip the fader while it is being dragged so the drag wins.
+    if (tk) {
+        s.mute->on = tk->mute();
+        s.solo->on = tk->solo();
+        if (!s.fader->m_drag) s.fader->value = gain_to_value(tk->gain());
+        s.pan->value = tk->pan();
+    }
     s.fader->draw(app);
     s.pan->draw(app);
     s.mute->draw(app);
@@ -351,6 +358,8 @@ void MixerView::draw_master(App& app, const SDL_Rect& a) {
     draw_vu(app, barL, pkL, masterHoldL_);
     draw_vu(app, barR, pkR, masterHoldR_);
 
+    if (graph_ && !masterFader_->m_drag)
+        masterFader_->value = gain_to_value(graph_->masterGain());
     masterFader_->draw(app);
 
     // master gain readout

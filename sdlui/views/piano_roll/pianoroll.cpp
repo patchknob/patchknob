@@ -250,6 +250,9 @@ void PianoRoll::draw_overlay(App& app)
 void PianoRoll::draw_playhead(App& app)
 {
     if (!m_seq) return;
+    // get_last_tick() does `tick % m_length`; a zero-length sequence would raise
+    // SIGFPE inside the engine, so never call it in that degenerate state.
+    if (m_seq->get_length() <= 0) return;
     long tk = m_seq->get_last_tick();
     int x = tick_to_x(tk);
     if (x < m_grid.x || x > m_grid.x + m_grid.w) return;

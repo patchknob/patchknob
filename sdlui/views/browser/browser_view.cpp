@@ -69,7 +69,12 @@ void BrowserView::rebuild_filtered() {
 
 void BrowserView::clamp_scroll() {
     int n = (int)m_filtered.size();
-    if (m_scroll > n - 1) m_scroll = n - 1;
+    // Never scroll past the point where the last row sits at the bottom of the
+    // list -- otherwise the tail rows leave blank space and the scrollbar thumb
+    // runs off the end of its track (thumb_y divides by n - visible).
+    int maxscroll = m_visible > 0 ? n - m_visible : n - 1;
+    if (maxscroll < 0) maxscroll = 0;
+    if (m_scroll > maxscroll) m_scroll = maxscroll;
     if (m_scroll < 0) m_scroll = 0;
 }
 
@@ -120,6 +125,7 @@ BrowserView::Layout BrowserView::compute_layout(App& app) {
     if (list_bot < list_top) list_bot = list_top;
     L.list = { x, list_top, w, list_bot - list_top };
     L.visible = L.row_h > 0 ? L.list.h / L.row_h : 0;
+    m_visible = L.visible;      // cache so clamp_scroll() can bound over-scroll
 
     // Bottom status bar + two action buttons on the right.
     int by = rect.y + rect.h - status_h;

@@ -25,6 +25,8 @@ add_subdirectory(${SRC}/engine/graph  ${CMAKE_CURRENT_BINARY_DIR}/e_graph  EXCLU
 add_subdirectory(${SRC}/engine/vst2   ${CMAKE_CURRENT_BINARY_DIR}/e_vst2   EXCLUDE_FROM_ALL)
 add_subdirectory(${SRC}/engine/vst3   ${CMAKE_CURRENT_BINARY_DIR}/e_vst3   EXCLUDE_FROM_ALL)
 add_subdirectory(${SRC}/engine/host   ${CMAKE_CURRENT_BINARY_DIR}/e_host   EXCLUDE_FROM_ALL)
+add_subdirectory(${SRC}/engine/automation ${CMAKE_CURRENT_BINARY_DIR}/e_autom EXCLUDE_FROM_ALL)
+add_subdirectory(${SRC}/engine/audioclip  ${CMAKE_CURRENT_BINARY_DIR}/e_aclip EXCLUDE_FROM_ALL)
 
 # --- gtkmm-free engine core sources -----------------------------------------
 set(CORE_SRC
@@ -42,6 +44,10 @@ set(VIEW_SRC
     views/mixer/mixer_view.cpp
     views/patchbay/patch_view.cpp
     views/browser/browser_view.cpp
+    views/automation/automation_view.cpp
+    views/waveform/waveform_view.cpp
+    views/waveform/audio_track.cpp
+    project_io.cpp
 )
 
 add_executable(seq24sdl main.cpp gui.cpp engine_globals.cpp ${VIEW_SRC} ${CORE_SRC})
@@ -56,4 +62,5 @@ target_link_directories(seq24sdl PRIVATE ${SDL2_LIBRARY_DIRS} ${SDL2TTF_LIBRARY_
 target_link_libraries(seq24sdl PRIVATE
     ${SDL2TTF_LIBRARIES} ${SDL2_LIBRARIES}
     seq24_pluginhost seq24_vst2 seq24_vst3 seq24_graph seq24_audio
+    seq24_automation seq24_audioclip
     winmm pthread)

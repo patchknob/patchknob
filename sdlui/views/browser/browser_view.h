@@ -90,6 +90,7 @@ private:
     std::string                   m_filter;   // live filter text (lowercased typing)
     int   m_sel     = -1;     // selected row (index into m_filtered)
     int   m_scroll  = 0;      // first visible row (index into m_filtered)
+    int   m_visible = 0;      // rows that fit in the list (from last layout)
     int   m_track   = -1;
     bool  m_scanning = false;
 

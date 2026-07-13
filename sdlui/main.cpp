@@ -1,18 +1,19 @@
 //----------------------------------------------------------------------------
 //  sdlui/main.cpp -- the integrated SDL2 DAW shell.
 //
-//  Mounts the six ported views (arrangement / piano roll / tracker / mixer /
-//  modular patchbay / plugin browser) with a tab switcher, bound to the real
-//  engine: a `perform` sequencer + the live MixerGraph (via audio_app).  All
-//  black-&-white / green, retained + dirty-rect.
+//  Tabs: ARRANGE / PIANO / TRACKER / MIXER / PATCH / BROWSE / AUTO / KEYFLW /
+//  WAVE, bound to a real perform sequencer + the live MixerGraph.  SAVE/LOAD
+//  persist the project; PLAY drives the sequencer through hosted VSTs (with
+//  automation emitted from the automation player).  All B/W or green, retained
+//  + dirty-rect (idles when static).
 //----------------------------------------------------------------------------
 #include "gui.h"
 #include "audio_app.h"
 #include "engine/plugin_api.h"
 #include "engine/audio/audio_engine.h"
 #include "engine/host/plugin_host.h"
-#include <thread>
-#include <atomic>
+#include "engine/automation/automation_player.h"
+#include "engine/audioclip/audio_clip.h"
 #include "perform.h"
 #include "sequence.h"
 
@@ -22,10 +23,15 @@
 #include "views/mixer/mixer_view.h"
 #include "views/patchbay/patch_view.h"
 #include "views/browser/browser_view.h"
+#include "views/automation/automation_view.h"
+#include "views/waveform/waveform_view.h"
+#include "views/waveform/audio_track.h"
+#include "project_io.h"
 
 #include <cstdio>
 #include <cstdlib>
-#include <memory>
+#include <thread>
+#include <atomic>
 
 using namespace ui;
 
@@ -44,7 +50,7 @@ int main(int, char**)
     if (!app.init("seq24 :: SDL DAW")) { app.shutdown(); return 1; }
     bool audio_ok = seq24::app::audio_app_init();
 
-    // --- engine model: a sequencer with a couple of demo sequences ----------
+    // --- engine model ------------------------------------------------------
     perform perf;
     perf.init();
     perf.launch_input_thread();
@@ -52,49 +58,53 @@ int main(int, char**)
     perf.new_sequence(0);
     perf.new_sequence(1);
     sequence* seq0 = perf.is_active(0) ? perf.get_sequence(0) : nullptr;
-
-    // demo riff on seq 0 (bus 0 == graph track 0) so PLAY is audible
     if (seq0) {
-        seq0->set_midi_bus(0);
-        seq0->set_midi_channel(0);
+        seq0->set_midi_bus(0); seq0->set_midi_channel(0);
         seq0->set_length(c_ppqn * 4);
         seq0->add_note(0,        c_ppqn/2, 60);
         seq0->add_note(c_ppqn,   c_ppqn/2, 64);
         seq0->add_note(c_ppqn*2, c_ppqn/2, 67);
         seq0->add_note(c_ppqn*3, c_ppqn/2, 72);
-        seq0->set_playing(true);
-        seq0->set_dirty();
+        seq0->set_playing(true); seq0->set_dirty();
     }
 
-    // Headless proof: SEQ24SDL_PLAYTEST=<vst> loads it, PLAYS the riff, measures
-    // the master peak over ~1.5s -> proves transport -> sequencer -> VST -> audio.
+    seq24::engine::AutomationPlayer autoPlayer;
+    waveform::AudioTrack audioTrk;
+    const seq24::engine::AudioClip* demoClip = nullptr;
+    if (audio_ok) {
+        audioTrk.mount(seq24::app::audio_app_graph(), 2, 48000, 512);
+        demoClip = audioTrk.add_test_tone(220.0, 2.0, 48000.0);
+    }
+
     if (const char* pt = getenv("SEQ24SDL_PLAYTEST")) {
         seq24::app::audio_app_set_track_instrument(0, vst_desc(pt));
-        perf.start(false);
-        SDL_Delay(1500);
+        perf.start(false); SDL_Delay(1500);
         float pk = audio_ok ? seq24::app::audio_app_engine()->masterPeak() : -1.f;
         perf.stop();
-        printf("[sdl-playtest] master peak while playing = %.4f  (%s)\n",
-               pk, pk>0.0001f ? "PLAYING AUDIO" : "silent");
+        printf("[sdl-playtest] master peak = %.4f (%s)\n", pk, pk>0.0001f?"PLAYING":"silent");
         fflush(stdout);
         seq24::app::audio_app_shutdown(); app.shutdown();
         return pk>0.0001f ? 0 : 2;
     }
 
-    // --- the six views, bound to the real model -----------------------------
-    arrange::ArrangeView    vArrange(&perf);
-    ui::PianoRoll           vPiano(seq0);
-    ui::TrackerView         vTracker(seq0, 0);
-    mixer::MixerView        vMixer(seq24::app::audio_app_graph());
+    // --- views -------------------------------------------------------------
+    arrange::ArrangeView       vArrange(&perf);
+    ui::PianoRoll              vPiano(seq0);
+    ui::TrackerView            vTracker(seq0, 0);
+    mixer::MixerView           vMixer(seq24::app::audio_app_graph());
     seq24::patchbay::PatchView vPatch;
-    ui::BrowserView         vBrowser;
+    ui::BrowserView            vBrowser;
+    automation::AutomationView vAuto(seq0, 0, &autoPlayer);
+    automation::KeyFollowPanel vKey(&perf);            vKey.set_tracks({0,1});
+    waveform::WaveformView     vWave;                  if (demoClip) vWave.set_clip(demoClip);
+
     vBrowser.set_track(0);
     vBrowser.on_load_instrument = [](const seq24::engine::PluginDescriptor& d){
         seq24::app::audio_app_set_track_instrument(0, d); };
     vBrowser.on_add_fx = [](const seq24::engine::PluginDescriptor& d){
         seq24::app::audio_app_add_track_fx(0, d); };
 
-    // Scan the plugin folders on a background thread; populate BROWSE when done.
+    // background plugin scan -> populate BROWSE
     static std::vector<seq24::engine::PluginDescriptor> g_scan;
     static std::atomic<bool> g_scanDone{false};
     vBrowser.set_scanning(true);
@@ -103,59 +113,65 @@ int main(int, char**)
         g_scanDone.store(true, std::memory_order_release);
         app.request_redraw();
     }).detach();
-    // patchbay: adding a module opens the browser (wire later); node editor too.
 
-    Widget* views[6] = { &vArrange, &vPiano, &vTracker, &vMixer, &vPatch, &vBrowser };
-    const char* tabName[6] = { "ARRANGE","PIANO","TRACKER","MIXER","PATCH","BROWSE" };
+    const int NV = 9;
+    Widget* views[NV] = { &vArrange,&vPiano,&vTracker,&vMixer,&vPatch,&vBrowser,&vAuto,&vKey,&vWave };
+    const char* tabName[NV] = { "ARRANGE","PIANO","TRACKER","MIXER","PATCH","BROWSE","AUTO","KEYFLW","WAVE" };
     int current = 0;
+    auto show = [&](int i){ current=i; for(int k=0;k<NV;++k) views[k]->visible=(k==i); app.request_redraw(); };
 
-    auto show = [&](int i){
-        current = i;
-        for (int k=0;k<6;++k) views[k]->visible = (k==i);
-        app.request_redraw();
-    };
-
-    // --- top bar: view tabs + theme + a mini transport ----------------------
+    // --- top bar -----------------------------------------------------------
     Panel topbar; static Color topbg; topbg = theme().panel; topbar.bg = &topbg;
-    Button tabs[6];
-    for (int i=0;i<6;++i){ tabs[i].text=tabName[i]; tabs[i].toggle=true; tabs[i].on=(i==0);
-        tabs[i].clicked=[&,i]{ for(int k=0;k<6;++k) tabs[k].on=(k==i); show(i); }; }
+    Button tabs[NV];
+    for (int i=0;i<NV;++i){ tabs[i].text=tabName[i]; tabs[i].toggle=true; tabs[i].on=(i==0);
+        tabs[i].clicked=[&,i]{ for(int k=0;k<NV;++k) tabs[k].on=(k==i); show(i); }; }
 
     Button bTheme; bTheme.text="Midnight";
     bTheme.clicked=[&]{ bool m=(mode()==Mode::Light); set_mode(m?Mode::Midnight:Mode::Light);
         bTheme.text=m?"Light":"Midnight"; topbg=theme().panel; app.request_redraw(); };
 
-    Button bSynth,bPlay,bStop;
-    bSynth.text="SYNTH"; bPlay.text="PLAY"; bStop.text="STOP";
+    Button bSynth,bPlay,bStop,bSave,bLoad;
+    bSynth.text="SYN"; bPlay.text="PLAY"; bStop.text="STOP"; bSave.text="SAVE"; bLoad.text="LOAD";
     static std::string synthPath; { const char* v=getenv("SEQ24SDL_VST");
         synthPath = v?v:"C:\\Program Files\\Common Files\\VST3\\Jup-8000 V.vst3"; }
     bSynth.clicked=[&]{ if(audio_ok) seq24::app::audio_app_set_track_instrument(0, vst_desc(synthPath.c_str())); };
-    bPlay.clicked =[&]{ perf.start(false); app.animating=true;  app.request_redraw(); }; // live play
+    bPlay.clicked =[&]{ perf.start(false); app.animating=true;  app.request_redraw(); };
     bStop.clicked =[&]{ perf.stop();        app.animating=false; app.request_redraw(); };
+    bSave.clicked =[&]{ save_project(perf, "project.s24"); };
+    bLoad.clicked =[&]{ load_project(perf, "project.s24"); app.request_redraw(); };
 
-    topbar.children = { &tabs[0],&tabs[1],&tabs[2],&tabs[3],&tabs[4],&tabs[5],
-                        &bSynth,&bPlay,&bStop,&bTheme };
+    topbar.children = { &tabs[0],&tabs[1],&tabs[2],&tabs[3],&tabs[4],&tabs[5],&tabs[6],&tabs[7],&tabs[8],
+                        &bSynth,&bPlay,&bStop,&bSave,&bLoad,&bTheme };
 
-    // roots: top bar + all views (only current visible)
     app.roots = { &topbar };
-    for (int i=0;i<6;++i){ views[i]->visible=(i==current); app.roots.push_back(views[i]); }
+    for (int i=0;i<NV;++i){ views[i]->visible=(i==current); app.roots.push_back(views[i]); }
 
     app.on_layout = [&](App& a){
-        // apply the background scan result once it's ready (main thread)
-        static bool scanApplied = false;
+        // apply background scan once ready
+        static bool scanApplied=false;
         if (!scanApplied && g_scanDone.load(std::memory_order_acquire)) {
-            scanApplied = true;
-            vBrowser.set_scanning(false);
-            vBrowser.populate(g_scan);
+            scanApplied=true; vBrowser.set_scanning(false); vBrowser.populate(g_scan);
         }
-        int th = 28;
+        // emit automation while playing (coarse UI-thread pump, block-granular)
+        static long prevTick=0;
+        if (a.animating && seq0) {
+            long cur = seq0->get_last_tick();
+            if (cur != prevTick) {
+                autoPlayer.advance(prevTick, cur,
+                    [](int trk, unsigned id, float v){ seq24::app::audio_app_route_param(trk,id,v); },
+                    [](int trk, int cc, int val){ seq24::app::audio_app_route_midi(trk,0xB0,(unsigned char)cc,(unsigned char)val); });
+                prevTick = cur;
+            }
+        }
+        int th = 26, tw = 62;
         topbar.rect = { 0,0,a.w,th };
-        int x=4; for(int i=0;i<6;++i){ tabs[i].rect={x,2,72,th-4}; x+=74; }
-        x+=10; bSynth.rect={x,2,60,th-4}; x+=64; bPlay.rect={x,2,52,th-4}; x+=56;
-        bStop.rect={x,2,52,th-4};
-        bTheme.rect={a.w-96,2,90,th-4};
+        int x=3; for(int i=0;i<NV;++i){ tabs[i].rect={x,2,tw-2,th-4}; x+=tw; }
+        x+=8;
+        Button* tb[5] = { &bSynth,&bPlay,&bStop,&bSave,&bLoad };
+        for (int i=0;i<5;++i){ tb[i]->rect={x,2,46,th-4}; x+=48; }
+        bTheme.rect={a.w-84,2,80,th-4};
         SDL_Rect content = { 0, th, a.w, a.h-th };
-        for(int i=0;i<6;++i) views[i]->rect = content;
+        for(int i=0;i<NV;++i) views[i]->rect = content;
     };
 
     app.run();
