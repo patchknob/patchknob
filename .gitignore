@@ -23,3 +23,6 @@ src/engine/**/*.wav
 src/engine/host/scan_inventory.txt
 .integration_patches/
 .claude/worktrees/
+
+sdlui/build/
+sdlui/*.png

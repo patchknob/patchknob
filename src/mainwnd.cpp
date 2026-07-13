@@ -26,6 +26,7 @@
 #include "apptheme.h"
 #include "mixerapp.h"
 #include "rackapp.h"
+#include "patchbayapp.h"
 
 #include "play2.xpm"
 #include "stop.xpm"
