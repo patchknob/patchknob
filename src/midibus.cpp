@@ -34,6 +34,7 @@
 
 #include "midibus.h"
 #include "RtMidi.h"
+#include "audio_app.h"
 
 #include <cstdio>
 #include <vector>
@@ -674,8 +675,21 @@ void mastermidibus::port_exit( int /*a_client*/, int /*a_port*/ )  { }
 
 void mastermidibus::play( unsigned char a_bus, event *a_e24, unsigned char a_channel )
 {
+    /* hardware / external MIDI out (unchanged) */
     if ( a_bus < m_num_out_buses && m_buses_out_active[a_bus] )
         m_buses_out[a_bus]->play( a_e24, a_channel );
+
+    /* also route this event to the bus's hosted VST instrument (track == bus).
+       Channel voice messages only (status < 0xF0). Lock-free; safe on the
+       output thread. */
+    unsigned char status = a_e24->get_status();
+    if ( status < 0xF0 )
+    {
+        unsigned char msg = ( status & 0xF0 ) | ( a_channel & 0x0F );
+        unsigned char d0, d1;
+        a_e24->get_data( &d0, &d1 );
+        seq24::app::audio_app_route_midi( (int) a_bus, msg, d0, d1 );
+    }
 }
 
 void mastermidibus::set_clock( unsigned char a_bus, clock_e a_clock_type )

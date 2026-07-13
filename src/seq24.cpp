@@ -97,7 +97,9 @@ main (int argc, char *argv[])
 	lash_driver = new lash(&argc, &argv);
 
     /* the main performance object */
-    perform p; 
+    setvbuf( stderr, NULL, _IONBF, 0 );   /* unbuffered diagnostics */
+
+    perform p;
 
     /* all GTK applications must have a gtk_main(). Control ends here
        and waits for an event to occur (like a key press or mouse event). */
@@ -275,6 +277,14 @@ main (int argc, char *argv[])
        Set SEQ24_NOAUDIO=1 to skip (diagnostics). */
     if ( getenv( "SEQ24_NOAUDIO" ) == NULL )
         seq24::app::audio_app_init();
+
+    /* end-to-end chain check: SEQ24_AUDIO_SELFTEST=<path-to-.vst3-or-.dll>
+       loads that instrument on track 0, fires a note, prints master peak. */
+    {
+        const char *stpath = getenv( "SEQ24_AUDIO_SELFTEST" );
+        if ( stpath != NULL )
+            seq24::app::audio_app_selftest( stpath );
+    }
 
     kit.run();
 
