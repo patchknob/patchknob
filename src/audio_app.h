@@ -52,6 +52,18 @@ bool audio_app_track_has_instrument(int track);
 void audio_app_route_midi(int track, unsigned char status,
                           unsigned char d1, unsigned char d2);
 
+// --- realtime VST parameter routing (sequencer / UI thread) ----------------
+// Lock-free enqueue of a normalized (0..1) parameter change for a track's
+// instrument, delivered as an engine ParamChange on the next audio block.
+// This is what the tracker FX-command columns and automation lanes emit.
+void audio_app_route_param(int track, unsigned int paramId, float value);
+
+// --- VST parameter introspection (message thread) --------------------------
+// Enumerate a track instrument's parameters so the UI / tracker can map them.
+int  audio_app_track_param_count(int track);
+bool audio_app_track_param_info(int track, int index, unsigned int* outId,
+                                char* nameBuf, int nameBufLen, float* outDefault);
+
 // --- diagnostics ------------------------------------------------------------
 // Load a VST from an absolute path onto track 0, fire a note, and measure the
 // master peak for ~400ms.  Returns the peak.  Used by the SEQ24_AUDIO_SELFTEST

@@ -39,19 +39,29 @@ RouteMsg               g_ring[RING_SIZE];
 std::atomic<unsigned>  g_head{0};         // written by producer
 std::atomic<unsigned>  g_tail{0};         // written by consumer
 
+// --- lock-free SPSC parameter ring -----------------------------------------
+struct ParamMsg { unsigned char track; unsigned int id; float value; };
+ParamMsg               g_pring[RING_SIZE];
+std::atomic<unsigned>  g_phead{0};
+std::atomic<unsigned>  g_ptail{0};
+
 // --- per-block staging (audio thread only) ---------------------------------
 const int MAX_EV = 256;
-MidiEvent        s_trackMidi[seq24::app::AUDIO_APP_MAX_TRACKS][MAX_EV];
-int              s_counts   [seq24::app::AUDIO_APP_MAX_TRACKS];
-TrackBlockInput  s_inputs   [seq24::app::AUDIO_APP_MAX_TRACKS];
+const int MAX_PC = 256;
+MidiEvent        s_trackMidi [seq24::app::AUDIO_APP_MAX_TRACKS][MAX_EV];
+int              s_counts    [seq24::app::AUDIO_APP_MAX_TRACKS];
+ParamChange      s_trackParam[seq24::app::AUDIO_APP_MAX_TRACKS][MAX_PC];
+int              s_pcounts   [seq24::app::AUDIO_APP_MAX_TRACKS];
+TrackBlockInput  s_inputs    [seq24::app::AUDIO_APP_MAX_TRACKS];
 
 // The single audio render callback: drain queued MIDI into per-track buffers,
 // then let the graph render every track's instrument + FX + mix.
 void audio_render( float** out, int numChannels, int nframes, double /*sr*/ )
 {
     const int NT = seq24::app::AUDIO_APP_MAX_TRACKS;
-    for ( int t = 0; t < NT; ++t ) s_counts[t] = 0;
+    for ( int t = 0; t < NT; ++t ) { s_counts[t] = 0; s_pcounts[t] = 0; }
 
+    // drain MIDI ring
     unsigned tail = g_tail.load( std::memory_order_relaxed );
     const unsigned head = g_head.load( std::memory_order_acquire );
     while ( tail != head )
@@ -70,12 +80,30 @@ void audio_render( float** out, int numChannels, int nframes, double /*sr*/ )
     }
     g_tail.store( tail, std::memory_order_release );
 
+    // drain parameter ring
+    unsigned ptail = g_ptail.load( std::memory_order_relaxed );
+    const unsigned phead = g_phead.load( std::memory_order_acquire );
+    while ( ptail != phead )
+    {
+        const ParamMsg& m = g_pring[ptail & RING_MASK];
+        ++ptail;
+        int t = m.track;
+        if ( t >= 0 && t < NT && s_pcounts[t] < MAX_PC )
+        {
+            ParamChange& p = s_trackParam[t][ s_pcounts[t]++ ];
+            p.id           = m.id;
+            p.sampleOffset = 0;
+            p.value        = m.value;
+        }
+    }
+    g_ptail.store( ptail, std::memory_order_release );
+
     for ( int t = 0; t < NT; ++t )
     {
         s_inputs[t].midi   = s_trackMidi[t];
         s_inputs[t].nMidi  = s_counts[t];
-        s_inputs[t].autom  = nullptr;
-        s_inputs[t].nAutom = 0;
+        s_inputs[t].autom  = s_trackParam[t];
+        s_inputs[t].nAutom = s_pcounts[t];
     }
 
     g_graph->renderBlock( out, numChannels, nframes, s_inputs, NT );
@@ -215,6 +243,47 @@ void audio_app_route_midi( int track, unsigned char status,
     m.d1     = d1;
     m.d2     = d2;
     g_head.store( head + 1, std::memory_order_release );
+}
+
+void audio_app_route_param( int track, unsigned int paramId, float value )
+{
+    unsigned head = g_phead.load( std::memory_order_relaxed );
+    unsigned tail = g_ptail.load( std::memory_order_acquire );
+    if ( head - tail >= RING_SIZE ) return;
+    ParamMsg& m = g_pring[head & RING_MASK];
+    m.track = (unsigned char) track;
+    m.id    = paramId;
+    m.value = value;
+    g_phead.store( head + 1, std::memory_order_release );
+}
+
+int audio_app_track_param_count( int track )
+{
+    if ( !g_graph || track < 0 || track >= AUDIO_APP_MAX_TRACKS ) return 0;
+    Track* trk = g_graph->track( track );
+    if ( !trk || !trk->instrument() ) return 0;
+    return trk->instrument()->paramCount();
+}
+
+bool audio_app_track_param_info( int track, int index, unsigned int* outId,
+                                 char* nameBuf, int nameBufLen, float* outDefault )
+{
+    if ( !g_graph || track < 0 || track >= AUDIO_APP_MAX_TRACKS ) return false;
+    Track* trk = g_graph->track( track );
+    if ( !trk || !trk->instrument() ) return false;
+    if ( index < 0 || index >= trk->instrument()->paramCount() ) return false;
+
+    ParamInfo pi = trk->instrument()->paramInfo( index );
+    if ( outId )      *outId = pi.id;
+    if ( outDefault ) *outDefault = pi.defaultValue;
+    if ( nameBuf && nameBufLen > 0 )
+    {
+        int n = (int) pi.name.size();
+        if ( n > nameBufLen - 1 ) n = nameBufLen - 1;
+        memcpy( nameBuf, pi.name.c_str(), n );
+        nameBuf[n] = '\0';
+    }
+    return true;
 }
 
 float audio_app_selftest( const char* vst_path )
