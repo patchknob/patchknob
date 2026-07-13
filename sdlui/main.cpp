@@ -10,6 +10,9 @@
 #include "audio_app.h"
 #include "engine/plugin_api.h"
 #include "engine/audio/audio_engine.h"
+#include "engine/host/plugin_host.h"
+#include <thread>
+#include <atomic>
 #include "perform.h"
 #include "sequence.h"
 
@@ -90,6 +93,16 @@ int main(int, char**)
         seq24::app::audio_app_set_track_instrument(0, d); };
     vBrowser.on_add_fx = [](const seq24::engine::PluginDescriptor& d){
         seq24::app::audio_app_add_track_fx(0, d); };
+
+    // Scan the plugin folders on a background thread; populate BROWSE when done.
+    static std::vector<seq24::engine::PluginDescriptor> g_scan;
+    static std::atomic<bool> g_scanDone{false};
+    vBrowser.set_scanning(true);
+    std::thread([&]{
+        if (auto* host = seq24::app::audio_app_host()) g_scan = host->scan({});
+        g_scanDone.store(true, std::memory_order_release);
+        app.request_redraw();
+    }).detach();
     // patchbay: adding a module opens the browser (wire later); node editor too.
 
     Widget* views[6] = { &vArrange, &vPiano, &vTracker, &vMixer, &vPatch, &vBrowser };
@@ -128,6 +141,13 @@ int main(int, char**)
     for (int i=0;i<6;++i){ views[i]->visible=(i==current); app.roots.push_back(views[i]); }
 
     app.on_layout = [&](App& a){
+        // apply the background scan result once it's ready (main thread)
+        static bool scanApplied = false;
+        if (!scanApplied && g_scanDone.load(std::memory_order_acquire)) {
+            scanApplied = true;
+            vBrowser.set_scanning(false);
+            vBrowser.populate(g_scan);
+        }
         int th = 28;
         topbar.rect = { 0,0,a.w,th };
         int x=4; for(int i=0;i<6;++i){ tabs[i].rect={x,2,72,th-4}; x+=74; }
