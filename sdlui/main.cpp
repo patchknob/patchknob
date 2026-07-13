@@ -7,9 +7,24 @@
 //  real DAW views (piano roll / tracker / arrangement / mixer / patchbay).
 //----------------------------------------------------------------------------
 #include "gui.h"
+#include "audio_app.h"
+#include "engine/plugin_api.h"
 #include <cstdio>
+#include <cstdlib>
 
 using namespace ui;
+
+// Build a VST descriptor from a filesystem path (.vst3 => VST3 else VST2).
+static seq24::engine::PluginDescriptor vst_desc(const char* path) {
+    using namespace seq24::engine;
+    PluginDescriptor d;
+    std::string p(path ? path : "");
+    bool v3 = p.size()>=5 && p.compare(p.size()-5,5,".vst3")==0;
+    d.format = v3 ? PluginFormat::VST3 : PluginFormat::VST2;
+    d.path = p; d.name = p; d.uid = ""; d.isInstrument = true;
+    d.numAudioIn = 0; d.numAudioOut = 2;
+    return d;
+}
 
 // Proto "piano roll" panel: exercises the themed grid drawing the real views use.
 class GridDemo : public Panel {
@@ -44,7 +59,20 @@ int main(int argc, char** argv)
 {
     (void)argc; (void)argv;
     App app;
-    if (!app.init("seq24 / SDL2 frontend -- foundation")) { app.shutdown(); return 1; }
+    if (!app.init("seq24 / SDL2 frontend")) { app.shutdown(); return 1; }
+
+    // Bring up the real audio engine (RtAudio + master graph + VST host).
+    bool audio_ok = seq24::app::audio_app_init();
+
+    // Headless proof: SEQ24SDL_TEST=<path-to-.vst3/.dll> loads it on track 0,
+    // fires a note, prints the master peak -- proves the SDL binary drives the
+    // engine to sound, then exits.
+    if (const char* tv = getenv("SEQ24SDL_TEST")) {
+        float pk = seq24::app::audio_app_selftest(tv);
+        printf("[sdl-selftest] peak=%.4f\n", pk); fflush(stdout);
+        seq24::app::audio_app_shutdown(); app.shutdown();
+        return pk > 0.0001f ? 0 : 2;
+    }
 
     Panel menubar;  static Color menubg; menubg = theme().panel; menubar.bg = &menubg;
     Label mFile;  mFile.text  = " File";
@@ -63,8 +91,16 @@ int main(int argc, char** argv)
 
     Panel transport;
     Button bPlay, bStop, bRec;
-    bPlay.text="PLAY"; bStop.text="STOP"; bRec.text="REC"; bRec.toggle=true;
-    Label status; status.text="SDL2 frontend  |  wheel = zoom grid  |  Theme button toggles Light/Midnight  |  Esc = quit";
+    bPlay.text="PLAY"; bStop.text="STOP"; bRec.text="SYNTH";
+    static std::string synthPath;
+    { const char* v = getenv("SEQ24SDL_VST");
+      synthPath = v ? v : "C:\\Program Files\\Common Files\\VST3\\Jup-8000 V.vst3"; }
+    bRec.clicked  = [&]{ if (audio_ok) seq24::app::audio_app_set_track_instrument(0, vst_desc(synthPath.c_str())); };
+    bPlay.clicked = [&]{ if (audio_ok) seq24::app::audio_app_route_midi(0, 0x90, 60, 110); }; // note on C4
+    bStop.clicked = [&]{ if (audio_ok) seq24::app::audio_app_route_midi(0, 0x80, 60, 0);   }; // note off
+    Label status; status.text = audio_ok
+        ? "audio engine RUNNING | SYNTH loads a VST on track 0 | PLAY/STOP = note | wheel zooms | Esc quits"
+        : "no audio device | wheel zooms grid | Esc quits";
     transport.children = { &bPlay, &bStop, &bRec, &status };
 
     GridDemo grid;
@@ -88,6 +124,7 @@ int main(int argc, char** argv)
     };
 
     app.run();
+    seq24::app::audio_app_shutdown();
     app.shutdown();
     return 0;
 }
