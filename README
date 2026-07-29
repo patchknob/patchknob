@@ -10,6 +10,15 @@ PatchKnob is a Windows DAW and modular synthesis environment built around:
 - Pure Data and Csound patch nodes
 - project save/load for sequences, patch graphs, rack state, instruments, and embedded audio
 
+## Links
+
+- Website: https://patchknob.com
+- Source: https://github.com/patchknob/patchknob
+- Latest installer: https://github.com/patchknob/patchknob/releases/latest
+- Patreon: https://www.patreon.com/cw/patchknob
+
+The Patreon link is for project support, custom builds, and binary downloads.
+
 ## Windows Build
 
 Build from an MSYS2 MINGW64 shell or a PowerShell with MSYS2 on `PATH`:
