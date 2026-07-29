@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 3.15)
-project(seq24sdl_tracker CXX)
+project(PatchKnob_tracker CXX)
 
 # ---------------------------------------------------------------------------
 # Self-contained test build for the SDL TrackerView.  Mirrors sdlui/CMakeLists
-# (gtkmm-free engine core + engine module libs) so the view can read/write the
+# (UI-neutral engine core + engine module libs) so the view can read/write the
 # real sequence model and route FX to the VST host.
 #   export PATH="/c/msys64/mingw64/bin:$PATH"
 #   cmake -S sdlui/views/tracker -B sdlui/views/tracker/build -G "MinGW Makefiles"
@@ -27,8 +27,13 @@ add_subdirectory(${SRC}/engine/graph  ${CMAKE_CURRENT_BINARY_DIR}/e_graph  EXCLU
 add_subdirectory(${SRC}/engine/vst2   ${CMAKE_CURRENT_BINARY_DIR}/e_vst2   EXCLUDE_FROM_ALL)
 add_subdirectory(${SRC}/engine/vst3   ${CMAKE_CURRENT_BINARY_DIR}/e_vst3   EXCLUDE_FROM_ALL)
 add_subdirectory(${SRC}/engine/host   ${CMAKE_CURRENT_BINARY_DIR}/e_host   EXCLUDE_FROM_ALL)
+add_subdirectory(${SRC}/engine/automation ${CMAKE_CURRENT_BINARY_DIR}/e_autom EXCLUDE_FROM_ALL)
+add_subdirectory(${SRC}/engine/audioclip  ${CMAKE_CURRENT_BINARY_DIR}/e_aclip EXCLUDE_FROM_ALL)
+add_subdirectory(${SRC}/engine/patch      ${CMAKE_CURRENT_BINARY_DIR}/e_patch EXCLUDE_FROM_ALL)
+add_subdirectory(${SRC}/engine/rack       ${CMAKE_CURRENT_BINARY_DIR}/e_rack EXCLUDE_FROM_ALL)
+add_subdirectory(${SRC}/engine/kitchensink ${CMAKE_CURRENT_BINARY_DIR}/e_kitch EXCLUDE_FROM_ALL)
 
-# --- gtkmm-free engine core sources -----------------------------------------
+# --- UI-neutral engine core sources -----------------------------------------
 set(CORE_SRC
     ${SRC}/perform.cpp ${SRC}/sequence.cpp ${SRC}/event.cpp
     ${SRC}/midibus.cpp ${SRC}/midifile.cpp ${SRC}/mutex.cpp
@@ -47,11 +52,12 @@ add_executable(tracker_test
 target_include_directories(tracker_test PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR} ${SDLUI} ${SRC} ${SRC}/engine ${RTMIDI_DIR}
     ${SDL2_INCLUDE_DIRS} ${SDL2TTF_INCLUDE_DIRS})
-target_compile_definitions(tracker_test PRIVATE __WINDOWS_MM__)
+target_compile_definitions(tracker_test PRIVATE __WINDOWS_MM__ PATCHKNOB_TRACKER_TEST)
 target_compile_options(tracker_test PRIVATE -Wall)
 target_link_directories(tracker_test PRIVATE ${SDL2_LIBRARY_DIRS} ${SDL2TTF_LIBRARY_DIRS})
 
 target_link_libraries(tracker_test PRIVATE
     ${SDL2TTF_LIBRARIES} ${SDL2_LIBRARIES}
-    seq24_pluginhost seq24_vst2 seq24_vst3 seq24_graph seq24_audio
+    PatchKnob_pluginhost PatchKnob_vst2 PatchKnob_vst3 PatchKnob_graph PatchKnob_audio
+    PatchKnob_automation PatchKnob_audioclip PatchKnob_patch PatchKnob_rack PatchKnob_kitchensink
     winmm pthread)

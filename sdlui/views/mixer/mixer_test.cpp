@@ -25,7 +25,7 @@
 #include <thread>
 #include <vector>
 
-using namespace seq24::engine;
+using namespace PatchKnob::engine;
 
 // ---------------------------------------------------------------------------
 // Minimal fake IPluginInstance scaffolding (no real VSTs needed).
@@ -141,7 +141,7 @@ int main(int argc, char** argv) {
     ui::App app;
     app.w = 1040; app.h = 600;
     ui::set_mode(ui::Mode::Midnight);            // show the phosphor-green theme
-    if (!app.init("seq24 / SDL mixer")) { app.shutdown(); return 1; }
+    if (!app.init("PatchKnob mixer")) { app.shutdown(); return 1; }
     // Pin to the top-left work area so the full strip (incl. pan / mute-solo /
     // readout at the bottom) sits above the taskbar for the demo/screenshot.
     SDL_SetWindowPosition(app.window, 0, 0);
@@ -165,9 +165,9 @@ int main(int argc, char** argv) {
         }
     });
 
-    // Optional: auto-quit after N seconds (headless CI). SEQ24_MIXER_SECONDS.
+    // Optional: auto-quit after N seconds (headless CI). PATCHKNOB_MIXER_SECONDS.
     std::thread* quit_thread = nullptr;
-    if (const char* sec = getenv("SEQ24_MIXER_SECONDS")) {
+    if (const char* sec = getenv("PATCHKNOB_MIXER_SECONDS")) {
         int s = atoi(sec);
         if (s > 0) {
             quit_thread = new std::thread([&app, s] {

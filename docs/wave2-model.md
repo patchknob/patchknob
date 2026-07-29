@@ -1,7 +1,7 @@
 # Wave 2 — Track Types, Audio Clips, and Bounce/Record
 
 Implementation spec for adding **track types** (INSTRUMENT / AUDIO), **audio clips**,
-and **bounce-to-audio-track (record)** to the seq24 Windows-port DAW.
+and **bounce-to-audio-track (record)** to the PatchKnob Windows-port DAW.
 
 This is a **design document**. It describes the minimal data-model and wiring
 changes and gives an ordered, file-anchored implementation checklist. No source
@@ -15,14 +15,14 @@ the tree as read on 2026-07-12; treat them as "look here", not literal offsets.
 ## 0. What already exists (the substrate we build on)
 
 ### The bus == track == graph-node identity
-seq24's output "bus" index (0..31) is the single spine that ties the MIDI
+PatchKnob's output "bus" index (0..31) is the single spine that ties the MIDI
 sequencer to the audio engine:
 
 - A `sequence` targets exactly one bus via `m_bus` (`sequence.h:97`, init `sequence.cpp:45`).
   It dumps its events with `m_masterbus->play( m_bus, &e, ch )`
   (`sequence.cpp:567`, `:3036`, `:3060`).
 - `mastermidibus::play` (`midibus.cpp:676-693`) forwards each channel-voice
-  message to `seq24::app::audio_app_route_midi( (int)a_bus, ... )` (`midibus.cpp:691`).
+  message to `PatchKnob::app::audio_app_route_midi( (int)a_bus, ... )` (`midibus.cpp:691`).
 - `audio_app_route_midi` (`audio_app.cpp:234-246`) enqueues onto a lock-free ring;
   the audio callback `audio_render` (`audio_app.cpp:59-110`) drains it into
   per-track `TrackBlockInput`s and calls `g_graph->renderBlock(...)` (`audio_app.cpp:109`).
@@ -107,7 +107,7 @@ Model on `audio_app_set_track_instrument` (`audio_app.cpp:190-207`). Add to
 ```cpp
 bool audio_app_make_audio_track(int track);   // instrument := new AudioClipPlayer, type := Audio
 int  audio_app_track_type(int track);         // 0=Instrument, 1=Audio, -1=bad
-seq24::engine::AudioClipPlayer* audio_app_track_player(int track); // player or null
+PatchKnob::engine::AudioClipPlayer* audio_app_track_player(int track); // player or null
 ```
 
 `audio_app_make_audio_track(t)`:
@@ -146,7 +146,7 @@ a UI switch, not an engine change.
 `AudioClip` sample buffers scheduled into the AUDIO track's `AudioClipPlayer`.
 
 ### 2.1 Minimal `sequence` additions (the "clip unit")
-`sequence` is seq24's clip object (it already carries `m_bus`, `m_length`
+`sequence` is PatchKnob's clip object (it already carries `m_bus`, `m_length`
 `sequence.h:164`, and the timeline `m_list_trigger` `sequence.h:82`, whose
 `trigger.m_tick_start` `sequence.h:49` is the placement). Extend it minimally so
 the same object can represent an audio clip placement without dragging engine
@@ -225,11 +225,11 @@ Playback then needs nothing further: the audio thread renders the player against
 ## 3. Transport: tick <-> sample sync (the enabling change)
 
 Playback of audio clips and the timing of bounce both require the graph's
-`playPositionSamples` to advance in lockstep with seq24's tick clock and to be
+`playPositionSamples` to advance in lockstep with PatchKnob's tick clock and to be
 gated by the real run state.
 
 ### 3.1 The mapping
-seq24 ticks are `c_ppqn = 192` pulses per quarter note (`globals.h:44`); tempo is
+PatchKnob ticks are `c_ppqn = 192` pulses per quarter note (`globals.h:44`); tempo is
 `bpm = m_master_bus.get_bpm()` (used in the output loop at `perform.cpp:1265`).
 The audio engine runs at `g_sr` (48000, `audio_app.cpp:29`,`:149`).
 

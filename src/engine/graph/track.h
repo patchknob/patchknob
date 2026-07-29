@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------
-//  seq24 Windows port — per-track audio graph node.
+//  PatchKnob — per-track audio graph node.
 //
 //  Signal flow for one Track:
 //
@@ -42,8 +42,8 @@
 //  (standard host responsibility — defer destruction until after a block has
 //  passed; not the Track's concern).
 //----------------------------------------------------------------------------
-#ifndef SEQ24_ENGINE_GRAPH_TRACK_H
-#define SEQ24_ENGINE_GRAPH_TRACK_H
+#ifndef PATCHKNOB_ENGINE_GRAPH_TRACK_H
+#define PATCHKNOB_ENGINE_GRAPH_TRACK_H
 
 #include <atomic>
 #include <vector>
@@ -52,7 +52,7 @@
 #include "../plugin_api.h"
 #include "vu_meter.h"
 
-namespace seq24 { namespace engine {
+namespace PatchKnob { namespace engine {
 
 //! Extra transport context handed down to each block (mirrors ProcessBlock).
 struct RenderContext {
@@ -112,6 +112,12 @@ public:
     void setSolo(bool s)    { solo_.store(s, std::memory_order_relaxed); }
     bool solo() const       { return solo_.load(std::memory_order_relaxed); }
 
+    //! Disable the whole signal chain: processBlock outputs silence and runs
+    //! NO instrument/FX (frees CPU).  Used by track-freeze to idle the source
+    //! track's devices while its frozen audio plays elsewhere.
+    void setDisabled(bool d) { disabled_.store(d, std::memory_order_relaxed); }
+    bool disabled() const    { return disabled_.load(std::memory_order_relaxed); }
+
     // --- metering (UI thread reads) ------------------------------------------
 
     VuMeter& vuLeft()  { return vuL_; }
@@ -166,6 +172,7 @@ private:
     std::atomic<float> pan_{0.0f};
     std::atomic<bool>  mute_{false};
     std::atomic<bool>  solo_{false};
+    std::atomic<bool>  disabled_{false};
 
     VuMeter vuL_;
     VuMeter vuR_;
@@ -183,6 +190,6 @@ private:
     float*              chB_[2] = {nullptr, nullptr};
 };
 
-}} // namespace seq24::engine
+}} // namespace PatchKnob::engine
 
-#endif // SEQ24_ENGINE_GRAPH_TRACK_H
+#endif // PATCHKNOB_ENGINE_GRAPH_TRACK_H

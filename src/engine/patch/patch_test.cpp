@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------
-//  seq24 Windows port — patch-graph module self-test.
+//  PatchKnob — patch-graph module self-test.
 //
 //  Builds a small PatchGraph exercising every core mechanism and asserts on the
 //  results (no real plugins required):
@@ -31,8 +31,8 @@
 #include <memory>
 #include <vector>
 
-using namespace seq24::engine;
-using namespace seq24::engine::patch;
+using namespace PatchKnob::engine;
+using namespace PatchKnob::engine::patch;
 
 static const double kSr    = 48000.0;
 static const int    kBlock = 64;
@@ -245,6 +245,73 @@ int main() {
         if (ph >= 2.0 * (double)kPi) ph -= 2.0 * (double)kPi;
     }
     check(singleOk, "single-source (aliased) path: out == gain*sine");
+
+    // ======================================================================
+    // Oversized block: nframes > maxBlock_ must clamp the processed count and
+    // zero the remainder of the device output (no stale samples, no pool
+    // overrun).
+    // ======================================================================
+    std::printf("[patch_test] oversized-block clamp...\n");
+    const int big = kBlock * 2;
+    std::vector<float> BL((size_t)big, -999.0f), BR((size_t)big, -999.0f);
+    float* bigOut[2] = { BL.data(), BR.data() };
+    g.process(bigOut, 2, big, rc);
+    bool headLive = false, tailZero = true;
+    for (int i = 0; i < kBlock; ++i)
+        if (std::fabs(bigOut[0][i]) > 1e-6f) headLive = true;
+    for (int i = kBlock; i < big; ++i)
+        if (bigOut[0][i] != 0.0f || bigOut[1][i] != 0.0f) tailZero = false;
+    check(headLive, "clamped head still renders audio");
+    check(tailZero, "frames beyond maxBlock are zeroed (no sentinel leakage)");
+
+    // ======================================================================
+    // Edit-time budget pre-flight (separate graph): connecting sources into a
+    // 256-channel mixer must be REJECTED at connect() the moment the plan's
+    // sum-source budget would overflow — and the surviving graph must still
+    // compile and render.  With stereo sources every port with >= 2 sources
+    // costs `count` sum slots, so 16 full source sweeps hit kMaxSumSrcs
+    // (256 * 16 == 4096) exactly and the 17th sweep must fail.
+    // ======================================================================
+    std::printf("[patch_test] edit-time budget pre-flight...\n");
+    {
+        PatchGraph gb;
+        auto mixUp = std::make_unique<MixerNode>(256);
+        MixerNode* mix = mixUp.get();
+        const NodeId mixId = gb.addNode(std::move(mixUp));
+        check(mixId != 0, "mixer added");
+        (void)mix;
+
+        NodeId src[17];
+        bool srcOk = true;
+        for (int s = 0; s < 17; ++s) {
+            src[s] = gb.addNode(std::make_unique<SineSourceNode>(200.0f + s, 0.01f));
+            if (!src[s]) srcOk = false;
+        }
+        check(srcOk, "17 budget-test sources added");
+
+        bool sweepOk    = true;   // sweeps 0..15 must all connect
+        bool overflowOk = true;   // sweep 16 must be rejected on every port
+        for (int s = 0; s < 17; ++s) {
+            for (int p = 0; p < 256; ++p) {
+                const bool ok = gb.connect({{src[s], 0}, {mixId, (PortId)(p + 1)}});
+                if (s < 16 && !ok) sweepOk = false;
+                if (s == 16 && ok) overflowOk = false;
+            }
+        }
+        check(sweepOk,    "connections within the sum budget all accepted");
+        check(overflowOk, "connection that would overflow kMaxSumSrcs rejected at edit time");
+
+        // The rejected edits must have left the graph fully consistent.
+        check(gb.prepare(kSr, kBlock), "budget-test prepare ok");
+        check(gb.lastCompileOk(), "graph at exactly the budget cap still compiles");
+        std::vector<float> qL((size_t)kBlock, 0.0f), qR((size_t)kBlock, 0.0f);
+        float* qOut[2] = { qL.data(), qR.data() };
+        gb.process(qOut, 2, kBlock, rc);
+        bool finite = true;
+        for (int i = 0; i < kBlock; ++i)
+            if (!std::isfinite(qOut[0][i]) || !std::isfinite(qOut[1][i])) finite = false;
+        check(finite, "budget-cap graph renders finite output");
+    }
 
     // ======================================================================
     // Cycle rejection (separate graph).

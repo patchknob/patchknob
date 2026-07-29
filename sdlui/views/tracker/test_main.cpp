@@ -18,10 +18,52 @@
 #include "event.h"
 
 #include <atomic>
+#include <cstring>
 #include <thread>
 #include <cstdio>
 
 using namespace ui;
+
+namespace ui {
+struct TrackerViewTestAccess
+{
+    static void insert_note( TrackerView& tracker, int row, int note )
+    {
+        tracker.m_cursor_row = row;
+        tracker.m_cursor_track = 0;
+        tracker.m_cursor_col = 0;
+        tracker.set_note_at_cell( note );
+    }
+};
+}
+
+static bool retrigger_insert_test()
+{
+    sequence seq;
+    seq.set_length( 4 * c_ppqn, false );
+
+    TrackerView tracker( &seq, 0 );
+    tracker.set_lines_per_beat( 4 );
+    tracker.set_velocity( 100 );
+    TrackerViewTestAccess::insert_note( tracker, 0, 60 );
+    TrackerViewTestAccess::insert_note( tracker, 1, 62 );
+
+    long tickStart = 0, tickEnd = 0;
+    int note = -1, velocity = 0;
+    bool selected = false;
+    seq.reset_draw_marker();
+    if ( seq.get_next_note_event( &tickStart, &tickEnd, &note, &selected, &velocity )
+         != DRAW_NORMAL_LINKED || tickStart != 0 || tickEnd != c_ppqn / 4 ||
+         note != 60 || velocity != 100 )
+        return false;
+
+    if ( seq.get_next_note_event( &tickStart, &tickEnd, &note, &selected, &velocity )
+         != DRAW_NOTE_ON || tickStart != c_ppqn / 4 || note != 62 || velocity != 100 )
+        return false;
+
+    return seq.get_next_note_event( &tickStart, &tickEnd, &note, &selected, &velocity )
+           == DRAW_FIN;
+}
 
 // add one note-on / note-off pair straight into the sequence (piano-roll form).
 static void add_note( sequence& s, int row, int rpb, int note, int vel, int step )
@@ -42,11 +84,20 @@ static void add_cc( sequence& s, int row, int rpb, int cc, int val )
 
 int main( int argc, char** argv )
 {
-    (void) argc; (void) argv;
+    if ( argc == 2 && std::strcmp( argv[1], "--self-test" ) == 0 )
+    {
+        if ( !retrigger_insert_test() )
+        {
+            std::fprintf( stderr, "tracker retrigger insertion test failed\n" );
+            return 1;
+        }
+        std::printf( "tracker retrigger insertion test passed\n" );
+        return 0;
+    }
 
     App app;
     app.w = 720; app.h = 620;
-    if ( !app.init( "seq24 / SDL tracker" ) ) { app.shutdown(); return 1; }
+    if ( !app.init( "PatchKnob tracker" ) ) { app.shutdown(); return 1; }
 
     // ---- sample model: one sequence shared with (a hypothetical) piano roll --
     sequence seq;

@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------
-//  seq24 Windows port — per-track / master VU meter.
+//  PatchKnob — per-track / master VU meter.
 //
 //  VuMeter computes a PEAK and an RMS level from blocks of float audio pushed
 //  in from the audio thread, and exposes both as lock-free atomics for the UI
@@ -18,13 +18,13 @@
 //  sample rate set via setSampleRate(), so the time constant is independent of
 //  block size.
 //----------------------------------------------------------------------------
-#ifndef SEQ24_ENGINE_GRAPH_VU_METER_H
-#define SEQ24_ENGINE_GRAPH_VU_METER_H
+#ifndef PATCHKNOB_ENGINE_GRAPH_VU_METER_H
+#define PATCHKNOB_ENGINE_GRAPH_VU_METER_H
 
 #include <atomic>
 #include <cmath>
 
-namespace seq24 { namespace engine {
+namespace PatchKnob { namespace engine {
 
 class VuMeter {
 public:
@@ -103,6 +103,6 @@ private:
     std::atomic<float> rms_{0.0f};
 };
 
-}} // namespace seq24::engine
+}} // namespace PatchKnob::engine
 
-#endif // SEQ24_ENGINE_GRAPH_VU_METER_H
+#endif // PATCHKNOB_ENGINE_GRAPH_VU_METER_H

@@ -1,9 +1,10 @@
 #-----------------------------------------------------------------------------
-# seq24 Windows port — real-time audio engine module.
+# PatchKnob — real-time audio engine module.
 #
 # Builds:
-#   * seq24_audio  : static library wrapping RtAudio (WASAPI) as AudioEngine.
-#   * audio_test   : smoke-test exe (440 Hz sine, ~1.5 s, prints diagnostics).
+#   * PatchKnob_audio  : static library wrapping PortAudio as AudioEngine.
+#   * audio_test   : headless tests (throwing callback, FTZ/DAZ, callback-swap
+#                    stress, device-loss flag) + 440 Hz sine device smoke test.
 #
 # Standalone build (MinGW Makefiles, MSYS2 mingw64):
 #   export PATH="/c/msys64/mingw64/bin:$PATH"
@@ -12,7 +13,7 @@
 #   ./build/audio_test.exe
 #-----------------------------------------------------------------------------
 cmake_minimum_required(VERSION 3.16)
-project(seq24_audio LANGUAGES CXX)
+project(PatchKnob_audio LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -22,12 +23,16 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
-# Locate the vendored RtAudio (this module lives at src/engine/audio/).
-set(RTAUDIO_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../vendor/rtaudio"
-    CACHE PATH "Path to vendored RtAudio")
+# Locate the vendored PortAudio (built static: vendor/portaudio/build/libportaudio.a).
+# PortAudio gives the multi-backend driver model the DAW needs: ASIO / WASAPI /
+# WDM-KS / DirectSound / MME on Windows, ALSA / JACK / Pulse on Linux.
+set(PORTAUDIO_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../vendor/portaudio"
+    CACHE PATH "Path to vendored PortAudio")
 
-if(NOT EXISTS "${RTAUDIO_DIR}/RtAudio.cpp")
-    message(FATAL_ERROR "RtAudio not found at ${RTAUDIO_DIR}. Set -DRTAUDIO_DIR=...")
+if(NOT EXISTS "${PORTAUDIO_DIR}/build/libportaudio.a")
+    message(FATAL_ERROR "PortAudio static lib not found at ${PORTAUDIO_DIR}/build/libportaudio.a. "
+                        "Build it: cmake -S ${PORTAUDIO_DIR} -B ${PORTAUDIO_DIR}/build "
+                        "-G \"MinGW Makefiles\" -DBUILD_SHARED_LIBS=OFF && cmake --build ${PORTAUDIO_DIR}/build")
 endif()
 
 # Path to the shared engine contract (plugin_api.h), so consumers of the lib
@@ -35,31 +40,27 @@ endif()
 set(ENGINE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/..")
 
 #-----------------------------------------------------------------------------
-# Static library: seq24_audio (= AudioEngine + RtAudio WASAPI backend)
+# Static library: PatchKnob_audio (= AudioEngine + PortAudio multi-backend)
 #-----------------------------------------------------------------------------
-add_library(seq24_audio STATIC
-    audio_engine.cpp
-    "${RTAUDIO_DIR}/RtAudio.cpp"
+add_library(PatchKnob_audio STATIC audio_engine.cpp)
+
+target_include_directories(PatchKnob_audio
+    PUBLIC
+        "${CMAKE_CURRENT_SOURCE_DIR}"       # audio_engine.h
+        "${PORTAUDIO_DIR}/include"          # portaudio.h
+        "${ENGINE_DIR}"                     # plugin_api.h (shared contract)
 )
 
-# Select the WASAPI backend (verified primary on this machine).
-target_compile_definitions(seq24_audio PRIVATE __WINDOWS_WASAPI__)
-
-target_include_directories(seq24_audio
+# Static PortAudio + the Windows backend link deps (WASAPI / WDM-KS / DSound /
+# MME need these system libs; PortAudio has no external runtime dependency).
+target_link_libraries(PatchKnob_audio
     PUBLIC
-        "${CMAKE_CURRENT_SOURCE_DIR}"   # audio_engine.h
-        "${RTAUDIO_DIR}"                # RtAudio.h
-        "${ENGINE_DIR}"                 # plugin_api.h (shared contract)
-)
-
-# WASAPI / Media Foundation link dependencies (per vendor/rtaudio/INTEGRATION.md).
-target_link_libraries(seq24_audio
-    PUBLIC
-        ole32 winmm ksuser mfplat mfuuid wmcodecdspuuid
+        "${PORTAUDIO_DIR}/build/libportaudio.a"
+        winmm ole32 uuid ksuser setupapi mfplat mfuuid wmcodecdspuuid
 )
 
 #-----------------------------------------------------------------------------
 # Test executable: audio_test
 #-----------------------------------------------------------------------------
 add_executable(audio_test audio_test.cpp)
-target_link_libraries(audio_test PRIVATE seq24_audio)
+target_link_libraries(audio_test PRIVATE PatchKnob_audio)

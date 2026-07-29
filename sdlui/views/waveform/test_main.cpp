@@ -25,7 +25,7 @@
 #include <cstdio>
 #include <vector>
 
-using namespace seq24::engine;
+using namespace PatchKnob::engine;
 
 static const double kSr    = 48000.0;
 static const int    kBlock = 256;

@@ -31,12 +31,12 @@ each:
 | **Plugin MIDI-out surface** | new `IPluginInstance::pullMidiOut()` pull method | additive `ProcessBlock.midiOut` sink | additive `ProcessBlock.midiOut` sink | **P1/P2**: extend `ProcessBlock`. It matches how VST2 (host callback fires *inside* `processReplacing`) and VST3 (output `IEventList` filled *during* process) actually emit MIDI. A pull method forces the host wrapper to buffer events in a side channel and adds a method to the frozen interface. `ProcessBlock` already carries all per-block I/O; MIDI-out belongs there. |
 | **MixerGraph decomposition** | collapse straight to one `MixerNode`; demote `Track`/`MixerGraph` to preset *builders* | **phased**: Phase-1 wrap the whole `MixerGraph` as one shim node (byte-identical), Phase-2 split, Phase-3 free-wire | repackage as one `MixerNode` keeping its `Track` strips | **P1's phasing** as the migration path + **P0's `MixerNode`** as the destination. The Phase-1 shim gives a benchmark that *proves* parity before anything is decomposed (kills P1-risk #5, the perf-regression risk). |
 | **DAW track** | track = saved sub-graph preset only | track = a **composite `TrackNode`** wrapping the whole `Track` (black box), optionally "exploded" into sub-nodes | track = instrument node wired to a mixer strip | **P1's composite `TrackNode`** as default (the in-progress DAW/mixer work keeps running verbatim inside it) **plus P0's decomposed preset** as the "explode" form. Engine stays flat; nesting is a UI/organizational affordance, not a hierarchical scheduler. |
-| **Sequencer→node binding** | `MidiInNode`s fed by the rings | rings drain into node MIDI inboxes by a track→NodeId map | replace `RouteMsg.track` with a destination NodeId/PortRef | **P0's `MidiInNode`s** (sequencer is just source nodes — uniform) **+ P1's track→node map** kept *behind* the unchanged `audio_app_route_midi(int track,…)` C API so `seq24.cpp`/`midibus.cpp` are untouched. P2's ring-format change is rejected as needless churn to a working lock-free path. |
+| **Sequencer→node binding** | `MidiInNode`s fed by the rings | rings drain into node MIDI inboxes by a track→NodeId map | replace `RouteMsg.track` with a destination NodeId/PortRef | **P0's `MidiInNode`s** (sequencer is just source nodes — uniform) **+ P1's track→node map** kept *behind* the unchanged `audio_app_route_midi(int track,…)` C API so `PatchKnob.cpp`/`midibus.cpp` are untouched. P2's ring-format change is rejected as needless churn to a working lock-free path. |
 
 Everything else — buffer pool with single-source aliasing, fan-in sum/merge,
 cycle rejection at `connect()` + an explicit one-block-delay `FeedbackNode`,
 fixed compile-time capacities that fail the *edit* (never truncate audio),
-deferred node/plan destruction gated on a block counter, the gtkmm node canvas
+deferred node/plan destruction gated on a block counter, the SDL node canvas
 reusing `PluginBrowser`/`PluginEditorWindow`/`MixerWindow` — is common to all
 three and adopted.
 
@@ -248,7 +248,7 @@ MixerNode           N stereo audio-in ports + 1 stereo master out. process() is
 MixerGraphShimNode  Phase-1 only: wraps the WHOLE MixerGraph, process() calls
                     renderBlock() unchanged. The parity benchmark; retired after
                     Phase-2 decomposition proves equal.
-TrackNode           composite: owns a seq24::engine::Track; process() calls
+TrackNode           composite: owns a PatchKnob::engine::Track; process() calls
                     Track::processBlock verbatim. Ports: 1 MIDI-in, 1 stereo
                     audio-out (+ optional stereo audio-in for monitoring/record).
 GainPanNode         constant-power pan (lifted from track.cpp) + inline VuMeter.
@@ -297,7 +297,7 @@ where `MixerGraph::renderBlock` writes today.
 keep their signatures; they now edit the graph (add a `PluginNode`, connect it,
 republish) instead of poking a `Track` directly — or, in the composite default,
 they forward to the `TrackNode`'s embedded `Track` (identical to today). Either
-way the public C API in `audio_app.h` is unchanged, so `seq24.cpp` / `midibus.cpp`
+way the public C API in `audio_app.h` is unchanged, so `PatchKnob.cpp` / `midibus.cpp`
 compile untouched.
 
 ---
@@ -391,12 +391,11 @@ RT-safety (mirrors the `AudioEngine` contract and the `Track`/clip docs):
 
 ---
 
-## 11. Node-editor UX (`src/ui/patch/`)
+## 11. Node-editor UX (`sdlui/views/patchbay/`)
 
-A new gtkmm-2.4 `Gtk::DrawingArea` canvas styled with the existing `synth::`
-monochrome palette (`ui/palette.h`), driven by a `PatchController` modeled on
-`MixerController` (30 Hz Glib timer reading `VuMeter` atomics for live node
-meters; instantiate via `audio_app` + `PluginHost`).
+An SDL canvas styled with the existing monochrome palette, driven by a
+`PatchController` modeled on `MixerController` (30 Hz UI tick reading `VuMeter`
+atomics for live node meters; instantiate via `audio_app` + `PluginHost`).
 
 - **Node boxes.** Rounded box titled with `typeName()` / plugin name. Input ports
   are dots down the left edge, outputs down the right. **Audio ports draw filled,
@@ -468,7 +467,7 @@ struct ProcessBlock {
 };
 
 // ============================================================================
-//  engine/patch/patch_graph.h                        namespace seq24::engine::patch
+//  engine/patch/patch_graph.h                        namespace PatchKnob::engine::patch
 // ============================================================================
 #include <atomic>
 #include <cstdint>
@@ -479,7 +478,7 @@ struct ProcessBlock {
 #include "../graph/track.h"    // RenderContext
 #include "../graph/vu_meter.h" // VuMeter
 
-namespace seq24 { namespace engine { namespace patch {
+namespace PatchKnob { namespace engine { namespace patch {
 
 // ---- compile-time capacities (compile() rejects the EDIT when exceeded) ----
 constexpr int kMaxNodes        = 256;
@@ -635,5 +634,5 @@ class MidiInNode         : public Node { /* ring-drained MIDI -> midiOut */ };
 class MidiOutNode        : public Node { /* midiIn -> hardware/sequencer sink */ };
 class FeedbackNode       : public Node { /* one-block delay; legal cycle cut */ };
 
-}}} // namespace seq24::engine::patch
+}}} // namespace PatchKnob::engine::patch
 ```

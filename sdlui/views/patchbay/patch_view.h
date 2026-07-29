@@ -2,8 +2,7 @@
 //
 //  sdlui/views/patchbay/patch_view.h
 //
-//  SDL2 port of the modular PATCHBAY node-editor (mirrors the GTK
-//  src/ui/patchbay/patch_canvas.h).  A ui::Widget that renders and edits the
+//  SDL2 modular PATCHBAY node-editor.  A ui::Widget that renders and edits the
 //  engine-free VIEW-MODEL from src/ui/patchbay/patch_view_model.h:
 //
 //      * NODES  -- rounded boxes with a title strip; audio ports draw FILLED
@@ -12,7 +11,7 @@
 //      * CONNECTIONS -- bezier curves (sampled to line segments in SDL) from an
 //        OUT port to an IN port.  Audio wires are solid, MIDI wires dashed.
 //
-//  Interaction (same as the GTK canvas):
+//  Interaction:
 //      * Drag from an OUT port to an IN port to connect.  Only like-kinds may
 //        join (audio->audio, midi->midi); mismatches are refused mid-drag.
 //      * Left-click a wire to delete it.
@@ -29,17 +28,18 @@
 //  the live LIGHT / MIDNIGHT theme.
 //
 //----------------------------------------------------------------------------
-#ifndef SEQ24_SDLUI_PATCHBAY_PATCH_VIEW_H
-#define SEQ24_SDLUI_PATCHBAY_PATCH_VIEW_H
+#ifndef PATCHKNOB_SDLUI_PATCHBAY_PATCH_VIEW_H
+#define PATCHKNOB_SDLUI_PATCHBAY_PATCH_VIEW_H
 
 #include "gui.h"
 #include "ui/patchbay/patch_view_model.h"   // the SHARED engine-free view-model
 
+#include <cmath>
 #include <functional>
 #include <string>
 #include <vector>
 
-namespace seq24 {
+namespace PatchKnob {
 namespace patchbay {
 
 //! The SDL patchbay canvas.  Mount it as a top-level ui::Widget root sized to a
@@ -87,15 +87,52 @@ public:
     std::function<void(NodeId,PortId,NodeId,PortId)> on_disconnect;
     std::function<void(double,double,const std::string&)> on_add_module;   // x, y, category ("" = generic)
     std::function<void(NodeId)>                      on_remove_node;
-    std::function<void(NodeId)>                      on_open_editor;
+    std::function<void(NodeId)>                      on_open_editor;   // choose plugin
+    std::function<void(NodeId)>                      on_open_gui;      // embedded native VST GUI
+    std::function<void(NodeId)>                      on_open_params;   // SDL parameter panel
+    // MIDI-source nodes: list input devices in the node menu; pick one.
+    std::function<std::vector<std::string>()>        midi_devices;
+    std::function<void(int)>                         on_select_midi;
+    // PipeWire-style MIDI ports: Add > MIDI opens a submenu of virtual + hardware
+    // in/out ports.  midi_out_devices lists hardware MIDI OUTPUT device names
+    // (midi_devices already lists inputs).  on_add_midi_port creates the chosen
+    // port node: dir 0 = MIDI in, 1 = MIDI out; hwDevice < 0 = virtual.
+    std::function<std::vector<std::string>()>        midi_out_devices;
+    std::function<void(double,double,int,int)>       on_add_midi_port;
+    std::function<void(NodeId)>                      on_open_mixer;    // mixer channel window
+    std::function<void(NodeId)>                      on_arm_record;    // toggle record arm
+    std::function<void(NodeId)>                      on_open_pd;       // Pure Data editor
+    std::function<void(NodeId)>                      on_open_rack;     // Rack modular editor
+    std::function<void(NodeId)>                      on_open_sampler;  // Buzz sampler editor
+    std::function<void(NodeId)>                      on_open_csound;   // Csound CSD editor
+    std::function<void(NodeId,int)>                  on_set_rack_poly; // Rack MIDI voice count
 
     // ========================================================================
     //  ui::Widget overrides
     // ========================================================================
     void draw( ui::App& app ) override;
     bool on_mouse( ui::App& app, const ui::MouseEv& e ) override;
+    bool on_wheel( ui::App& app, int dx, int dy ) override;
 
 private:
+    // ---- camera: pan + zoom.  Node coords are WORLD units; the canvas maps them
+    // to screen via wsx/wsy (position) and wsc (length).  sw_x/sw_y invert a screen
+    // point back to world for hit-testing.
+    double m_pan_x = 0.0, m_pan_y = 0.0;    // world point shown at the canvas origin
+    double m_zoom  = 1.0;                   // 1.0 == 100%
+    int    wsx( double x ) const { return rect.x + (int)std::lround( (x - m_pan_x) * m_zoom ); }
+    int    wsy( double y ) const { return rect.y + (int)std::lround( (y - m_pan_y) * m_zoom ); }
+    int    wsc( int v )    const { int s = (int)std::lround( v * m_zoom ); return s < 1 ? 1 : s; }
+    double sw_x( int sx )  const { return (sx - rect.x) / m_zoom + m_pan_x; }
+    double sw_y( int sy )  const { return (sy - rect.y) / m_zoom + m_pan_y; }
+    void   content_bounds( double& minx, double& miny, double& maxx, double& maxy ) const;
+    void   clamp_pan();
+    void   draw_scrollbars( ui::App& app );
+    SDL_Rect m_hbar{0,0,0,0}, m_vbar{0,0,0,0};   // scrollbar thumb rects (screen)
+    bool     m_drag_hbar = false, m_drag_vbar = false;
+    int      m_bar_grab  = 0;                     // pointer offset within the thumb
+    static const int SCROLLBAR = 10;
+
     // ---- geometry helpers (canvas-local coords) ----------------------------
     int  node_height( const Node& n ) const;
     void port_center( const Node& n, PortDir dir, std::size_t idx,
@@ -108,6 +145,9 @@ private:
     NodeId node_at( int x, int y ) const;
     bool   connection_at( int x, int y, Connection& out ) const;
     void   raise_node( NodeId id );
+    //! Click-to-connect: wire the first matching out->in port pair (per kind:
+    //! audio + midi) from `from` to `to`.  Fires on_connect for each.
+    void   auto_connect_nodes( NodeId from, NodeId to );
 
     // ---- drawing (canvas-local coords are offset by rect.x/rect.y) ---------
     void draw_node( ui::App& app, const Node& n );
@@ -120,11 +160,12 @@ private:
     struct MenuItem
     {
         std::string           label;
-        bool                  enabled;
-        bool                  separator;
+        bool                  enabled   = true;    // defaults so a plain
+        bool                  separator = false;   // `MenuItem mi;` is a live item
         std::function<void()> action;
     };
     void open_add_menu( ui::App& app, int sx, int sy, double cx, double cy );
+    void open_midi_menu( ui::App& app, int sx, int sy, double cx, double cy );
     void open_node_menu( ui::App& app, int sx, int sy, NodeId id );
     void layout_menu( ui::App& app );
     void close_menu();
@@ -144,6 +185,8 @@ private:
     PortRef  m_hover_pt;
     NodeId   m_move_id;
     int      m_move_dx, m_move_dy;
+    int      m_press_lx = 0, m_press_ly = 0;   // press position (click-vs-drag test)
+    NodeId   m_link_src = 0;                    // click-to-connect: armed source (0 = none)
 
     // ---- menu state --------------------------------------------------------
     bool                  m_menu_open;
@@ -154,12 +197,12 @@ private:
 };
 
 } // namespace patchbay
-} // namespace seq24
+} // namespace PatchKnob
 
 //----------------------------------------------------------------------------
 //  HOW THE SHELL MOUNTS IT
 //
-//    using seq24::patchbay::PatchView;
+//    using PatchKnob::patchbay::PatchView;
 //    PatchView pv;
 //    pv.rect = { 0, 0, app.w, app.h };          // size to any rect you want
 //    pv.set_nodes( myNodes );
@@ -171,4 +214,4 @@ private:
 //    app.roots.push_back( &pv );
 //    // re-set pv.rect in app.on_layout to track window resizes.
 //----------------------------------------------------------------------------
-#endif // SEQ24_SDLUI_PATCHBAY_PATCH_VIEW_H
+#endif // PATCHKNOB_SDLUI_PATCHBAY_PATCH_VIEW_H

@@ -1,20 +1,22 @@
 //----------------------------------------------------------------------------
-//  seq24 Windows port (ZERO-JUCE) — VST2 host implementation.
+//  PatchKnob (ZERO-JUCE) — VST2 host implementation.
 //  See vst2_host.h for the contract. Uses the clean-room vestige aeffectx.h.
 //----------------------------------------------------------------------------
 #include "vst2_host.h"
 
 #include "aeffectx.h"
+#include "seh_guard.h"
 
 #include <windows.h>
 
+#include <cstdio>
 #include <cstring>
 #include <cmath>
 #include <algorithm>
 #include <mutex>
 #include <unordered_map>
 
-namespace seq24 { namespace engine {
+namespace PatchKnob { namespace engine {
 
 // ---------------------------------------------------------------------------
 // Opcodes the clean-room header does not declare but that we use. These are
@@ -29,11 +31,102 @@ static constexpr int kEffString2Parameter = 27;
 // AEffect flag for "uses opaque chunk for state" (effFlagsProgramChunks).
 static constexpr int kEffFlagsProgramChunks = 1 << 5;
 
+// VST2 host string buffer limits (the clean-room header omits the constants;
+// the spec guarantees the plugin only 64 bytes for vendor/product strings).
+static constexpr size_t kVstMaxVendorStrLen  = 64;
+static constexpr size_t kVstMaxProductStrLen = 64;
+
+// Load-time sanity bounds for the plugin's self-reported counts. Anything
+// outside these is a malformed/hostile AEffect and the plugin is refused
+// rather than allowed to size buffers (or index arrays) with garbage.
+static constexpr int kMaxPluginChannels = 64;
+static constexpr int kMaxPluginParams   = 100000;
+
+// Bounded string copy: never writes more than `cap` bytes, always terminates.
+static void copyBounded(char* dst, const char* src, size_t cap)
+{
+    if (!dst || cap == 0) return;
+    size_t i = 0;
+    for (; i + 1 < cap && src[i]; ++i) dst[i] = src[i];
+    dst[i] = '\0';
+}
+
+// ---------------------------------------------------------------------------
+// seh_guarded_call thunks — every raw call into the plugin (dispatcher,
+// processReplacing, set/getParameter, the DLL entry point) is routed through
+// exactly one of these so a fault inside the plugin is contained and the
+// instance can degrade to silence instead of killing the app.
+// ---------------------------------------------------------------------------
+struct DispatchCall {
+    AEffect* eff;
+    int32_t  opcode;
+    int32_t  index;
+    intptr_t value;
+    void*    ptr;
+    float    opt;
+    intptr_t result;
+};
+static void runDispatchCall(void* p)
+{
+    DispatchCall* c = (DispatchCall*)p;
+    c->result = c->eff->dispatcher(c->eff, c->opcode, c->index, c->value,
+                                   c->ptr, c->opt);
+}
+
+struct ProcessCall {
+    AEffect* eff;
+    float**  ins;
+    float**  outs;
+    int32_t  nframes;
+    bool     replacing;
+};
+static void runProcessCall(void* p)
+{
+    ProcessCall* c = (ProcessCall*)p;
+    if (c->replacing) c->eff->processReplacing(c->eff, c->ins, c->outs, c->nframes);
+    else              c->eff->process(c->eff, c->ins, c->outs, c->nframes);
+}
+
+struct SetParamCall {
+    AEffect* eff;
+    int32_t  index;
+    float    value;
+};
+static void runSetParamCall(void* p)
+{
+    SetParamCall* c = (SetParamCall*)p;
+    c->eff->setParameter(c->eff, c->index, c->value);
+}
+
+struct GetParamCall {
+    AEffect* eff;
+    int32_t  index;
+    float    result;
+};
+static void runGetParamCall(void* p)
+{
+    GetParamCall* c = (GetParamCall*)p;
+    c->result = c->eff->getParameter(c->eff, c->index);
+}
+
 // ERect returned by effEditGetRect (the clean-room header omits the struct).
 struct ERect { int16_t top, left, bottom, right; };
 
 // Plugin DLL entry point: AEffect* entry(audioMasterCallback host).
 typedef AEffect* (VST_CALL_CONV* VstEntryProc)(audioMasterCallback);
+
+// Guarded thunk for the DLL entry call itself — a fault while the plugin
+// constructs would otherwise kill the app before load() can even fail.
+struct EntryCall {
+    VstEntryProc        entry;
+    audioMasterCallback host;
+    AEffect*            result;
+};
+static void runEntryCall(void* p)
+{
+    EntryCall* c = (EntryCall*)p;
+    c->result = c->entry(c->host);
+}
 
 // While a plugin is being constructed (entry() / effOpen), it may issue host
 // callbacks before we have a chance to stash `this` in AEffect::user. This
@@ -76,13 +169,76 @@ Vst2PluginInstance::~Vst2PluginInstance()
 }
 
 // ---------------------------------------------------------------------------
-// dispatcher convenience
+// dispatcher convenience — every opcode goes through ONE fault-guarded
+// helper. A fault inside any dispatcher call (effOpen, effProcessEvents,
+// effSetChunk, ...) latches dead_ and returns a safe 0 instead of crashing;
+// a dead instance no-ops all further dispatch.
 // ---------------------------------------------------------------------------
 intptr_t Vst2PluginInstance::dispatch(int32_t opcode, int32_t index,
                                       intptr_t value, void* ptr, float opt) const
 {
-    if (!effect_) return 0;
-    return effect_->dispatcher(effect_, opcode, index, value, ptr, opt);
+    if (!effect_ || dead_.load(std::memory_order_relaxed)) return 0;
+    DispatchCall call{ effect_, opcode, index, value, ptr, opt, 0 };
+    uint32_t code = 0;
+    if (!seh_guarded_call(&runDispatchCall, &call, &code))
+    {
+        markDead("dispatcher", code);
+        return 0;
+    }
+    return call.result;
+}
+
+// ---------------------------------------------------------------------------
+// fault bookkeeping + guarded raw parameter calls
+// ---------------------------------------------------------------------------
+void Vst2PluginInstance::markDead(const char* where, uint32_t code) const
+{
+    // First fault wins; later calls on a dead instance are already no-ops.
+    if (dead_.exchange(true, std::memory_order_acq_rel)) return;
+    std::fprintf(stderr,
+                 "vst2: plugin '%s' faulted in %s (code 0x%08X) — instance "
+                 "disabled, output silenced\n",
+                 desc_.name.empty() ? desc_.path.c_str() : desc_.name.c_str(),
+                 where, (unsigned)code);
+}
+
+void Vst2PluginInstance::guardedSetParameter(int32_t index, float value) const
+{
+    if (!effect_ || !effect_->setParameter ||
+        dead_.load(std::memory_order_relaxed))
+        return;
+    SetParamCall call{ effect_, index, value };
+    uint32_t code = 0;
+    if (!seh_guarded_call(&runSetParamCall, &call, &code))
+        markDead("setParameter", code);
+}
+
+float Vst2PluginInstance::guardedGetParameter(int32_t index) const
+{
+    if (!effect_ || !effect_->getParameter ||
+        dead_.load(std::memory_order_relaxed))
+        return 0.0f;
+    GetParamCall call{ effect_, index, 0.0f };
+    uint32_t code = 0;
+    if (!seh_guarded_call(&runGetParamCall, &call, &code))
+    {
+        markDead("getParameter", code);
+        return 0.0f;
+    }
+    return call.result;
+}
+
+// ---------------------------------------------------------------------------
+// teardown gate (message-thread half) — flip alive_ off, then wait until the
+// audio thread's in-flight process() block (if any) has drained. process()
+// raises processing_ FIRST and re-checks alive_, so once processing_ reads
+// false here no new block can be inside the plugin.
+// ---------------------------------------------------------------------------
+void Vst2PluginInstance::quiesceProcessing()
+{
+    alive_.store(false, std::memory_order_seq_cst);
+    while (processing_.load(std::memory_order_acquire))
+        Sleep(0);   // an audio block is a few ms at most
 }
 
 // ---------------------------------------------------------------------------
@@ -140,11 +296,13 @@ intptr_t Vst2PluginInstance::hostCallbackImpl(int32_t opcode, int32_t index,
         return (intptr_t)maxBlockSize_;
 
     case audioMasterGetVendorString:
-        if (ptr) std::strcpy((char*)ptr, "seq24");
+        // The spec guarantees the plugin's buffer only kVstMaxVendorStrLen
+        // bytes — copy bounded, never strcpy into plugin memory.
+        if (ptr) copyBounded((char*)ptr, "PatchKnob", kVstMaxVendorStrLen);
         return 1;
 
     case audioMasterGetProductString:
-        if (ptr) std::strcpy((char*)ptr, "seq24 VST2 host");
+        if (ptr) copyBounded((char*)ptr, "PatchKnob VST2 host", kVstMaxProductStrLen);
         return 1;
 
     case audioMasterGetVendorVersion:
@@ -208,12 +366,13 @@ intptr_t Vst2PluginInstance::hostCallbackImpl(int32_t opcode, int32_t index,
         return 1;
 
     case audioMasterIOChanged:
-        if (effect_)
-        {
-            numIn_  = effect_->numInputs;
-            numOut_ = effect_->numOutputs;
-        }
-        return 1;
+        // A plugin may re-report channel counts after a preset load, but the
+        // RT scratch (inPtrs_/outPtrs_/inStorage_/dump_) was sized once at
+        // prepare() and MAY be in use by a concurrent process(). Accepting
+        // new counts live would let process() index past those allocations
+        // (heap corruption), so we deliberately decline: the plugin keeps
+        // its prepare()-time channel layout until the host re-prepares it.
+        return 0;
 
     case audioMasterWantMidi:
     case audioMasterUpdateDisplay:
@@ -257,7 +416,23 @@ bool Vst2PluginInstance::load(const PluginDescriptor& desc)
 
     // Route early callbacks (during entry()/effOpen) to this instance.
     g_loadingInstance = this;
-    AEffect* eff = entry(&Vst2PluginInstance::hostCallbackStatic);
+    EntryCall entryCall{ entry, &Vst2PluginInstance::hostCallbackStatic,
+                         nullptr };
+    uint32_t entryFault = 0;
+    if (!seh_guarded_call(&runEntryCall, &entryCall, &entryFault))
+    {
+        // The plugin faulted while constructing. Its DLL state is unknown,
+        // so deliberately LEAK the module (unloading could fault again in
+        // DllMain) and refuse the plugin.
+        g_loadingInstance = nullptr;
+        module_ = nullptr;
+        std::fprintf(stderr,
+                     "vst2: '%s' faulted in its entry point (code 0x%08X) — "
+                     "refusing to load\n",
+                     desc.path.c_str(), (unsigned)entryFault);
+        return false;
+    }
+    AEffect* eff = entryCall.result;
     if (!eff || eff->magic != kEffectMagic)
     {
         g_loadingInstance = nullptr;
@@ -276,6 +451,28 @@ bool Vst2PluginInstance::load(const PluginDescriptor& desc)
     dispatch(effOpen, 0, 0, nullptr, 0.0f);
     opened_ = true;
     g_loadingInstance = nullptr;
+
+    // A fault inside effOpen latched dead_; the instance is unusable.
+    if (dead_.load(std::memory_order_relaxed))
+    {
+        release();
+        return false;
+    }
+
+    // Refuse plugins whose self-reported counts are insane BEFORE those
+    // counts size any buffer or bound any loop (a negative numInputs wraps
+    // (size_t) casts to huge allocations; absurd numOutputs would make
+    // process() walk garbage).
+    if (!validateEffectCounts())
+    {
+        std::fprintf(stderr,
+                     "vst2: rejecting '%s' — insane AEffect counts "
+                     "(in=%d out=%d params=%d)\n",
+                     desc.path.c_str(), effect_->numInputs,
+                     effect_->numOutputs, effect_->numParams);
+        release();
+        return false;
+    }
 
     numIn_  = effect_->numInputs;
     numOut_ = effect_->numOutputs;
@@ -296,12 +493,61 @@ bool Vst2PluginInstance::load(const PluginDescriptor& desc)
     return true;
 }
 
+bool Vst2PluginInstance::validateEffectCounts() const
+{
+    if (!effect_) return false;
+    return effect_->numInputs  >= 0 && effect_->numInputs  <= kMaxPluginChannels &&
+           effect_->numOutputs >= 0 && effect_->numOutputs <= kMaxPluginChannels &&
+           effect_->numParams  >= 0 && effect_->numParams  <= kMaxPluginParams;
+}
+
+// ---------------------------------------------------------------------------
+// adoptEffectForTest — TEST-ONLY entry: wire up an in-process fake AEffect so
+// vst2_test can exercise the hardening paths without a plugin DLL.
+// ---------------------------------------------------------------------------
+bool Vst2PluginInstance::adoptEffectForTest(AEffect* eff)
+{
+    if (!eff || eff->magic != kEffectMagic) return false;
+
+    effect_ = eff;
+    if (!validateEffectCounts())
+    {
+        effect_ = nullptr;
+        return false;
+    }
+    {
+        std::lock_guard<std::mutex> lk(registryMutex());
+        registry()[effect_] = this;
+    }
+    dispatch(effOpen, 0, 0, nullptr, 0.0f);
+    opened_ = true;
+    if (dead_.load(std::memory_order_relaxed))
+    {
+        release();
+        return false;
+    }
+
+    numIn_  = effect_->numInputs;
+    numOut_ = effect_->numOutputs;
+    desc_.format       = PluginFormat::VST2;
+    desc_.name         = "test effect";
+    desc_.numAudioIn   = numIn_;
+    desc_.numAudioOut  = numOut_;
+    desc_.isInstrument = (effect_->flags & effFlagsIsSynth) != 0;
+    return true;
+}
+
 // ---------------------------------------------------------------------------
 // prepare — set sample rate / block size, allocate RT scratch, activate.
 // ---------------------------------------------------------------------------
 bool Vst2PluginInstance::prepare(double sampleRate, int maxBlockSize)
 {
-    if (!effect_) return false;
+    if (!effect_ || maxBlockSize <= 0) return false;
+
+    // A re-prepare must not resize buffers the audio thread may be inside;
+    // gate out any in-flight block first (no-op on the first prepare).
+    quiesceProcessing();
+    prepared_ = false;
 
     sampleRate_   = sampleRate;
     maxBlockSize_ = maxBlockSize;
@@ -309,7 +555,17 @@ bool Vst2PluginInstance::prepare(double sampleRate, int maxBlockSize)
     dispatch(effSetSampleRate, 0, 0, nullptr, (float)sampleRate_);
     dispatch(effSetBlockSize, 0, (intptr_t)maxBlockSize_, nullptr, 0.0f);
 
-    allocChannelBuffers();
+    // Counts were load-validated, but the multiplied sizes can still exhaust
+    // memory — fail the prepare gracefully rather than terminate on bad_alloc.
+    try
+    {
+        allocChannelBuffers();
+    }
+    catch (...)
+    {
+        freeChannelBuffers();
+        return false;
+    }
 
     // Pre-allocate a MIDI event buffer big enough for a generous block.
     // (freeEventBuffer() resets maxEvents_ to 0, so set the count AFTER it.)
@@ -319,14 +575,21 @@ bool Vst2PluginInstance::prepare(double sampleRate, int maxBlockSize)
     size_t evBytes = sizeof(VstEvents) +
                      (size_t)(maxEvents_ - 1) * sizeof(VstEvent*);
     vstEvents_ = (VstEvents*)std::malloc(evBytes);
-    std::memset(vstEvents_, 0, evBytes);
     eventStorage_ = std::malloc((size_t)maxEvents_ * sizeof(VstMidiEvent));
+    if (!vstEvents_ || !eventStorage_)
+    {
+        freeEventBuffer();
+        freeChannelBuffers();
+        return false;
+    }
+    std::memset(vstEvents_, 0, evBytes);
     std::memset(eventStorage_, 0, (size_t)maxEvents_ * sizeof(VstMidiEvent));
 
     prepared_ = true;
 
-    // Turn the plugin on (resume).
+    // Turn the plugin on (resume), then open the gate for the audio thread.
     setActive(true);
+    alive_.store(true, std::memory_order_seq_cst);
     return true;
 }
 
@@ -341,7 +604,12 @@ void Vst2PluginInstance::allocChannelBuffers()
 
     // Contiguous storage for plugin inputs we synthesize when caller passes
     // null audioIn. One block per input channel.
-    inStorage_.assign((size_t)numIn_ * (size_t)maxBlockSize_, 0.0f);
+    inStorage_.assign((size_t)std::max(numIn_, 0) * (size_t)maxBlockSize_, 0.0f);
+
+    // Writable discard blocks for plugin output channels the caller lacks
+    // (a 16-out drum plugin against our stereo bus still needs 14 valid
+    // buffers to write into). One distinct block per plugin output channel.
+    dump_.assign((size_t)std::max(numOut_, 0) * (size_t)maxBlockSize_, 0.0f);
 }
 
 void Vst2PluginInstance::freeChannelBuffers()
@@ -350,6 +618,7 @@ void Vst2PluginInstance::freeChannelBuffers()
     outPtrs_.clear();
     inStorage_.clear();
     silence_.clear();
+    dump_.clear();
 }
 
 void Vst2PluginInstance::freeEventBuffer()
@@ -375,6 +644,11 @@ void Vst2PluginInstance::setActive(bool active)
 // ---------------------------------------------------------------------------
 void Vst2PluginInstance::release()
 {
+    // Teardown gate: no audio block may be inside the plugin (or its
+    // buffers) while we close it and free them.
+    quiesceProcessing();
+    prepared_ = false;
+
     if (effect_)
     {
         if (active_)
@@ -406,13 +680,61 @@ void Vst2PluginInstance::release()
 
 // ---------------------------------------------------------------------------
 // process — RT: apply param changes, deliver MIDI, processReplacing.
+// Allocation- and lock-free. Hardened three ways: every blk.audioIn/audioOut
+// index is clamped to the CALLER's declared channel counts (a 16-out drum
+// plugin against our stereo bus must never make us read past the caller's
+// pointer arrays), every call into the plugin runs under the SEH fault
+// guard, and the processing_/alive_ pair gates concurrent teardown (see
+// quiesceProcessing).
 // ---------------------------------------------------------------------------
+
+// Zero the caller's DECLARED output channels — never index past numAudioOut.
+static void zeroCallerOutputs(const ProcessBlock& blk, int n)
+{
+    if (!blk.audioOut) return;
+    for (int c = 0; c < (int)blk.numAudioOut; ++c)
+        if (blk.audioOut[c])
+            std::memset(blk.audioOut[c], 0, (size_t)n * sizeof(float));
+}
+
+static void normalizeCallerOutputs(const ProcessBlock& blk, int n, int pluginOutputs)
+{
+    if (!blk.audioOut || n <= 0) return;
+    const int callerOutputs = std::max(0, (int)blk.numAudioOut);
+    if (pluginOutputs == 1 && callerOutputs > 1 && blk.audioOut[0]) {
+        for (int c = 1; c < callerOutputs; ++c)
+            if (blk.audioOut[c])
+                std::memcpy(blk.audioOut[c], blk.audioOut[0], (size_t)n * sizeof(float));
+    }
+}
+
 void Vst2PluginInstance::process(const ProcessBlock& blk)
 {
-    if (!effect_ || !prepared_) return;
+    // Teardown gate: raise processing_ BEFORE reading alive_ (both seq_cst)
+    // so either a concurrent quiesceProcessing() observes us in-flight and
+    // waits, or we observe alive_ == false and bail before touching state.
+    processing_.store(true, std::memory_order_seq_cst);
+    if (!alive_.load(std::memory_order_seq_cst) || !effect_ || !prepared_)
+    {
+        if (blk.nframes > 0) zeroCallerOutputs(blk, blk.nframes);
+        processing_.store(false, std::memory_order_release);
+        return;
+    }
 
     const int n = blk.nframes;
-    if (n <= 0 || n > maxBlockSize_) return;
+    if (n <= 0 || n > maxBlockSize_)
+    {
+        processing_.store(false, std::memory_order_release);
+        return;
+    }
+
+    // A previously-faulted instance degrades to silence, permanently.
+    if (dead_.load(std::memory_order_relaxed))
+    {
+        zeroCallerOutputs(blk, n);
+        processing_.store(false, std::memory_order_release);
+        return;
+    }
 
     // Snapshot transport for audioMasterGetTime (read by plugin during process).
     curTempo_   = blk.tempoBpm > 0.0 ? blk.tempoBpm : 120.0;
@@ -420,15 +742,17 @@ void Vst2PluginInstance::process(const ProcessBlock& blk)
     curPlaying_ = blk.isPlaying;
 
     // --- parameter automation (block-start, not sample-accurate for v1) ----
+    // Index validated as UNSIGNED: a huge uint32 id must not cast negative
+    // and slip past a signed '<' check into setParameter.
     for (int i = 0; i < blk.numParamIn; ++i)
     {
         const ParamChange& pc = blk.paramIn[i];
-        if ((int)pc.id < effect_->numParams)
-            effect_->setParameter(effect_, (int32_t)pc.id, pc.value);
+        if (pc.id < (uint32_t)effect_->numParams)
+            guardedSetParameter((int32_t)pc.id, pc.value);
     }
 
     // --- MIDI delivery ------------------------------------------------------
-    if (blk.numMidiIn > 0 && vstEvents_ && eventStorage_)
+    if (blk.numMidiIn > 0 && blk.midiIn && vstEvents_ && eventStorage_)
     {
         int count = blk.numMidiIn;
         if (count > maxEvents_) count = maxEvents_;
@@ -440,8 +764,11 @@ void Vst2PluginInstance::process(const ProcessBlock& blk)
             std::memset(&e, 0, sizeof(VstMidiEvent));
             e.type        = kVstMidiType;
             e.byteSize    = sizeof(VstMidiEvent);
-            e.deltaFrames = (m.sampleOffset >= 0 && m.sampleOffset < n)
-                                ? m.sampleOffset : 0;
+            // CLAMP out-of-range offsets to the block instead of zeroing:
+            // zeroing fired next-block events EARLY (a whole block, ~10.7ms).
+            // The holdback layer should already guarantee [0, n); this is the
+            // last-resort fence for producer overshoot / shortened blocks.
+            e.deltaFrames = std::min(std::max(m.sampleOffset, 0), n - 1);
             e.midiData[0] = (char)m.status;
             e.midiData[1] = (char)m.data1;
             e.midiData[2] = (char)m.data2;
@@ -453,11 +780,28 @@ void Vst2PluginInstance::process(const ProcessBlock& blk)
         dispatch(effProcessEvents, 0, 0, vstEvents_, 0.0f);
     }
 
+    // A dispatcher/parameter call above may have faulted mid-block; do not
+    // hand a plugin that just crashed another entry point.
+    if (dead_.load(std::memory_order_relaxed))
+    {
+        zeroCallerOutputs(blk, n);
+        processing_.store(false, std::memory_order_release);
+        return;
+    }
+
+    // The caller's REAL channel counts — never index blk.audioIn/audioOut
+    // past these, whatever the plugin's own numInputs/numOutputs claim.
+    const int callerIn  = blk.audioIn  ? (int)blk.numAudioIn  : 0;
+    const int callerOut = blk.audioOut ? (int)blk.numAudioOut : 0;
+
+    zeroCallerOutputs(blk, n);
+
     // --- build input pointer array -----------------------------------------
     for (int c = 0; c < numIn_; ++c)
     {
-        if (blk.audioIn && blk.audioIn[c])
-            inPtrs_[(size_t)c] = const_cast<float*>(blk.audioIn[c]);
+        const float* src = (c < callerIn) ? blk.audioIn[c] : nullptr;
+        if (src)
+            inPtrs_[(size_t)c] = const_cast<float*>(src);
         else
         {
             // Use (and clear) our own scratch block as silent input.
@@ -467,15 +811,35 @@ void Vst2PluginInstance::process(const ProcessBlock& blk)
         }
     }
 
-    // --- output pointer array (caller owns the buffers) ---------------------
+    // --- output pointer array (caller's buffers where declared, otherwise a
+    // per-channel writable discard block so the plugin always gets valid
+    // memory for every output it claims) --------------------------------------
     for (int c = 0; c < numOut_; ++c)
-        outPtrs_[(size_t)c] = blk.audioOut ? blk.audioOut[c] : nullptr;
+    {
+        float* dst = (c < callerOut) ? blk.audioOut[c] : nullptr;
+        outPtrs_[(size_t)c] =
+            dst ? dst : dump_.data() + (size_t)c * (size_t)maxBlockSize_;
+    }
 
     float** ins  = numIn_  > 0 ? inPtrs_.data()  : nullptr;
     float** outs = numOut_ > 0 ? outPtrs_.data() : nullptr;
 
-    if (effect_->processReplacing)
-        effect_->processReplacing(effect_, ins, outs, n);
+    if (effect_->processReplacing || effect_->process)
+    {
+        const bool replacing = effect_->processReplacing != nullptr;
+        ProcessCall call{ effect_, ins, outs, n, replacing };
+        uint32_t code = 0;
+        if (!seh_guarded_call(&runProcessCall, &call, &code))
+        {
+            // The plugin faulted mid-block: whatever it wrote is garbage.
+            // Hand the caller silence and disable the instance for good.
+            markDead(replacing ? "processReplacing" : "process", code);
+            zeroCallerOutputs(blk, n);
+        }
+    }
+    normalizeCallerOutputs(blk, n, numOut_);
+
+    processing_.store(false, std::memory_order_release);
 }
 
 // ---------------------------------------------------------------------------
@@ -497,22 +861,24 @@ ParamInfo Vst2PluginInstance::paramInfo(int index) const
         char buf[256] = {0};
         dispatch(effGetParamName, index, 0, buf, 0.0f);
         info.name = buf;
-        info.defaultValue = effect_->getParameter(effect_, index);
+        info.defaultValue = guardedGetParameter(index);
     }
     return info;
 }
 
+// Both accessors validate the id as UNSIGNED (a huge uint32 must not cast
+// negative past a signed check) and go through the fault-guarded raw calls.
 float Vst2PluginInstance::getParamNormalized(uint32_t id) const
 {
-    if (effect_ && (int)id < effect_->numParams)
-        return effect_->getParameter(effect_, (int32_t)id);
+    if (effect_ && id < (uint32_t)effect_->numParams)
+        return guardedGetParameter((int32_t)id);
     return 0.0f;
 }
 
 void Vst2PluginInstance::setParamNormalized(uint32_t id, float v)
 {
-    if (effect_ && (int)id < effect_->numParams)
-        effect_->setParameter(effect_, (int32_t)id, v);
+    if (effect_ && id < (uint32_t)effect_->numParams)
+        guardedSetParameter((int32_t)id, v);
 }
 
 // ---------------------------------------------------------------------------
@@ -584,7 +950,7 @@ std::vector<uint8_t> Vst2PluginInstance::saveState() const
     out.resize((size_t)np * sizeof(float));
     for (int i = 0; i < np; ++i)
     {
-        float v = effect_->getParameter(effect_, i);
+        float v = guardedGetParameter(i);
         std::memcpy(out.data() + (size_t)i * sizeof(float), &v, sizeof(float));
     }
     return out;
@@ -609,7 +975,7 @@ void Vst2PluginInstance::loadState(const std::vector<uint8_t>& data)
     {
         float v;
         std::memcpy(&v, data.data() + (size_t)i * sizeof(float), sizeof(float));
-        effect_->setParameter(effect_, i, v);
+        guardedSetParameter(i, v);
     }
 }
 
@@ -627,4 +993,4 @@ IPluginInstance* createVst2Instance(const PluginDescriptor& desc)
     return inst;
 }
 
-}} // namespace seq24::engine
+}} // namespace PatchKnob::engine

@@ -1,66 +1,99 @@
 //----------------------------------------------------------------------------
-//  seq24 Windows port — real-time audio engine.
+//  PatchKnob — real-time audio engine (PortAudio backend).
 //
-//  seq24::engine::AudioEngine wraps the vendored RtAudio (WASAPI backend) and
+//  PatchKnob::engine::AudioEngine wraps the vendored PortAudio (built static) and
 //  presents the rest of the engine with:
+//    * host-API (backend) enumeration / selection  -- ASIO / WASAPI / WDM-KS /
+//      DirectSound / MME on Windows; ALSA / JACK / PulseAudio on Linux
+//      (PipeWire is reached through its ALSA/Pulse/JACK compatibility layers),
 //    * output device enumeration / selection,
+//    * a selectable buffer size (frames/block, i.e. latency),
 //    * an output stream of NON-INTERLEAVED float buffers (see plugin_api.h),
-//    * a single user render callback invoked from the RtAudio audio thread,
-//    * lock-free master peak/RMS level meters,
-//    * try/catch error wrapping with a last-error string.
+//    * a single user render callback invoked from PortAudio's audio thread,
+//    * lock-free master peak/RMS meters + plain-string error reporting,
+//    * an exception fence: a throwing render callback degrades the block to
+//      silence instead of unwinding into PortAudio's C callback frame.
 //
 //  Buffer convention (matches plugin_api.h): the render callback receives
-//  `float** out`, an array of `numChannels` per-channel pointers, each pointing
-//  at `nframes` contiguous floats (planar / non-interleaved). The engine opens
-//  the RtAudio stream with RTAUDIO_NONINTERLEAVED so RtAudio hands us exactly
-//  this layout (channel blocks back-to-back) and we expose per-channel pointers.
+//  `float** out`, an array of `numChannels` per-channel pointers each pointing
+//  at `nframes` contiguous floats (planar / non-interleaved).  The stream is
+//  opened with paNonInterleaved so PortAudio hands the callback exactly a
+//  `float**`, which we forward straight through.
 //----------------------------------------------------------------------------
-#ifndef SEQ24_ENGINE_AUDIO_AUDIO_ENGINE_H
-#define SEQ24_ENGINE_AUDIO_AUDIO_ENGINE_H
+#ifndef PATCHKNOB_ENGINE_AUDIO_AUDIO_ENGINE_H
+#define PATCHKNOB_ENGINE_AUDIO_AUDIO_ENGINE_H
 
 #include <atomic>
 #include <functional>
-#include <memory>
 #include <string>
 #include <vector>
 
-// Forward-declare RtAudio so this header has no hard dependency on RtAudio.h.
-// (The .cpp owns the concrete RtAudio instance via a pimpl-style unique_ptr.)
-// RtAudio lives in namespace rt::audio; the .cpp uses the type via this alias,
-// which stays valid whether or not RtAudio.h's `using namespace rt::audio;` is
-// in effect at the point of use.
-namespace rt { namespace audio { class RtAudio; } }
+#if defined(__SSE2__) || defined(_M_X64) || defined(__x86_64__)
+#include <immintrin.h>   // MXCSR intrinsics (FTZ/DAZ) for ScopedNoDenormals
+#endif
 
-namespace seq24 { namespace engine {
+namespace PatchKnob { namespace engine {
+
+//----------------------------------------------------------------------------
+//  ScopedNoDenormals
+//
+//  RAII guard that flushes denormals for the current thread: sets the MXCSR
+//  FTZ (bit 15) and DAZ (bit 6) modes on construction and restores the saved
+//  MXCSR on destruction.  Denormal operands cost 10-100x per sample on x86,
+//  so every realtime render path (audio callback, DSP worker threads) should
+//  hold one of these at the top of its block.  MXCSR is per-thread state, so
+//  each thread must set it for itself.  No-op on non-SSE targets.
+//----------------------------------------------------------------------------
+class ScopedNoDenormals {
+public:
+    ScopedNoDenormals() {
+#if defined(__SSE2__) || defined(_M_X64) || defined(__x86_64__)
+        mxcsr_ = _mm_getcsr();
+        _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
+        _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
+#endif
+    }
+    ~ScopedNoDenormals() {
+#if defined(__SSE2__) || defined(_M_X64) || defined(__x86_64__)
+        _mm_setcsr(mxcsr_);
+#endif
+    }
+
+    ScopedNoDenormals(const ScopedNoDenormals&)            = delete;
+    ScopedNoDenormals& operator=(const ScopedNoDenormals&) = delete;
+
+private:
+#if defined(__SSE2__) || defined(_M_X64) || defined(__x86_64__)
+    unsigned int mxcsr_ = 0;
+#endif
+};
 
 //! Description of one output-capable audio device.
 struct AudioDeviceInfo {
-    unsigned int id            = 0;     //!< RtAudio device id (NOT a 0-based index).
+    unsigned int id             = 0;    //!< (PaDeviceIndex + 1); 0 == "use default".
     std::string  name;                  //!< Human-readable device name.
     unsigned int outputChannels = 0;    //!< Max output channels.
     unsigned int preferredRate  = 0;    //!< Device preferred sample rate (Hz).
-    bool         isDefault      = false;//!< True if this is the system default output.
+    bool         isDefault      = false;//!< True if this is the host-API default output.
+    int          hostApi        = -1;   //!< Owning PaHostApiIndex.
+};
+
+//! Description of one host API (audio backend / driver model).
+struct AudioHostApiInfo {
+    int          index       = -1;      //!< PaHostApiIndex.
+    std::string  name;                  //!< "Windows WASAPI", "Windows WDM-KS", ...
+    int          deviceCount = 0;
+    bool         isCurrent   = false;   //!< Currently selected for the engine.
 };
 
 //----------------------------------------------------------------------------
 //  AudioEngine
 //
-//  Lifecycle:  construct -> enumerateOutputDevices() -> selectDevice(...) ->
-//              setRenderCallback(...) -> open() -> start() ... stop() -> close()
-//
-//  The render callback is the ONE place the track/graph module produces audio.
-//  It runs on RtAudio's dedicated realtime audio thread. See the realtime
-//  contract documented on setRenderCallback() below.
+//  Lifecycle:  construct -> [selectHostApi] -> [selectDevice] -> [setBufferSize]
+//              -> setRenderCallback(...) -> open() -> start() ... stop() -> close()
 //----------------------------------------------------------------------------
 class AudioEngine {
 public:
-    //! Signature of the user render callback (called on the audio thread).
-    //!   out          : array of `numChannels` planar float buffers.
-    //!   numChannels  : channel count of the open stream.
-    //!   nframes      : frames to fill in this block (== granted block size).
-    //!   sampleRate   : granted stream sample rate (Hz).
-    //! The callback MUST fully write all numChannels*nframes samples (write
-    //! silence if it has nothing to play). Buffers are NOT pre-zeroed.
     using RenderCallback =
         std::function<void(float** out, int numChannels, int nframes, double sampleRate)>;
 
@@ -70,107 +103,102 @@ public:
     AudioEngine(const AudioEngine&)            = delete;
     AudioEngine& operator=(const AudioEngine&) = delete;
 
+    // --- host API (backend) enumeration / selection (message thread) ---------
+    std::vector<AudioHostApiInfo> enumerateHostApis();
+    //! Select the backend to open on.  -1 == PortAudio's default host API.
+    void selectHostApi(int paHostApiIndex);
+    int  selectedHostApi() const { return hostApi_; }
+
     // --- device enumeration / selection (message thread) ---------------------
-
-    //! Enumerate all output-capable devices. Returns empty on error
-    //! (check lastError()).
+    //! Enumerate output-capable devices (of the selected host API, or all when
+    //! none is selected).  Returns empty on error (check lastError()).
     std::vector<AudioDeviceInfo> enumerateOutputDevices();
-
-    //! RtAudio id of the system default output (0 if none).
+    //! Enumerate input-capable devices (for a future capture/record path).  The
+    //! `outputChannels` field carries the device's input-channel count here.
+    std::vector<AudioDeviceInfo> enumerateInputDevices();
     unsigned int defaultOutputDeviceId();
-
-    //! Select the device to open by id. If never called (or id==0), open() uses
-    //! the default output, falling back to the first output-capable device.
+    //! Select the device by id (PaDeviceIndex+1).  0 == use the host-API default.
     void selectDevice(unsigned int deviceId);
-
-    //! Currently selected device id (0 == "use default").
     unsigned int selectedDeviceId() const { return selectedDeviceId_; }
 
-    // --- stream lifecycle (message thread) -----------------------------------
+    // --- buffer size (latency) -----------------------------------------------
+    //! Requested frames/block for the next open().  0 == let PortAudio choose.
+    void setBufferSize(unsigned int frames) { bufferFrames_ = frames; }
+    unsigned int bufferSize() const { return blockSize_; }
 
-    //! Open the output stream. `sampleRate`/`blockSize` are requests; the
-    //! granted values are re-read and exposed via sampleRate()/blockSize().
-    //! Returns false on error (check lastError()). Must register the render
-    //! callback before audio will be meaningful.
+    // --- stream lifecycle (message thread) -----------------------------------
     bool open(unsigned int sampleRate = 48000,
               unsigned int blockSize  = 512,
               unsigned int numChannels = 2);
-
-    //! Start the audio thread / callback flow. Returns false on error.
     bool start();
-
-    //! Stop the audio thread (drains). Safe to call when not running.
     void stop();
-
-    //! Close the stream (stops first if needed). Safe to call when not open.
     void close();
-
-    bool isOpen()    const;
+    bool isOpen()    const { return stream_ != nullptr; }
     bool isRunning() const;
 
     // --- render callback -----------------------------------------------------
-
-    //! Register the render callback. Set this BEFORE start(). Replacing it while
-    //! the stream is running is NOT realtime-safe; stop the stream first.
-    //!
-    //! REALTIME CONTRACT — the callback runs on RtAudio's dedicated audio
-    //! thread (requested with realtime scheduling). It MUST be:
-    //!   * allocation-free   : no new/delete/malloc, no container growth.
-    //!   * lock-free         : no std::mutex, no blocking syscalls.
-    //!   * I/O-free          : no file/console/network I/O.
-    //! Communicate with other threads only via std::atomic / SPSC ring buffers /
-    //! RCU-style pointer swaps. Pre-allocate every buffer before start().
+    //! REALTIME CONTRACT: the callback runs on PortAudio's audio thread. It
+    //! must be allocation-free, lock-free and I/O-free.  Safe to call while
+    //! the stream is running: the new callback is published atomically and the
+    //! old one is retired only after the audio thread has left render_into()
+    //! (blocks the caller for at most the tail of one audio block).  Must NOT
+    //! be called from inside the render callback itself.
     void setRenderCallback(RenderCallback cb);
 
     // --- granted stream parameters (valid after open()) ----------------------
-
     unsigned int sampleRate()  const { return sampleRate_; }
-    unsigned int blockSize()   const { return blockSize_; }   //!< Granted frames/block.
+    unsigned int blockSize()   const { return blockSize_; }
     unsigned int numChannels() const { return numChannels_; }
 
     // --- master level meters (audio thread -> any thread, lock-free) ---------
-
-    //! Peak absolute sample of the most recent block, across all channels (0..~1).
     float masterPeak() const { return masterPeak_.load(std::memory_order_relaxed); }
+    float masterRms()  const { return masterRms_.load(std::memory_order_relaxed); }
 
-    //! RMS level of the most recent block, across all channels (0..~1).
-    float masterRms() const { return masterRms_.load(std::memory_order_relaxed); }
+    // --- device loss / recovery (message thread) -----------------------------
+    //! True once the stream finished without a stop()/close() being requested
+    //! (device unplugged, driver error).  Poll from the message thread; cleared
+    //! by a successful tryRecover() or the next open().
+    bool deviceLost() const { return deviceLost_.load(std::memory_order_acquire); }
+    //! Recovery hook for the app layer: tears down the dead stream, falls back
+    //! to the current default output device and reopens + restarts with the
+    //! last granted parameters.  Message thread only; never call from the
+    //! audio thread or the stream-finished callback.  Returns false (with
+    //! lastError() set) if the reopen failed; deviceLost() then stays true.
+    bool tryRecover();
 
     // --- diagnostics ---------------------------------------------------------
-
-    //! Number of audio callbacks invoked since open() (lock-free).
-    unsigned long long callbackCount() const {
-        return callbackCount_.load(std::memory_order_relaxed);
-    }
-
-    //! Number of output underflows (xruns) observed since open() (lock-free).
-    unsigned long long underflowCount() const {
-        return underflowCount_.load(std::memory_order_relaxed);
-    }
-
-    //! Last error text (empty if none). Set by any failing operation.
+    unsigned long long callbackCount() const { return callbackCount_.load(std::memory_order_relaxed); }
+    unsigned long long underflowCount() const { return underflowCount_.load(std::memory_order_relaxed); }
     const std::string& lastError() const { return lastError_; }
 
+    // Called by the file-static PortAudio trampolines; not for external use.
+    int  render_into(void* output, unsigned long nFrames, unsigned long statusFlags);
+    void stream_finished();
+
 private:
-    // C-style trampoline registered with RtAudio; forwards to the member impl.
-    static int rtCallback(void* outputBuffer, void* inputBuffer,
-                          unsigned int nFrames, double streamTime,
-                          unsigned int status, void* userData);
-    int handleCallback(void* outputBuffer, unsigned int nFrames, unsigned int status);
+    bool ensureInit();
 
-    std::unique_ptr<rt::audio::RtAudio> dac_;
+    void*        stream_        = nullptr;   // PaStream*
+    bool         paInited_      = false;
 
-    RenderCallback render_;
+    // The render callback lives behind an atomically-swapped heap holder so
+    // setRenderCallback() on the message thread can never race the audio
+    // thread into a torn / half-constructed std::function.  The audio thread
+    // does flag-then-load (inCallback_ then render_), the message thread does
+    // swap-then-wait, both seq_cst, so the old holder is freed only once no
+    // callback can still be running it.  The RT path stays lock-free.
+    struct RenderHolder { RenderCallback fn; };
+    std::atomic<RenderHolder*> render_{nullptr};
+    std::atomic<bool>          inCallback_{false};   // audio thread inside render_into()
+    std::atomic<bool>          deviceLost_{false};   // stream finished uninvited
+    std::atomic<bool>          expectFinish_{false}; // stop()/close() in progress
 
-    unsigned int selectedDeviceId_ = 0;   // 0 == use default
-    unsigned int sampleRate_       = 48000;
-    unsigned int blockSize_        = 512;
-    unsigned int numChannels_      = 2;
-
-    // Per-channel pointer scratch handed to the user callback (planar view of
-    // RtAudio's non-interleaved output buffer). Sized at open(); never resized
-    // on the audio thread.
-    std::vector<float*> channelPtrs_;
+    int          hostApi_       = -1;        // PaHostApiIndex, -1 == default
+    unsigned int selectedDeviceId_ = 0;      // PaDeviceIndex+1, 0 == default
+    unsigned int sampleRate_    = 48000;
+    unsigned int blockSize_     = 512;       // granted frames/block
+    unsigned int numChannels_   = 2;
+    unsigned int bufferFrames_  = 512;       // requested frames/block (0 = auto)
 
     std::atomic<float> masterPeak_{0.0f};
     std::atomic<float> masterRms_{0.0f};
@@ -180,6 +208,6 @@ private:
     std::string lastError_;
 };
 
-}} // namespace seq24::engine
+}} // namespace PatchKnob::engine
 
-#endif // SEQ24_ENGINE_AUDIO_AUDIO_ENGINE_H
+#endif // PATCHKNOB_ENGINE_AUDIO_AUDIO_ENGINE_H

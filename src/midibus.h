@@ -1,13 +1,13 @@
 //----------------------------------------------------------------------------
 //
-//  This file is part of seq24.
+//  This file is part of PatchKnob.
 //
-//  seq24 is free software; you can redistribute it and/or modify
+//  PatchKnob is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
 //  the Free Software Foundation; either version 2 of the License, or
 //  (at your option) any later version.
 //
-//  seq24 is distributed in the hope that it will be useful,
+//  PatchKnob is distributed in the hope that it will be useful,
 //  but WITHOUT ANY WARRANTY; without even the implied warranty of
 //  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 //  GNU General Public License for more details.
@@ -16,7 +16,7 @@
 //
 //  Windows (MINGW64) port note:
 //  The original midibus was ALSA-specific (snd_seq_t).  This header keeps the
-//  exact public interface the rest of seq24 (perform/sequence) depends on, but
+//  exact public interface the rest of PatchKnob (perform/sequence) depends on, but
 //  removes all ALSA types so it compiles on Windows.  The implementation in
 //  midibus.cpp is currently a stub; Phase 1 of the port replaces the internals
 //  with RtMidi (WinMM) for real Windows MIDI I/O.
@@ -26,8 +26,8 @@
 class midibus;
 class mastermidibus;
 
-#ifndef SEQ24_MIDIBUS
-#define SEQ24_MIDIBUS
+#ifndef PATCHKNOB_MIDIBUS
+#define PATCHKNOB_MIDIBUS
 
 #include "event.h"
 #include "sequence.h"
@@ -37,7 +37,7 @@ class mastermidibus;
 #include "mutex.h"
 #include "globals.h"
 
-/* RtMidi (WinMM) backend.  RtMidi.h is on the include path for all seq24
+/* RtMidi (WinMM) backend.  RtMidi.h is on the include path for all PatchKnob
    sources (see CMakeLists.txt), so include it directly rather than forward-
    declaring (the real classes carry a visibility attribute that makes plain
    forward declarations ambiguous). */
@@ -95,7 +95,7 @@ class midibus
     void send_byte( unsigned char a_byte );
 
     /* locking */
-    seq24mutex m_mutex;
+    PatchKnobMutex m_mutex;
 
     void lock();
     void unlock();
@@ -130,8 +130,10 @@ class midibus
     std::string get_name();
     int get_id();
 
-    /* puts an event in the queue */
-    void play( event *a_e24, unsigned char a_channel );
+    /* puts an event in the queue.  a_tick = the event's ABSOLUTE musical
+       due-time in sequencer ticks (-1 = "now"): carried through to the audio
+       engine so notes land at exact sample offsets instead of block edges. */
+    void play( event *a_e24, unsigned char a_channel, long a_tick = -1 );
     void sysex( event *a_e24 );
 
     /* clock */
@@ -183,7 +185,7 @@ class mastermidibus
     int m_queue;
 
     int m_ppqn;
-    int m_bpm;
+    double m_bpm;      /* fractional BPM survives end-to-end (nerf: int truncation) */
 
     /* for dumping midi input to sequence for recording */
     bool m_dumping_input;
@@ -194,7 +196,7 @@ class mastermidibus
     std::deque< std::vector<unsigned char> > m_in_queue;
 
     /* locking */
-    seq24mutex m_mutex;
+    PatchKnobMutex m_mutex;
 
     void lock();
     void unlock();
@@ -209,9 +211,9 @@ class mastermidibus
     int get_num_out_buses();
     int get_num_in_buses();
 
-    void set_bpm(int a_bpm);
+    void set_bpm(double a_bpm);
     void set_ppqn(int a_ppqn);
-    int get_bpm(){ return m_bpm;}
+    double get_bpm(){ return m_bpm;}
     int get_ppqn(){ return m_ppqn;}
 
     std::string get_midi_out_bus_name( int a_bus );
@@ -239,7 +241,10 @@ class mastermidibus
     void port_start( int a_client, int a_port );
     void port_exit( int a_client, int a_port );
 
-    void play( unsigned char a_bus, event *a_e24, unsigned char a_channel );
+    /* a_tick: absolute due-time in sequencer ticks (-1 = "now"), forwarded to
+       the audio engine for sample-accurate delivery */
+    void play( unsigned char a_bus, event *a_e24, unsigned char a_channel,
+               long a_tick = -1 );
 
     void set_clock( unsigned char a_bus, clock_e a_clock_type );
     clock_e get_clock( unsigned char a_bus );

@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------
-//  seq24 Windows port — WAV loader implementation. See wav_loader.h.
+//  PatchKnob — WAV loader implementation. See wav_loader.h.
 //
 //  Self-contained RIFF/WAVE reader. We walk the chunk list, pull `fmt ` for the
 //  encoding and `data` for the samples, decode to float, then resample to the
@@ -12,7 +12,7 @@
 #include <fstream>
 #include <vector>
 
-namespace seq24 { namespace engine {
+namespace PatchKnob { namespace engine {
 
 namespace {
 
@@ -235,4 +235,4 @@ bool saveWav16(const std::string& path, const AudioClip& clip, std::string* erro
     return true;
 }
 
-}} // namespace seq24::engine
+}} // namespace PatchKnob::engine

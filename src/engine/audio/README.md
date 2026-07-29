@@ -1,6 +1,6 @@
-# seq24 Audio Engine (`seq24::engine::AudioEngine`)
+# PatchKnob Audio Engine (`PatchKnob::engine::AudioEngine`)
 
-Real-time audio output for the seq24 Windows port. Hand-rolled, zero-JUCE.
+Real-time audio output for the PatchKnob. Hand-rolled, zero-JUCE.
 Wraps the vendored [RtAudio](../../../vendor/rtaudio) (WASAPI backend) and gives
 the rest of the engine a small, stable surface: device enumeration, an output
 stream of **non-interleaved float** buffers, a single user render callback run on
@@ -12,7 +12,7 @@ the audio thread, lock-free master level meters, and try/catch error handling.
 |------|---------|
 | `audio_engine.h` / `.cpp` | The `AudioEngine` class. |
 | `audio_test.cpp` | Smoke test: 440 Hz sine, ~1.5 s, prints diagnostics. |
-| `CMakeLists.txt` | Builds static lib `seq24_audio` + exe `audio_test`. |
+| `CMakeLists.txt` | Builds static lib `PatchKnob_audio` + exe `audio_test`. |
 
 ## Build & run
 
@@ -29,7 +29,7 @@ cmake --build build
 The CMake finds RtAudio at `../../../vendor/rtaudio` (override with
 `-DRTAUDIO_DIR=...`), compiles `RtAudio.cpp` with `-D__WINDOWS_WASAPI__`, and
 links `ole32 winmm ksuser mfplat mfuuid wmcodecdspuuid`. Link your module
-against the `seq24_audio` target; its `PUBLIC` include dirs expose
+against the `PatchKnob_audio` target; its `PUBLIC` include dirs expose
 `audio_engine.h`, `RtAudio.h`, and the shared `plugin_api.h`.
 
 ## Buffer convention
@@ -44,7 +44,7 @@ with no interleave/deinterleave step.
 ## Public API
 
 ```cpp
-namespace seq24 { namespace engine {
+namespace PatchKnob { namespace engine {
 
 struct AudioDeviceInfo {
     unsigned int id;             // RtAudio device id (NOT a 0-based index)
@@ -96,7 +96,7 @@ public:
     const std::string& lastError()      const;
 };
 
-}} // namespace seq24::engine
+}} // namespace PatchKnob::engine
 ```
 
 ### Typical lifecycle

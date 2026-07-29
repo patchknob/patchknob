@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------
-//  sdlui/views/mixer/mixer_view.h -- SDL2 port of the seq24 master mixer.
+//  sdlui/views/mixer/mixer_view.h -- SDL2 port of the PatchKnob master mixer.
 //
 //  MixerView is a single retained ui::Widget drawn over a live MixerGraph*.
 //  It renders one channel strip per track (name / instrument, a stereo VU with
@@ -16,15 +16,15 @@
 //      // drive ~30 Hz redraws (a timer / the audio render loop) via
 //      // a.request_redraw(); MixerView re-polls every VU meter each draw.
 //----------------------------------------------------------------------------
-#ifndef SEQ24_SDLUI_VIEWS_MIXER_VIEW_H
-#define SEQ24_SDLUI_VIEWS_MIXER_VIEW_H
+#ifndef PATCHKNOB_SDLUI_VIEWS_MIXER_VIEW_H
+#define PATCHKNOB_SDLUI_VIEWS_MIXER_VIEW_H
 
 #include "gui.h"
 #include <functional>
 #include <memory>
 #include <vector>
 
-namespace seq24 { namespace engine { class MixerGraph; class Track; } }
+namespace PatchKnob { namespace engine { class MixerGraph; class Track; } }
 
 namespace mixer {
 
@@ -45,10 +45,10 @@ private:
 // ---- the mixer view --------------------------------------------------------
 class MixerView : public ui::Widget {
 public:
-    explicit MixerView(seq24::engine::MixerGraph* graph);
+    explicit MixerView(PatchKnob::engine::MixerGraph* graph);
 
     // Rebind to a (new) graph and rebuild the per-track strip widgets.
-    void set_graph(seq24::engine::MixerGraph* graph);
+    void set_graph(PatchKnob::engine::MixerGraph* graph);
 
     void draw(ui::App& app) override;
     bool on_mouse(ui::App& app, const ui::MouseEv& e) override;
@@ -69,7 +69,7 @@ private:
     void draw_master(ui::App& app, const SDL_Rect& area);
     void draw_vu(ui::App& app, const SDL_Rect& bar, float level, float& hold);
 
-    seq24::engine::MixerGraph* graph_ = nullptr;
+    PatchKnob::engine::MixerGraph* graph_ = nullptr;
     std::vector<Strip> strips_;               // one per track
     std::unique_ptr<ui::Fader> masterFader_;
     float masterHoldL_ = 0.0f, masterHoldR_ = 0.0f;
@@ -83,4 +83,4 @@ private:
 
 } // namespace mixer
 
-#endif // SEQ24_SDLUI_VIEWS_MIXER_VIEW_H
+#endif // PATCHKNOB_SDLUI_VIEWS_MIXER_VIEW_H

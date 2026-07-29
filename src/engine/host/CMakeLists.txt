@@ -1,15 +1,15 @@
 # src/engine/host/CMakeLists.txt
 #
-# seq24 unified plugin host + scanner (ZERO-JUCE, mingw64).
+# PatchKnob unified plugin host + scanner (ZERO-JUCE, mingw64).
 #
 # Targets:
-#   seq24_pluginhost  : static library implementing seq24::engine::IPluginHost
+#   PatchKnob_pluginhost  : static library implementing PatchKnob::engine::IPluginHost
 #                       (PluginHost). The rest of the engine links this.
 #   probe_vst2        : out-of-process VST2 introspection helper exe.
 #   probe_vst3        : out-of-process VST3 introspection helper exe (compiles
 #                       the same minimal Steinberg SDK hosting subset the vst3
 #                       spike uses).
-#   scan_test         : standalone inventory test exe. Links seq24_pluginhost
+#   scan_test         : standalone inventory test exe. Links PatchKnob_pluginhost
 #                       with WEAK stub plugin factories so it links without the
 #                       real vst2/vst3 host modules. Runs scan({}) and prints
 #                       the full plugin inventory.
@@ -23,7 +23,7 @@
 #   cmake --build build
 #   ./build/scan_test.exe
 cmake_minimum_required(VERSION 3.16)
-project(seq24_pluginhost CXX)
+project(PatchKnob_pluginhost CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -40,10 +40,10 @@ set(VST3SDK ${SPIKES}/vst3host/vst3sdk)
 # -----------------------------------------------------------------------------
 # 1. The host library.
 # -----------------------------------------------------------------------------
-add_library(seq24_pluginhost STATIC
+add_library(PatchKnob_pluginhost STATIC
     plugin_host.cpp
 )
-target_include_directories(seq24_pluginhost PUBLIC
+target_include_directories(PatchKnob_pluginhost PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/..      # for plugin_api.h
 )
@@ -104,12 +104,12 @@ endif()
 # -----------------------------------------------------------------------------
 add_executable(scan_test
     scan_test.cpp
-    # Recompile plugin_host.cpp here with SEQ24_HOST_WEAK_STUBS so the test
+    # Recompile plugin_host.cpp here with PATCHKNOB_HOST_WEAK_STUBS so the test
     # gets weak createVst2/3Instance definitions. (Linking the static lib AND
     # the stub object would otherwise duplicate symbols.)
     plugin_host.cpp
 )
-target_compile_definitions(scan_test PRIVATE SEQ24_HOST_WEAK_STUBS)
+target_compile_definitions(scan_test PRIVATE PATCHKNOB_HOST_WEAK_STUBS)
 target_include_directories(scan_test PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/..)

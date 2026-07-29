@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------
-//  seq24 Windows port — AutomationPlayer: the automation playback runtime.
+//  PatchKnob — AutomationPlayer: the automation playback runtime.
 //
 //  Owns one AutomationTrack per sequencer track and turns transport motion into
 //  parameter / CC changes. It does NOT touch the audio engine itself: the
@@ -36,8 +36,8 @@
 //  the start tick). resetEmitState() forgets the coalesce memory so the next
 //  emit is unconditional (e.g. after re-assigning a track's instrument).
 //----------------------------------------------------------------------------
-#ifndef SEQ24_ENGINE_AUTOMATION_AUTOMATION_PLAYER_H
-#define SEQ24_ENGINE_AUTOMATION_AUTOMATION_PLAYER_H
+#ifndef PATCHKNOB_ENGINE_AUTOMATION_AUTOMATION_PLAYER_H
+#define PATCHKNOB_ENGINE_AUTOMATION_AUTOMATION_PLAYER_H
 
 #include <cstdint>
 #include <functional>
@@ -45,11 +45,11 @@
 
 #include "automation_track.h"
 
-namespace seq24 { namespace engine {
+namespace PatchKnob { namespace engine {
 
 class AutomationPlayer {
 public:
-    //! Default track count (matches seq24's c_maxBuses / AUDIO_APP_MAX_TRACKS).
+    //! Default track count (matches PatchKnob's c_maxBuses / AUDIO_APP_MAX_TRACKS).
     static constexpr int kDefaultTrackCount = 32;
 
     //! Emit a normalized (0..1) VST parameter change for a track's instrument.
@@ -127,6 +127,6 @@ private:
     bool                                coalesce_ = true;
 };
 
-}} // namespace seq24::engine
+}} // namespace PatchKnob::engine
 
-#endif // SEQ24_ENGINE_AUTOMATION_AUTOMATION_PLAYER_H
+#endif // PATCHKNOB_ENGINE_AUTOMATION_AUTOMATION_PLAYER_H

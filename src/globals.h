@@ -1,37 +1,34 @@
 //----------------------------------------------------------------------------
 //
-//  This file is part of seq24.
+//  This file is part of PatchKnob.
 //
-//  seq24 is free software; you can redistribute it and/or modify
+//  PatchKnob is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
 //  the Free Software Foundation; either version 2 of the License, or
 //  (at your option) any later version.
 //
-//  seq24 is distributed in the hope that it will be useful,
+//  PatchKnob is distributed in the hope that it will be useful,
 //  but WITHOUT ANY WARRANTY; without even the implied warranty of
 //  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 //  GNU General Public License for more details.
 //
 //  You should have received a copy of the GNU General Public License
-//  along with seq24; if not, write to the Free Software
+//  along with PatchKnob; if not, write to the Free Software
 //  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //
 //-----------------------------------------------------------------------------
 #include "config.h"
 
 
-#ifndef SEQ24_GLOBALS
-#define SEQ24_GLOBALS
+#ifndef PATCHKNOB_GLOBALS
+#define PATCHKNOB_GLOBALS
 
 #include <string>
 #include <map>
 #include <vector>
 #include <list>
-// NOTE: globals.h is included by the UI-agnostic engine core, so it must NOT
-// pull in gtkmm.  (It previously included <gtkmm/main.h> + <gtkmm/drawingarea.h>
-// but used no Gtk types.)  The STL headers above were formerly pulled in
-// transitively by gtkmm; the engine needs them directly.  GUI translation
-// units include gtkmm themselves.
+// NOTE: globals.h is included by the UI-neutral engine core, so it only pulls
+// in headers the engine uses directly.
 
 using namespace std;
 
@@ -51,9 +48,12 @@ const int c_ppqn         = 192;  /* default - dosnt change */
 const int c_bpm          = 120;  /* default */
 const int c_maxBuses = 32;
 
-/* trigger width in milliseconds */
-const int c_thread_trigger_width_ms = 4;
-const int c_thread_trigger_lookahead_ms = 2;
+/* output-thread pacing: 1 ms polls (timeBeginPeriod(1) makes them real) and a
+   5 ms scheduling lookahead -- events are enqueued AHEAD with exact ticks and
+   the audio engine places them at exact sample offsets, so wake jitter only
+   affects how early the ring is fed, never audible timing. */
+const int c_thread_trigger_width_ms = 1;
+const int c_thread_trigger_lookahead_ms = 5;
 
 /* for the seqarea class */
 const int c_text_x = 6;
@@ -130,12 +130,12 @@ c_about(
 	string ( PACKAGE ) + string( " " ) + string( VERSION ) + string( " " ) +
 	string ( "Interactive Midi Sequencer\n" )+
 	string ( "\n" )+
-	string ( "Author: Rob C. Buse (seq24@filter24.org)\n" )+
+	string ( "Author: Rob C. Buse (PatchKnob@filter24.org)\n" )+
 	string ( "\n" )+
-	string ( "For information about seq24, read the SEQ24\n" )+
+	string ( "For information about PatchKnob, read the PATCHKNOB\n" )+
 	string ( "file included with the source.\n" )+
 	string ( "\n" )+
-	string ( "Visit http://www.filter24.org/seq24 for updates.\n" )+
+	string ( "Visit http://www.filter24.org/PatchKnob for updates.\n" )+
 	string ( "\n" )+
 	string ( "Copyright (c) 2005  Rob C. Buse\n" )+
 	string ( "Released under the GNU Public License, see\n" )+

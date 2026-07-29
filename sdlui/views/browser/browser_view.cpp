@@ -30,8 +30,8 @@ bool BrowserView::matches(const PluginDescriptor& d, const std::string& needle) 
         || lower(d.vendor).find(needle) != std::string::npos;
 }
 
-static std::string format_str(const seq24::engine::PluginDescriptor& d) {
-    return d.format == seq24::engine::PluginFormat::VST3 ? "VST3" : "VST2";
+static std::string format_str(const PatchKnob::engine::PluginDescriptor& d) {
+    return d.format == PatchKnob::engine::PluginFormat::VST3 ? "VST3" : "VST2";
 }
 
 // ---- controller -> view ----------------------------------------------------
@@ -254,7 +254,6 @@ void BrowserView::draw(App& app) {
 
     // ---- status bar + buttons ---------------------------------------------
     {
-        int ty = L.statusbar.y + (L.statusbar.h - app.font.ch()) / 2;
         char buf[128];
         if (m_scanning)
             std::snprintf(buf, sizeof buf, "scanning...");
@@ -264,7 +263,9 @@ void BrowserView::draw(App& app) {
         else
             std::snprintf(buf, sizeof buf, "%d shown / %d scanned",
                           (int)m_filtered.size(), (int)m_all.size());
-        app.font.draw(app.ren, L.statusbar.x, ty, buf, t.dim);
+        app.font.draw_fitted(app.ren, SDL_Rect{ L.statusbar.x, L.statusbar.y,
+                                                L.statusbar.w, L.statusbar.h },
+                             buf, t.dim, false);
     }
     // buttons (disabled while scanning)
     bool en = !m_scanning && m_sel >= 0;

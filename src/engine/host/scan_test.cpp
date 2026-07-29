@@ -1,6 +1,6 @@
 // scan_test.cpp
 //
-// Standalone test/inventory for the seq24 unified plugin host + scanner.
+// Standalone test/inventory for the PatchKnob unified plugin host + scanner.
 // Runs PluginHost::scan({}) and prints EVERY plugin discovered on this
 // machine, grouped by format, with name / vendor / instrument flag / I/O.
 //
@@ -14,7 +14,7 @@
 #include <string>
 #include <vector>
 
-using namespace seq24::engine;
+using namespace PatchKnob::engine;
 
 static void printGroup(const std::vector<PluginDescriptor>& all, PluginFormat fmt,
                        const char* label)

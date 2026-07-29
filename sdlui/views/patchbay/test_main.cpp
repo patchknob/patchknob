@@ -10,7 +10,7 @@
 
 #include <cstdio>
 
-using namespace seq24::patchbay;
+using namespace PatchKnob::patchbay;
 
 // tiny transparent root that just eats keys (theme toggle / quit)
 class KeyRoot : public ui::Widget
@@ -40,7 +40,7 @@ int main( int, char** )
 
     ui::App app;
     app.w = 1200; app.h = 720;
-    if ( !app.init( "seq24 -- Patchbay (SDL)" ) )
+    if ( !app.init( "PatchKnob -- Patchbay (SDL)" ) )
         return 1;
 
     // ---- sample model ------------------------------------------------------

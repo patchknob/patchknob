@@ -1,4 +1,4 @@
-# VST2 Hosting Notes (seq24 Windows port, ZERO-JUCE)
+# VST2 Hosting Notes (PatchKnob Windows port, ZERO-JUCE)
 
 Realistic plan and gotchas for building a full VST2 host on top of the spike in
 this directory. Written after the spike successfully loaded and introspected
@@ -12,7 +12,7 @@ real 64-bit VST2 plugins (808 Machine x64, miniVerb) with mingw64 g++ 15.2.0.
   "aeffectx.h - simple header to allow VeSTige compilation", (c) 2006 Javier
   Serrano Polo, **GPL v2+**. This is the well-known clean-room reimplementation
   of the VST2 `AEffect` ABI used by LMMS, Ardour, dssi-vst, etc. It is **not**
-  derived from the Steinberg VST2 SDK (which is no longer distributable). seq24
+  derived from the Steinberg VST2 SDK (which is no longer distributable). PatchKnob
   is GPL, so GPL header is license-compatible.
 - It is a single self-contained header (no separate `aeffect.h`). It defines
   `AEffect`, `VstMidiEvent`, `VstEvent`, `VstEvents`, `VstTimeInfo`,
@@ -69,9 +69,9 @@ Keep a `VstTimeInfo` owned by the host, fill it each callback, return its
 address. Set the `flags` bits for fields you populated:
 `kVstTempoValid`, `kVstPpqPosValid`, `kVstBarsValid`, `kVstTimeSigValid`,
 `kVstTransportPlaying`, `kVstTransportChanged`, `kVstTransportCycleActive`.
-Fields seq24 must drive: `samplePos`, `sampleRate`, `tempo` (BPM), `ppqPos`
+Fields PatchKnob must drive: `samplePos`, `sampleRate`, `tempo` (BPM), `ppqPos`
 (quarter-note position), `timeSigNumerator/Denominator`, `barStartPos`. This is
-how tempo-synced delays, arps and LFOs lock to seq24's clock.
+how tempo-synced delays, arps and LFOs lock to PatchKnob's clock.
 
 ## Init / activation sequence
 
@@ -110,7 +110,7 @@ FreeLibrary
   `malloc(sizeof(VstEvents) + (n-1)*sizeof(VstEvent*))`.
 - `VstMidiEvent` fields to set: `type = kVstMidiType` (1), `byteSize =
   sizeof(VstMidiEvent)`, `deltaFrames` = sample offset **within the current
-  block** (this is how you get sample-accurate timing -- seq24 must convert its
+  block** (this is how you get sample-accurate timing -- PatchKnob must convert its
   tick-based events to per-block sample offsets), `midiData[0..2]` = status,
   data1, data2 (running status not allowed; `midiData[3]` = 0). For note-off you
   may optionally set `noteOffVelocity`.
@@ -159,7 +159,7 @@ layout). Not needed for the introspection spike.
   with `GetLastError() == 193` (`ERROR_BAD_EXE_FORMAT`) -- the spike detects and
   reports this case explicitly.
 - Verify arch up front with `objdump -f plugin.dll` (`pei-x86-64` = 64-bit,
-  `pei-i386` = 32-bit). Since the seq24 port targets 64-bit MINGW64, ship a
+  `pei-i386` = 32-bit). Since the PatchKnob port targets 64-bit MINGW64, ship a
   64-bit host and only enumerate 64-bit plugins. Supporting 32-bit plugins would
   require an out-of-process bridge (separate 32-bit child .exe + IPC, like
   jBridge / dssi-vst) -- out of scope.
@@ -195,7 +195,7 @@ layout). Not needed for the introspection spike.
   separate component/controller objects to connect.
 - Trade-off: VST2 has no official SDK any more (hence the clean-room header) and
   is "deprecated" by Steinberg, but the installed base is enormous and the host
-  side is a few hundred lines. For seq24 it is the pragmatic choice.
+  side is a few hundred lines. For PatchKnob it is the pragmatic choice.
 
 ## Status of this spike
 

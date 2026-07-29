@@ -1,9 +1,9 @@
 //----------------------------------------------------------------------------
 //  sdlui/engine_globals.cpp
 //
-//  Definitions of the seq24 `global_*` configuration variables (declared extern
-//  in src/globals.h).  In the old GTK build these lived in seq24.cpp (the GTK
-//  main).  The SDL frontend doesn't compile seq24.cpp, so it defines them here.
+//  Definitions of the PatchKnob `global_*` configuration variables (declared extern
+//  in src/globals.h).  The SDL frontend owns them here instead of compiling the
+//  legacy entrypoint.
 //----------------------------------------------------------------------------
 #include "globals.h"
 

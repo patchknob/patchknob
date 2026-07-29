@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------
-//  seq24 Windows port — master mixer graph.
+//  PatchKnob — master mixer graph.
 //
 //  MixerGraph owns N Tracks. Each block it:
 //    1. determines the solo state (any track soloed => only soloed tracks sound),
@@ -17,8 +17,8 @@
 //  Realtime: render() and renderBlock() are audio-thread-only, lock-free,
 //  allocation-free. All scratch is sized in prepare().
 //----------------------------------------------------------------------------
-#ifndef SEQ24_ENGINE_GRAPH_MIXER_GRAPH_H
-#define SEQ24_ENGINE_GRAPH_MIXER_GRAPH_H
+#ifndef PATCHKNOB_ENGINE_GRAPH_MIXER_GRAPH_H
+#define PATCHKNOB_ENGINE_GRAPH_MIXER_GRAPH_H
 
 #include <atomic>
 #include <memory>
@@ -27,7 +27,7 @@
 #include "track.h"
 #include "vu_meter.h"
 
-namespace seq24 { namespace engine {
+namespace PatchKnob { namespace engine {
 
 //! Per-track event/automation slice for one render block. The sequencer fills
 //! one of these per track before calling renderBlock(). Pointers must remain
@@ -124,6 +124,6 @@ private:
     int                    stagedNumInputs_ = 0;
 };
 
-}} // namespace seq24::engine
+}} // namespace PatchKnob::engine
 
-#endif // SEQ24_ENGINE_GRAPH_MIXER_GRAPH_H
+#endif // PATCHKNOB_ENGINE_GRAPH_MIXER_GRAPH_H

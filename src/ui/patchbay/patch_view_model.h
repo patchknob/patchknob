@@ -1,8 +1,8 @@
 //----------------------------------------------------------------------------
 //
-//  This file is part of seq24 (Windows port).
+//  This file is part of PatchKnob (Windows port).
 //
-//  seq24 is free software; you can redistribute it and/or modify
+//  PatchKnob is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
 //  the Free Software Foundation; either version 2 of the License, or
 //  (at your option) any later version.
@@ -15,7 +15,7 @@
 //
 //  This is the ONLY thing the canvas (ui/patchbay/patch_canvas.h) knows about
 //  the audio engine: a flat, engine-free description of what to draw and edit.
-//  The real engine graph (seq24::engine::patch::PatchGraph, built in parallel)
+//  The real engine graph (PatchKnob::engine::patch::PatchGraph, built in parallel)
 //  is deliberately NOT referenced here so the UI and the DSP graph stay
 //  decoupled -- a coordinator (src/patchbayapp.cpp) translates between the two.
 //
@@ -29,18 +29,18 @@
 //        like-kind ports may be joined (audio->audio, midi->midi); the canvas
 //        enforces this before it ever emits a connect request.
 //
-//  Everything is plain data (no gtkmm, no engine headers) so it is trivial to
+//  Everything is plain data (no UI toolkit, no engine headers) so it is trivial to
 //  build, copy, and snapshot from either side of the seam.
 //
 //-----------------------------------------------------------------------------
 
-#ifndef SEQ24_UI_PATCHBAY_PATCH_VIEW_MODEL_H
-#define SEQ24_UI_PATCHBAY_PATCH_VIEW_MODEL_H
+#ifndef PATCHKNOB_UI_PATCHBAY_PATCH_VIEW_MODEL_H
+#define PATCHKNOB_UI_PATCHBAY_PATCH_VIEW_MODEL_H
 
 #include <string>
 #include <vector>
 
-namespace seq24 {
+namespace PatchKnob {
 namespace patchbay {
 
 //! Stable node handle.  0 is reserved to mean "invalid / none".
@@ -113,6 +113,6 @@ inline bool same_connection( const Connection& a, const Connection& b )
 }
 
 } // namespace patchbay
-} // namespace seq24
+} // namespace PatchKnob
 
-#endif // SEQ24_UI_PATCHBAY_PATCH_VIEW_MODEL_H
+#endif // PATCHKNOB_UI_PATCHBAY_PATCH_VIEW_MODEL_H

@@ -1,10 +1,10 @@
 cmake_minimum_required(VERSION 3.15)
-project(seq24sdl_automation CXX)
+project(PatchKnob_automation CXX)
 
 # ---------------------------------------------------------------------------
 # Self-contained test build for the SDL AutomationView + KeyFollowPanel.
-# Mirrors sdlui/CMakeLists (gtkmm-free engine core + engine module libs) and
-# additionally links seq24_automation (AutomationLane/Track/Player).
+# Mirrors sdlui/CMakeLists (UI-neutral engine core + engine module libs) and
+# additionally links PatchKnob_automation (AutomationLane/Track/Player).
 #   export PATH="/c/msys64/mingw64/bin:$PATH"
 #   cmake -S sdlui/views/automation -B sdlui/views/automation/build -G "MinGW Makefiles"
 #   cmake --build sdlui/views/automation/build -j
@@ -29,7 +29,7 @@ add_subdirectory(${SRC}/engine/vst3       ${CMAKE_CURRENT_BINARY_DIR}/e_vst3   E
 add_subdirectory(${SRC}/engine/host       ${CMAKE_CURRENT_BINARY_DIR}/e_host   EXCLUDE_FROM_ALL)
 add_subdirectory(${SRC}/engine/automation ${CMAKE_CURRENT_BINARY_DIR}/e_auto   EXCLUDE_FROM_ALL)
 
-# --- gtkmm-free engine core sources -----------------------------------------
+# --- UI-neutral engine core sources -----------------------------------------
 set(CORE_SRC
     ${SRC}/perform.cpp ${SRC}/sequence.cpp ${SRC}/event.cpp
     ${SRC}/midibus.cpp ${SRC}/midifile.cpp ${SRC}/mutex.cpp
@@ -54,6 +54,6 @@ target_link_directories(automation_view_test PRIVATE ${SDL2_LIBRARY_DIRS} ${SDL2
 
 target_link_libraries(automation_view_test PRIVATE
     ${SDL2TTF_LIBRARIES} ${SDL2_LIBRARIES}
-    seq24_automation
-    seq24_pluginhost seq24_vst2 seq24_vst3 seq24_graph seq24_audio
+    PatchKnob_automation
+    PatchKnob_pluginhost PatchKnob_vst2 PatchKnob_vst3 PatchKnob_graph PatchKnob_audio
     winmm pthread)

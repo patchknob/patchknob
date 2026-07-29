@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------
-//  seq24 Windows port — AudioClipPlayer: a built-in "instrument" that plays
+//  PatchKnob — AudioClipPlayer: a built-in "instrument" that plays
 //  scheduled audio clips off a timeline.
 //
 //  It implements IPluginInstance (plugin_api.h) so it drops into a graph Track
@@ -35,8 +35,8 @@
 //  stopRecord() finalises the capture into a new AudioClip (returned as a
 //  shared_ptr the caller can immediately schedule).
 //----------------------------------------------------------------------------
-#ifndef SEQ24_ENGINE_AUDIOCLIP_AUDIO_CLIP_PLAYER_H
-#define SEQ24_ENGINE_AUDIOCLIP_AUDIO_CLIP_PLAYER_H
+#ifndef PATCHKNOB_ENGINE_AUDIOCLIP_AUDIO_CLIP_PLAYER_H
+#define PATCHKNOB_ENGINE_AUDIOCLIP_AUDIO_CLIP_PLAYER_H
 
 #include <atomic>
 #include <memory>
@@ -44,8 +44,9 @@
 
 #include "../plugin_api.h"
 #include "audio_clip.h"
+#include "warp_stretch.h"      // WarpMarker
 
-namespace seq24 { namespace engine {
+namespace PatchKnob { namespace engine {
 
 class AudioClipPlayer : public IPluginInstance {
 public:
@@ -70,6 +71,39 @@ public:
 
     //! Remove every scheduled clip.
     void clearClips();
+
+    //! Set the fade-in/out lengths (frames) + tensions (-1..1) on the scheduled
+    //! clip at editable index; republishes the snapshot. Message thread.
+    bool setClipFades(int index, int64_t fadeInFrames, int64_t fadeOutFrames,
+                      float fadeInTension, float fadeOutTension);
+
+    //! Update the REGION placement of the clip at editable index: timeline start,
+    //! start-offset into the source, and length (frames; length<=0 == to source
+    //! end).  This is the non-destructive trim/slip/move primitive.  Republishes.
+    bool setClipRegion(int index, int64_t startSample, int64_t sourceOffset,
+                       int64_t length);
+
+    //! Set the region gain (Ardour scale_amplitude; negative = phase invert) at
+    //! editable index.  Republishes.
+    bool setClipGain(int index, float gain);
+
+    //! Set the region mute flag at editable index.  Republishes.
+    bool setClipMuted(int index, bool muted);
+
+    //! Set the region loop flag (wrap the source to fill `length`).  Republishes.
+    bool setClipLoop(int index, bool loop);
+
+    //! Clip at editable index (const access to its ScheduledClip fields).
+    const ScheduledClip* scheduled(int index) const {
+        return (index >= 0 && index < (int)edit_.size()) ? &edit_[index] : nullptr;
+    }
+
+    //! REALTIME WARP: associate a warp map with the scheduled `clip` so process()
+    //! time-stretches it LIVE (Ableton-style, so you hear the warp while editing
+    //! markers).  An empty/1-marker map clears warp (raw playback).  Message
+    //! thread; the audio thread try_locks and falls back to raw on contention.
+    void setWarp(const AudioClip* clip, const std::vector<WarpMarker>& markers);
+    void clearWarp(const AudioClip* clip);
 
     //! Current number of scheduled clips (editable list).
     int clipCount() const { return (int)edit_.size(); }
@@ -136,6 +170,7 @@ public:
 
 private:
     //! Immutable schedule snapshot read by the audio thread (RCU).
+    static constexpr int kSnapshotSlots = 8;
     struct ScheduleSnapshot {
         ScheduledClip items[kMaxClips];
         int           count = 0;
@@ -150,8 +185,8 @@ private:
     // Editable schedule (message-thread truth); audio thread never reads this.
     std::vector<ScheduledClip> edit_;
 
-    // Double-buffered snapshots + the live pointer the audio thread reads.
-    ScheduleSnapshot               snapStore_[2];
+    // Ring-buffered snapshots + the live pointer the audio thread reads.
+    ScheduleSnapshot               snapStore_[kSnapshotSlots];
     std::atomic<int>               activeSlot_{0};
     std::atomic<ScheduleSnapshot*> liveSchedule_{nullptr};
 
@@ -159,6 +194,14 @@ private:
     double sampleRate_ = 48000.0;
     int    maxBlock_   = 0;
     bool   active_     = false;
+
+    // Realtime-warp state (pimpl: keeps signalsmith out of this header).  Holds
+    // a per-clip {warp map + stretch instance + read cursor}, mutex-guarded.
+    struct WarpState;
+    std::unique_ptr<WarpState> warp_;
+    // Render a warped region into out{L,R} for the block; false = no warp / skip.
+    bool renderWarped(const ScheduledClip& sc, int64_t winStart, int n,
+                      float* outL, float* outR);
 
     // Record buffer. cap_[] are pre-reserved on startRecord(); recFrames_ is the
     // published write cursor. recCapacity_ is the reserved frame count so the
@@ -169,6 +212,6 @@ private:
     std::vector<float>   recCh_[2];
 };
 
-}} // namespace seq24::engine
+}} // namespace PatchKnob::engine
 
-#endif // SEQ24_ENGINE_AUDIOCLIP_AUDIO_CLIP_PLAYER_H
+#endif // PATCHKNOB_ENGINE_AUDIOCLIP_AUDIO_CLIP_PLAYER_H

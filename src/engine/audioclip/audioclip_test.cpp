@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------
-//  seq24 Windows port — audioclip module self-test.
+//  PatchKnob — audioclip module self-test.
 //
 //  Exercises the built-in audio-track engine end to end, through the same
 //  IPluginInstance surface the graph Track uses:
@@ -27,7 +27,7 @@
 #include <string>
 #include <vector>
 
-using namespace seq24::engine;
+using namespace PatchKnob::engine;
 
 static const double kSr    = 48000.0;
 static const int    kBlock = 256;
@@ -49,7 +49,7 @@ static float blockPeak(const float* l, const float* r, int n) {
 }
 
 int main() {
-    std::printf("=== seq24 audioclip_test ===\n");
+    std::printf("=== PatchKnob audioclip_test ===\n");
     std::printf("sampleRate=%.0f block=%d\n\n", kSr, kBlock);
 
     // =====================================================================

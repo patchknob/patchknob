@@ -19,22 +19,22 @@
 //  Shell wiring:
 //      using namespace waveform;
 //      AudioTrack atk;
-//      atk.mount(seq24::app::audio_app_graph(), /*track*/ 8,
+//      atk.mount(PatchKnob::app::audio_app_graph(), /*track*/ 8,
 //                sr, block);                 // sr/block = engine device settings
 //      const AudioClip* c = atk.loadWavClip("kick.wav", sr, /*start*/ 0);
 //      waveformView.set_clip(c);
 //      // transport (isPlaying / playPos) is driven by audio_app as usual; the
 //      // clip sounds when the play position crosses its scheduled window.
 //----------------------------------------------------------------------------
-#ifndef SEQ24_SDLUI_VIEWS_WAVEFORM_AUDIO_TRACK_H
-#define SEQ24_SDLUI_VIEWS_WAVEFORM_AUDIO_TRACK_H
+#ifndef PATCHKNOB_SDLUI_VIEWS_WAVEFORM_AUDIO_TRACK_H
+#define PATCHKNOB_SDLUI_VIEWS_WAVEFORM_AUDIO_TRACK_H
 
 #include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
 
-namespace seq24 { namespace engine {
+namespace PatchKnob { namespace engine {
     struct AudioClip;
     class  AudioClipPlayer;
     class  MixerGraph;
@@ -55,7 +55,7 @@ public:
     //! instrument of graph track `trackIndex`. Returns false on bad args.
     //! Call AFTER the graph is prepared (audio_app_init() has run); the player is
     //! prepared here since setInstrument() after prepare() won't do it for us.
-    bool mount(seq24::engine::MixerGraph* graph, int trackIndex,
+    bool mount(PatchKnob::engine::MixerGraph* graph, int trackIndex,
                double sampleRate, int maxBlockSize);
 
     //! True once mount() has attached the player to a track.
@@ -65,13 +65,13 @@ public:
     //! Move `clip` into this track's owned store and schedule it at absolute
     //! timeline sample `startSample` with `gain`. Returns the stable stored clip
     //! pointer (for WaveformView::set_clip), or nullptr on failure.
-    const seq24::engine::AudioClip* add_clip(seq24::engine::AudioClip clip,
+    const PatchKnob::engine::AudioClip* add_clip(PatchKnob::engine::AudioClip clip,
                                              int64_t startSample = 0,
                                              float   gain        = 1.0f);
 
     //! Load `path` (WAV) at `engineSampleRate`, store + schedule it. Returns the
     //! stored clip pointer, or nullptr on load failure (reason in *error).
-    const seq24::engine::AudioClip* load_wav_clip(const std::string& path,
+    const PatchKnob::engine::AudioClip* load_wav_clip(const std::string& path,
                                                   double engineSampleRate,
                                                   int64_t startSample = 0,
                                                   float   gain        = 1.0f,
@@ -79,24 +79,24 @@ public:
 
     //! Synthesise a stereo sine test clip, store + schedule it. Handy when there
     //! is no file to load. Returns the stored clip pointer.
-    const seq24::engine::AudioClip* add_test_tone(double freqHz,
+    const PatchKnob::engine::AudioClip* add_test_tone(double freqHz,
                                                   double durationSeconds,
                                                   double sampleRate,
                                                   int64_t startSample = 0,
                                                   float   amplitude   = 0.8f);
 
     //! Direct access if the caller needs the raw player (e.g. record mode).
-    seq24::engine::AudioClipPlayer* player() { return player_.get(); }
+    PatchKnob::engine::AudioClipPlayer* player() { return player_.get(); }
     int clip_count() const { return (int)clips_.size(); }
 
 private:
-    std::unique_ptr<seq24::engine::AudioClipPlayer>          player_;
-    std::vector<std::unique_ptr<seq24::engine::AudioClip>>   clips_;   // stable addrs
-    seq24::engine::MixerGraph* graph_ = nullptr;
+    std::unique_ptr<PatchKnob::engine::AudioClipPlayer>          player_;
+    std::vector<std::unique_ptr<PatchKnob::engine::AudioClip>>   clips_;   // stable addrs
+    PatchKnob::engine::MixerGraph* graph_ = nullptr;
     int    trackIndex_ = -1;
     double sampleRate_ = 48000.0;
 };
 
 } // namespace waveform
 
-#endif // SEQ24_SDLUI_VIEWS_WAVEFORM_AUDIO_TRACK_H
+#endif // PATCHKNOB_SDLUI_VIEWS_WAVEFORM_AUDIO_TRACK_H

@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------
-//  seq24 Windows port — WAV file loader for AudioClip.
+//  PatchKnob — WAV file loader for AudioClip.
 //
 //  A small, self-contained RIFF/WAVE parser (no external dependencies). It
 //  understands the common uncompressed encodings a DAW needs:
@@ -18,14 +18,14 @@
 //  All of this runs on the message thread (file I/O + allocation), never the
 //  audio thread.
 //----------------------------------------------------------------------------
-#ifndef SEQ24_ENGINE_AUDIOCLIP_WAV_LOADER_H
-#define SEQ24_ENGINE_AUDIOCLIP_WAV_LOADER_H
+#ifndef PATCHKNOB_ENGINE_AUDIOCLIP_WAV_LOADER_H
+#define PATCHKNOB_ENGINE_AUDIOCLIP_WAV_LOADER_H
 
 #include <string>
 
 #include "audio_clip.h"
 
-namespace seq24 { namespace engine {
+namespace PatchKnob { namespace engine {
 
 //! Load `path` into `out`, resampling to `engineSampleRate` if needed.
 //! Returns true on success. On failure `out` is left empty and, if `error` is
@@ -41,6 +41,6 @@ bool loadWav(const std::string& path,
 bool saveWav16(const std::string& path, const AudioClip& clip,
                std::string* error = nullptr);
 
-}} // namespace seq24::engine
+}} // namespace PatchKnob::engine
 
-#endif // SEQ24_ENGINE_AUDIOCLIP_WAV_LOADER_H
+#endif // PATCHKNOB_ENGINE_AUDIOCLIP_WAV_LOADER_H

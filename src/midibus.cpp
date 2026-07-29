@@ -1,13 +1,13 @@
 //----------------------------------------------------------------------------
 //
-//  This file is part of seq24.
+//  This file is part of PatchKnob.
 //
-//  seq24 is free software; you can redistribute it and/or modify
+//  PatchKnob is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
 //  the Free Software Foundation; either version 2 of the License, or
 //  (at your option) any later version.
 //
-//  seq24 is distributed in the hope that it will be useful,
+//  PatchKnob is distributed in the hope that it will be useful,
 //  but WITHOUT ANY WARRANTY; without even the implied warranty of
 //  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 //  GNU General Public License for more details.
@@ -98,7 +98,7 @@ midibus::midibus( int a_localclient,
     m_port_index       = -1;
 
     char tmp[128];
-    snprintf( tmp, sizeof(tmp), "[%d] seq24 %d", (int) m_id, (int) m_id );
+    snprintf( tmp, sizeof(tmp), "[%d] PatchKnob %d", (int) m_id, (int) m_id );
     m_name = tmp;
 }
 
@@ -124,7 +124,7 @@ midibus::init_out()
 {
     try
     {
-        m_rtmidi_out = new RtMidiOut( RtMidi::WINDOWS_MM, "seq24" );
+        m_rtmidi_out = new RtMidiOut( RtMidi::WINDOWS_MM, "PatchKnob" );
         m_rtmidi_out->openPort( (unsigned int) m_port_index, m_name );
     }
     catch ( RtMidiError &error )
@@ -143,7 +143,7 @@ midibus::init_in()
 {
     try
     {
-        m_rtmidi_in = new RtMidiIn( RtMidi::WINDOWS_MM, "seq24", 256 );
+        m_rtmidi_in = new RtMidiIn( RtMidi::WINDOWS_MM, "PatchKnob", 256 );
         m_rtmidi_in->openPort( (unsigned int) m_port_index, m_name );
         /* receive everything; don't ignore sysex/timing/active-sense */
         m_rtmidi_in->ignoreTypes( false, false, false );
@@ -183,8 +183,14 @@ std::string midibus::get_name() { return m_name; }
 int         midibus::get_id()   { return m_id;   }
 
 void
-midibus::play( event *a_e24, unsigned char a_channel )
+midibus::play( event *a_e24, unsigned char a_channel, long a_tick )
 {
+    /* a_tick (absolute due-time in sequencer ticks, -1 = "now") is carried
+       for interface symmetry with mastermidibus::play, which forwards it to
+       the audio engine.  This legacy WinMM path sends immediately: the
+       sample-accurate hardware route is the patcher's MidiOutNode drain. */
+    (void) a_tick;
+
     if ( m_rtmidi_out == NULL )
         return;
 
@@ -275,31 +281,32 @@ midibus::stop()
 }
 
 /*  Emit MIDI clock (0xF8) bytes for each tick boundary crossed since the last
-    call.  Tick math preserved from the original ALSA implementation:
-    one clock every (c_ppqn / 24) ticks. */
+    call: one clock every (c_ppqn / 24) ticks.  Boundaries are computed
+    arithmetically -- the original per-tick m_lasttick++ walk was O(delta) on
+    the output thread's hot path (at 500 BPM the clock period is shorter than
+    the loop period, so every call crossed boundaries). */
 void
 midibus::clock( long a_tick )
 {
     lock();
 
-    if ( m_clock_type != e_clock_off )
+    if ( m_clock_type != e_clock_off && a_tick > m_lasttick )
     {
-        bool done = false;
-        long uptotick = a_tick;
+        const long interval = c_ppqn / 24;
 
-        if ( m_lasttick >= uptotick )
-            done = true;
+        /* first multiple of interval STRICTLY after m_lasttick (floor
+           division: m_lasttick may be -1 after continue_from/init_clock,
+           and boundary 0 must still fire) */
+        long q = m_lasttick / interval;
+        if ( m_lasttick < 0 && ( m_lasttick % interval ) != 0 )
+            q--;
+        long boundary = ( q + 1 ) * interval;
 
-        while ( !done )
-        {
-            m_lasttick++;
-            if ( m_lasttick >= uptotick )
-                done = true;
+        /* one 0xF8 per boundary in (m_lasttick, a_tick] */
+        for ( ; boundary <= a_tick; boundary += interval )
+            send_byte( 0xF8 );   /* MIDI Clock */
 
-            /* tick time? */
-            if ( m_lasttick % ( c_ppqn / 24 ) == 0 )
-                send_byte( 0xF8 );   /* MIDI Clock */
-        }
+        m_lasttick = a_tick;
     }
 
     unlock();
@@ -419,7 +426,7 @@ mastermidibus::init()
     unsigned int out_count = 0;
     try
     {
-        RtMidiOut probe( RtMidi::WINDOWS_MM, "seq24" );
+        RtMidiOut probe( RtMidi::WINDOWS_MM, "PatchKnob" );
         out_count = probe.getPortCount();
 
         for ( unsigned int i = 0;
@@ -458,7 +465,7 @@ mastermidibus::init()
     unsigned int in_count = 0;
     try
     {
-        RtMidiIn probe( RtMidi::WINDOWS_MM, "seq24", 256 );
+        RtMidiIn probe( RtMidi::WINDOWS_MM, "PatchKnob", 256 );
         in_count = probe.getPortCount();
 
         for ( unsigned int i = 0;
@@ -506,8 +513,11 @@ mastermidibus::init()
 int mastermidibus::get_num_out_buses() { return m_num_out_buses; }
 int mastermidibus::get_num_in_buses()  { return m_num_in_buses;  }
 
-void mastermidibus::set_bpm( int a_bpm )   { m_bpm  = a_bpm;  }
-void mastermidibus::set_ppqn( int a_ppqn ) { m_ppqn = a_ppqn; }
+/* BPM stays double end-to-end (fractional / externally-synced tempi); only
+   the wire format (0xF8 boundary ticks) quantizes, and that is integer tick
+   math downstream. */
+void mastermidibus::set_bpm( double a_bpm ) { m_bpm  = a_bpm;  }
+void mastermidibus::set_ppqn( int a_ppqn )  { m_ppqn = a_ppqn; }
 
 std::string mastermidibus::get_midi_out_bus_name( int a_bus )
 {
@@ -534,32 +544,58 @@ void mastermidibus::flush()
     /* no-op on WinMM (immediate send) */
 }
 
+// Automatic sequencer -> hardware MIDI output.  DEFAULT OFF: MIDI routing is now
+// done in the patcher (MIDI-out nodes), PipeWire-style, so the sequencer no
+// longer blasts every event to every hardware port.  Toggle if legacy direct
+// hardware output is wanted.
+static bool s_hw_midi_out_enabled = false;
+void mastermidibus_set_hw_output( bool on ) { s_hw_midi_out_enabled = on; }
+bool mastermidibus_hw_output()              { return s_hw_midi_out_enabled; }
+
+/*  The clock / transport realtime sends below (0xF8/0xFA/0xFB/0xFC/SPP) are
+    gated on s_hw_midi_out_enabled, symmetric with ::play.  These run off the
+    wall-clock output thread; in the patcher configuration the ONE clock
+    source is the sample-accurate MasterMixer clock routed through MIDI-out
+    nodes, and this legacy second time base must stay silent. */
+
 void mastermidibus::start()
 {
+    if ( !s_hw_midi_out_enabled )
+        return;
     for ( int i = 0; i < m_num_out_buses; ++i )
         if ( m_buses_out_active[i] ) m_buses_out[i]->start();
 }
 
 void mastermidibus::stop()
 {
+    if ( !s_hw_midi_out_enabled )
+        return;
     for ( int i = 0; i < m_num_out_buses; ++i )
         if ( m_buses_out_active[i] ) m_buses_out[i]->stop();
 }
 
 void mastermidibus::clock( long a_tick )
 {
+    if ( !s_hw_midi_out_enabled )
+        return;
     for ( int i = 0; i < m_num_out_buses; ++i )
         if ( m_buses_out_active[i] ) m_buses_out[i]->clock( a_tick );
 }
 
 void mastermidibus::continue_from( long a_tick )
 {
+    if ( !s_hw_midi_out_enabled )
+        return;
     for ( int i = 0; i < m_num_out_buses; ++i )
         if ( m_buses_out_active[i] ) m_buses_out[i]->continue_from( a_tick );
 }
 
 void mastermidibus::init_clock( long a_tick )
 {
+    /* init_clock reaches hardware through midibus::start()/continue_from(),
+       so it is gated with the rest of the legacy clock path */
+    if ( !s_hw_midi_out_enabled )
+        return;
     for ( int i = 0; i < m_num_out_buses; ++i )
         if ( m_buses_out_active[i] ) m_buses_out[i]->init_clock( a_tick );
 }
@@ -614,7 +650,7 @@ mastermidibus::is_more_input()
     return more;
 }
 
-/*  Pop the next buffered input message and convert it into a seq24 event.
+/*  Pop the next buffered input message and convert it into a PatchKnob event.
     Replicates the ALSA backend's Note-On-velocity-0 -> Note-Off fixup. */
 bool
 mastermidibus::get_midi_event( event *a_in )
@@ -684,22 +720,26 @@ mastermidibus::sysex( event *a_event )
 void mastermidibus::port_start( int /*a_client*/, int /*a_port*/ ) { }
 void mastermidibus::port_exit( int /*a_client*/, int /*a_port*/ )  { }
 
-void mastermidibus::play( unsigned char a_bus, event *a_e24, unsigned char a_channel )
+void mastermidibus::play( unsigned char a_bus, event *a_e24, unsigned char a_channel,
+                          long a_tick )
 {
-    /* hardware / external MIDI out (unchanged) */
-    if ( a_bus < m_num_out_buses && m_buses_out_active[a_bus] )
-        m_buses_out[a_bus]->play( a_e24, a_channel );
+    /* hardware / external MIDI out -- only when explicitly enabled */
+    if ( s_hw_midi_out_enabled && a_bus < m_num_out_buses && m_buses_out_active[a_bus] )
+        m_buses_out[a_bus]->play( a_e24, a_channel, a_tick );
 
     /* also route this event to the bus's hosted VST instrument (track == bus).
        Channel voice messages only (status < 0xF0). Lock-free; safe on the
-       output thread. */
+       output thread.  a_tick (absolute sequencer tick, -1 = "now") rides the
+       ring so the audio thread can place the event at its exact sample offset
+       instead of the block edge. */
     unsigned char status = a_e24->get_status();
     if ( status < 0xF0 )
     {
         unsigned char msg = ( status & 0xF0 ) | ( a_channel & 0x0F );
         unsigned char d0, d1;
         a_e24->get_data( &d0, &d1 );
-        seq24::app::audio_app_route_midi( (int) a_bus, msg, d0, d1 );
+        PatchKnob::app::audio_app_route_midi( (int) a_bus, msg, d0, d1,
+                                          (long long) a_tick );
     }
 }
 

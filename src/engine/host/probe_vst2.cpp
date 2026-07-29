@@ -1,6 +1,6 @@
 // probe_vst2.cpp
 //
-// Out-of-process VST2 introspection helper for the seq24 unified plugin host.
+// Out-of-process VST2 introspection helper for the PatchKnob unified plugin host.
 //
 // Loading an arbitrary third-party VST2 .dll in-process is dangerous: plugins
 // can crash, hang, pop up dialogs, or spawn threads during load. To make the
@@ -50,8 +50,8 @@ static intptr_t VST_CALL_CONV hostCallback(AEffect* effect, int32_t opcode,
     case audioMasterCurrentId:             return 0;
     case audioMasterGetSampleRate:         return (intptr_t)g_sampleRate;
     case audioMasterGetBlockSize:          return (intptr_t)g_blockSize;
-    case audioMasterGetVendorString:       if (ptr) std::strcpy((char*)ptr, "seq24"); return 1;
-    case audioMasterGetProductString:      if (ptr) std::strcpy((char*)ptr, "seq24 scanner"); return 1;
+    case audioMasterGetVendorString:       if (ptr) std::strcpy((char*)ptr, "PatchKnob"); return 1;
+    case audioMasterGetProductString:      if (ptr) std::strcpy((char*)ptr, "PatchKnob scanner"); return 1;
     case audioMasterGetVendorVersion:      return 1;
     case audioMasterCanDo:                 return 0;
     case audioMasterGetCurrentProcessLevel:return 0;

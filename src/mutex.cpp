@@ -1,19 +1,19 @@
 //----------------------------------------------------------------------------
 //
-//  This file is part of seq24.
+//  This file is part of PatchKnob.
 //
-//  seq24 is free software; you can redistribute it and/or modify
+//  PatchKnob is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
 //  the Free Software Foundation; either version 2 of the License, or
 //  (at your option) any later version.
 //
-//  seq24 is distributed in the hope that it will be useful,
+//  PatchKnob is distributed in the hope that it will be useful,
 //  but WITHOUT ANY WARRANTY; without even the implied warranty of
 //  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 //  GNU General Public License for more details.
 //
 //  You should have received a copy of the GNU General Public License
-//  along with seq24; if not, write to the Free Software
+//  along with PatchKnob; if not, write to the Free Software
 //  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //
 //-----------------------------------------------------------------------------
@@ -21,23 +21,23 @@
 #include "mutex.h"
 #include "config.h"
 
-const pthread_mutex_t seq24mutex::recmutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER;
+const pthread_mutex_t PatchKnobMutex::recmutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER;
 const pthread_cond_t condition_var::cond  = PTHREAD_COND_INITIALIZER;
 
-seq24mutex::seq24mutex( )
+PatchKnobMutex::PatchKnobMutex( )
 {
     m_mutex_lock = recmutex;
 }
 
 void 
-seq24mutex::lock( )
+PatchKnobMutex::lock( )
 {
     pthread_mutex_lock( &m_mutex_lock );
 }
 
 
 void 
-seq24mutex::unlock( )
+PatchKnobMutex::unlock( )
 {      
     pthread_mutex_unlock( &m_mutex_lock );
 }

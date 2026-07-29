@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------
-//  seq24 Windows port — shared engine contract.
+//  PatchKnob — shared engine contract.
 //
 //  This header is the STABLE INTERFACE that the parallel module agents code
 //  against so their work integrates cleanly:
@@ -18,14 +18,14 @@
 //    * realtime rule      : process() and everything it calls must be
 //                           lock-free and allocation-free (audio thread).
 //----------------------------------------------------------------------------
-#ifndef SEQ24_ENGINE_PLUGIN_API_H
-#define SEQ24_ENGINE_PLUGIN_API_H
+#ifndef PATCHKNOB_ENGINE_PLUGIN_API_H
+#define PATCHKNOB_ENGINE_PLUGIN_API_H
 
 #include <string>
 #include <vector>
 #include <cstdint>
 
-namespace seq24 { namespace engine {
+namespace PatchKnob { namespace engine {
 
 enum class PluginFormat { VST2, VST3 };
 
@@ -78,6 +78,13 @@ struct ProcessBlock {
     double              tempoBpm;
     int64_t             playPositionSamples;
     bool                isPlaying;
+    // How many channel pointers audioIn/audioOut REALLY hold.  Hosts must never
+    // index past these, no matter what a plugin's own numInputs/numOutputs
+    // claim (a multi-out drum plugin can declare 16 outs against our stereo
+    // bus).  Defaults match the engine-wide stereo bus.  (Appended last so
+    // positional aggregate init of older fields stays valid.)
+    int32_t             numAudioIn  = 2;
+    int32_t             numAudioOut = 2;
 };
 
 // Opaque native window handle for embedding the plugin editor (Win32 HWND).
@@ -128,6 +135,6 @@ public:
     virtual IPluginInstance* instantiate(const PluginDescriptor& desc) = 0;
 };
 
-}} // namespace seq24::engine
+}} // namespace PatchKnob::engine
 
 #endif

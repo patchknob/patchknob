@@ -1,7 +1,7 @@
 //----------------------------------------------------------------------------
-//  seq24 Windows port — unified plugin host + scanner.
+//  PatchKnob — unified plugin host + scanner.
 //
-//  PluginHost implements seq24::engine::IPluginHost. It is the single entry
+//  PluginHost implements PatchKnob::engine::IPluginHost. It is the single entry
 //  point the rest of the engine uses to:
 //    * scan the standard VST2 / VST3 directories (plus extra paths) and return
 //      a flat list of PluginDescriptor, and
@@ -20,15 +20,15 @@
 //  The probe executables are built alongside this library and are located at
 //  runtime next to the host's own module (see findProbeExe()).
 //----------------------------------------------------------------------------
-#ifndef SEQ24_ENGINE_HOST_PLUGIN_HOST_H
-#define SEQ24_ENGINE_HOST_PLUGIN_HOST_H
+#ifndef PATCHKNOB_ENGINE_HOST_PLUGIN_HOST_H
+#define PATCHKNOB_ENGINE_HOST_PLUGIN_HOST_H
 
 #include "../plugin_api.h"
 
 #include <string>
 #include <vector>
 
-namespace seq24 { namespace engine {
+namespace PatchKnob { namespace engine {
 
 class PluginHost : public IPluginHost {
 public:
@@ -68,6 +68,6 @@ private:
     bool probeVst3(const std::string& vst3Path, std::vector<PluginDescriptor>& out) const;
 };
 
-}} // namespace seq24::engine
+}} // namespace PatchKnob::engine
 
-#endif // SEQ24_ENGINE_HOST_PLUGIN_HOST_H
+#endif // PATCHKNOB_ENGINE_HOST_PLUGIN_HOST_H

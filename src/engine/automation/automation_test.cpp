@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------
-//  seq24 Windows port — automation module self-test.
+//  PatchKnob — automation module self-test.
 //
 //  Exercises the automation data model and the playback runtime end to end:
 //
@@ -24,7 +24,7 @@
 #include <cstdio>
 #include <vector>
 
-using namespace seq24::engine;
+using namespace PatchKnob::engine;
 
 static int gFail = 0;
 #define CHECK(cond, msg) do {                                   \
@@ -51,7 +51,7 @@ static AutomationPlayer::EmitCC gEC =
 static void resetCapture() { gParams.clear(); gCCs.clear(); }
 
 int main() {
-    std::printf("=== seq24 automation_test ===\n\n");
+    std::printf("=== PatchKnob automation_test ===\n\n");
 
     // =====================================================================
     // [1] value_at(): interpolation semantics.

@@ -1,7 +1,7 @@
 //----------------------------------------------------------------------------
-//  seq24 Windows port (ZERO-JUCE) — VST2 host module.
+//  PatchKnob (ZERO-JUCE) — VST2 host module.
 //
-//  Vst2PluginInstance implements the shared seq24::engine::IPluginInstance
+//  Vst2PluginInstance implements the shared PatchKnob::engine::IPluginInstance
 //  contract (see ../plugin_api.h) on top of the clean-room "vestige"
 //  aeffectx.h VST2 ABI header. It loads a 64-bit VST2 .dll, drives it through
 //  the flat AEffect C ABI (dispatcher / processReplacing / get/setParameter),
@@ -11,11 +11,12 @@
 //  Threading: every method runs on the message thread EXCEPT process(), which
 //  is the realtime audio-thread entry point and is allocation/lock free.
 //----------------------------------------------------------------------------
-#ifndef SEQ24_ENGINE_VST2_VST2_HOST_H
-#define SEQ24_ENGINE_VST2_VST2_HOST_H
+#ifndef PATCHKNOB_ENGINE_VST2_VST2_HOST_H
+#define PATCHKNOB_ENGINE_VST2_VST2_HOST_H
 
 #include "../plugin_api.h"
 
+#include <atomic>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -26,7 +27,7 @@ class AEffect;
 class VstTimeInfo;
 class VstEvents;
 
-namespace seq24 { namespace engine {
+namespace PatchKnob { namespace engine {
 
 class Vst2PluginInstance : public IPluginInstance {
 public:
@@ -37,6 +38,17 @@ public:
     // false (and leaves the object inert) on any failure. Must be called once,
     // before prepare().
     bool load(const PluginDescriptor& desc);
+
+    // TEST-ONLY: adopt an in-process fake AEffect (no DLL) so the hardening
+    // paths (channel clamp, fault guard, teardown gate) can be exercised
+    // headlessly by vst2_test. Applies the same load-time validation as
+    // load(). Not for production use.
+    bool adoptEffectForTest(AEffect* eff);
+
+    // True once a fault has been caught inside this plugin (processReplacing
+    // or any dispatcher/parameter call). A dead instance no-ops every further
+    // plugin call and hands the caller silence.
+    bool isDead() const { return dead_.load(std::memory_order_relaxed); }
 
     // --- IPluginInstance ---------------------------------------------------
     const PluginDescriptor& descriptor() const override { return desc_; }
@@ -80,6 +92,22 @@ private:
     void freeChannelBuffers();
     void freeEventBuffer();
 
+    // Shared load-time validation for load()/adoptEffectForTest(): reject
+    // insane self-reported AEffect counts before they size any buffer.
+    bool validateEffectCounts() const;
+
+    // Latch dead_ and log once; every later plugin call becomes a no-op.
+    void markDead(const char* where, uint32_t code) const;
+
+    // Fault-guarded set/getParameter (raw function-pointer calls into the
+    // plugin, same fault class as the dispatcher).
+    void  guardedSetParameter(int32_t index, float value) const;
+    float guardedGetParameter(int32_t index) const;
+
+    // Message-thread half of the teardown gate: stop new process() entries,
+    // then wait out any in-flight audio block before touching plugin state.
+    void quiesceProcessing();
+
     PluginDescriptor desc_;
 
     void*    module_   = nullptr;   // HMODULE (kept void* to avoid windows.h)
@@ -94,11 +122,23 @@ private:
     bool     active_  = false;      // effMainsChanged(1) in effect
     bool     prepared_ = false;
 
+    // Fault / lifetime hardening. dead_ latches after any caught plugin fault
+    // (mutable: dispatch() and the param getters are const). alive_ and
+    // processing_ form the teardown gate: process() raises processing_ for
+    // the duration of a block, release()/prepare() flip alive_ off and
+    // spin-wait until processing_ clears before freeing/resizing anything the
+    // audio thread touches.
+    mutable std::atomic<bool> dead_{false};
+    std::atomic<bool>         alive_{false};
+    std::atomic<bool>         processing_{false};
+
     // Realtime scratch (allocated in prepare, used in process).
     std::vector<float*> inPtrs_;
     std::vector<float*> outPtrs_;
     std::vector<float>  inStorage_;    // numIn_ * maxBlockSize_, contiguous
     std::vector<float>  silence_;      // a zeroed input block for unused chans
+    std::vector<float>  dump_;         // writable discard block for plugin
+                                       // output channels the caller lacks
 
     // VstEvents scratch for MIDI delivery (over-allocated for maxEvents_).
     VstEvents* vstEvents_   = nullptr;
@@ -117,6 +157,6 @@ private:
 // Caller owns the returned pointer.
 IPluginInstance* createVst2Instance(const PluginDescriptor& desc);
 
-}} // namespace seq24::engine
+}} // namespace PatchKnob::engine
 
-#endif // SEQ24_ENGINE_VST2_VST2_HOST_H
+#endif // PATCHKNOB_ENGINE_VST2_VST2_HOST_H

@@ -9,10 +9,10 @@
 #include "engine/graph/mixer_graph.h"
 #include "engine/graph/track.h"
 
-using seq24::engine::AudioClip;
-using seq24::engine::AudioClipPlayer;
-using seq24::engine::MixerGraph;
-using seq24::engine::Track;
+using PatchKnob::engine::AudioClip;
+using PatchKnob::engine::AudioClipPlayer;
+using PatchKnob::engine::MixerGraph;
+using PatchKnob::engine::Track;
 
 namespace waveform {
 
@@ -61,7 +61,7 @@ const AudioClip* AudioTrack::load_wav_clip(const std::string& path,
                                            int64_t startSample, float gain,
                                            std::string* error) {
     AudioClip c;
-    if (!seq24::engine::loadWav(path, engineSampleRate, c, error)) return nullptr;
+    if (!PatchKnob::engine::loadWav(path, engineSampleRate, c, error)) return nullptr;
     return add_clip(std::move(c), startSample, gain);
 }
 

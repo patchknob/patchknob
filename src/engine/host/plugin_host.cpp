@@ -1,26 +1,30 @@
 //----------------------------------------------------------------------------
-//  seq24 Windows port — unified plugin host + scanner implementation.
+//  PatchKnob — unified plugin host + scanner implementation.
 //  See plugin_host.h for the design rationale (out-of-process probing).
 //----------------------------------------------------------------------------
 #include "plugin_host.h"
+#include "../buzz/sampler_instrument.h"
 
 #include <windows.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cstdint>
 #include <cstdio>
 #include <fstream>
 #include <map>
+#include <mutex>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <vector>
 
-namespace seq24 { namespace engine {
+namespace PatchKnob { namespace engine {
 
 // ----------------------------------------------------------------------------
 // Factory functions provided by the sibling VST2 / VST3 host modules. They are
 // linked in at integration time. For this module's standalone TEST we provide
-// WEAK stub definitions (below, guarded by SEQ24_HOST_WEAK_STUBS) so scan_test
+// WEAK stub definitions (below, guarded by PATCHKNOB_HOST_WEAK_STUBS) so scan_test
 // links without the real hosts.
 // ----------------------------------------------------------------------------
 extern IPluginInstance* createVst2Instance(const PluginDescriptor& desc);
@@ -419,8 +423,34 @@ std::vector<PluginDescriptor> PluginHost::scan(const std::vector<std::string>& e
         dlls.swap(uniq);
     }
 
-    for (const auto& dll : dlls)
-        probeVst2(dll, result);
+    // Probe in parallel: each probe is an independent out-of-process child, so
+    // this is I/O-bound -- run a small pool so a few hanging plugins (each up to
+    // probeTimeoutMs_) don't serialise the whole scan into minutes.
+    std::mutex resultMtx;
+    auto probeParallel = [&](const std::vector<std::string>& items, bool vst3) {
+        if (items.empty()) return;
+        unsigned nt = std::thread::hardware_concurrency();
+        if (nt < 4) nt = 4; if (nt > 12) nt = 12;
+        if (nt > items.size()) nt = (unsigned)items.size();
+        std::atomic<size_t> next{0};
+        std::vector<std::thread> pool;
+        for (unsigned t = 0; t < nt; ++t)
+            pool.emplace_back([&, vst3] {
+                for (;;) {
+                    size_t i = next.fetch_add(1);
+                    if (i >= items.size()) break;
+                    std::vector<PluginDescriptor> local;
+                    if (vst3) probeVst3(items[i], local); else probeVst2(items[i], local);
+                    if (!local.empty()) {
+                        std::lock_guard<std::mutex> lk(resultMtx);
+                        for (auto& d : local) result.push_back(std::move(d));
+                    }
+                }
+            });
+        for (auto& th : pool) th.join();
+    };
+
+    probeParallel(dlls, /*vst3=*/false);
 
     // ---- VST3: gather .vst3 (single files AND bundle directories) ----------
     std::vector<std::string> vst3s;
@@ -442,8 +472,7 @@ std::vector<PluginDescriptor> PluginHost::scan(const std::vector<std::string>& e
         vst3s.swap(uniq);
     }
 
-    for (const auto& v : vst3s)
-        probeVst3(v, result);
+    probeParallel(vst3s, /*vst3=*/true);
 
     if (!cachePath_.empty())
         saveCache(result);
@@ -453,6 +482,8 @@ std::vector<PluginDescriptor> PluginHost::scan(const std::vector<std::string>& e
 
 IPluginInstance* PluginHost::instantiate(const PluginDescriptor& desc)
 {
+    if (desc.name == "Sampler" && desc.path.empty())
+        return create_sampler_instrument();
     switch (desc.format)
     {
     case PluginFormat::VST2: return createVst2Instance(desc);
@@ -542,7 +573,7 @@ bool PluginHost::loadCache(std::vector<PluginDescriptor>& out) const
 // createVst3Instance live in src/engine/vst2 and src/engine/vst3 and override
 // these at integration link time. mingw supports the weak attribute.
 // ----------------------------------------------------------------------------
-#ifdef SEQ24_HOST_WEAK_STUBS
+#ifdef PATCHKNOB_HOST_WEAK_STUBS
 extern "C" { /* nothing */ }
 __attribute__((weak)) IPluginInstance* createVst2Instance(const PluginDescriptor&)
 {
@@ -554,4 +585,4 @@ __attribute__((weak)) IPluginInstance* createVst3Instance(const PluginDescriptor
 }
 #endif
 
-}} // namespace seq24::engine
+}} // namespace PatchKnob::engine

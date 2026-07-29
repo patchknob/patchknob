@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------
-//  vst3_test.cpp - smoke test for the seq24 VST3 host module.
+//  vst3_test.cpp - smoke test for the PatchKnob VST3 host module.
 //
 //  Loads an instrument (TAL-U-NO-LX-V2 by default), prepares 48000/512, sends
 //  a Note-On (C4), processes ~50 blocks, asserts the output is non-silent, and
@@ -14,7 +14,7 @@
 #include <string>
 #include <vector>
 
-using namespace seq24::engine;
+using namespace PatchKnob::engine;
 
 namespace {
 
@@ -136,7 +136,7 @@ void printInfo(IPluginInstance* inst, const std::string& path)
 int main(int argc, char* argv[])
 {
     std::setvbuf(stdout, nullptr, _IONBF, 0); // unbuffered so output survives a crash
-    std::printf("=== seq24 VST3 host test ===\n");
+    std::printf("=== PatchKnob VST3 host test ===\n");
 
     const double sr = 48000.0;
     const int    block = 512;

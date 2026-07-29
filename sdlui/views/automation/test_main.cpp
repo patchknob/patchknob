@@ -23,11 +23,11 @@
 #include <cstdio>
 
 using namespace ui;
-using seq24::engine::AutomationPlayer;
-using seq24::engine::AutomationTrack;
-using seq24::engine::LaneTarget;
-using seq24::engine::LaneTargetKind;
-using seq24::engine::Interpolation;
+using PatchKnob::engine::AutomationPlayer;
+using PatchKnob::engine::AutomationTrack;
+using PatchKnob::engine::LaneTarget;
+using PatchKnob::engine::LaneTargetKind;
+using PatchKnob::engine::Interpolation;
 
 int main(int argc, char** argv) {
     set_mode(Mode::Midnight);
@@ -36,7 +36,7 @@ int main(int argc, char** argv) {
 
     App app;
     app.w = 1100; app.h = 760;
-    if (!app.init("seq24 / SDL2 -- Automation editor + Keyfollow")) { app.shutdown(); return 1; }
+    if (!app.init("PatchKnob -- Automation editor + Keyfollow")) { app.shutdown(); return 1; }
 
     // ---- model: a perform with two active sequences -------------------------
     perform perf;

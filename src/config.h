@@ -4,15 +4,15 @@
  * session/audio glue and stay disabled on Windows. The new audio/MIDI/VST
  * backend is hand-rolled (RtMidi + RtAudio + VST3 SDK), not wired here.
  */
-#ifndef SEQ24_CONFIG_H
-#define SEQ24_CONFIG_H
+#ifndef PATCHKNOB_CONFIG_H
+#define PATCHKNOB_CONFIG_H
 
-#define PACKAGE          "seq24"
-#define PACKAGE_NAME     "seq24"
-#define PACKAGE_TARNAME  "seq24"
+#define PACKAGE          "PatchKnob"
+#define PACKAGE_NAME     "PatchKnob"
+#define PACKAGE_TARNAME  "PatchKnob"
 #define VERSION          "0.8.7-win"
 #define PACKAGE_VERSION  "0.8.7-win"
-#define PACKAGE_STRING   "seq24 0.8.7-win"
+#define PACKAGE_STRING   "PatchKnob 0.8.7-win"
 #define PACKAGE_BUGREPORT ""
 
 /* Standard headers available under MINGW64. */
@@ -31,4 +31,4 @@
 /* #undef HAVE_LIBASOUND */
 /* #undef HAVE_LIBRT */
 
-#endif /* SEQ24_CONFIG_H */
+#endif /* PATCHKNOB_CONFIG_H */

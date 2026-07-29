@@ -1,11 +1,11 @@
 //----------------------------------------------------------------------------
 //  sdlui/views/automation/automation_view.h -- SDL2 automation editor + a small
-//  keyfollow (scale-master / scale-follow) panel for the seq24 Windows port.
+//  keyfollow (scale-master / scale-follow) panel for the PatchKnob.
 //
 //  AutomationView is a single retained ui::Widget drawn over:
 //      * a `sequence*`  -- only used to read the pattern length (timeline extent
 //        of the X axis).  May be null (a default 4-bar span is used).
-//      * a track index  -- the seq24 output "bus"/track this lane set belongs to
+//      * a track index  -- the PatchKnob output "bus"/track this lane set belongs to
 //        (== MixerGraph track == audio_app track == AutomationPlayer track).
 //      * an engine::AutomationPlayer* -- the OWNER of the automation data model.
 //        The view edits player->track(track).lane(l) breakpoints in place; the
@@ -29,11 +29,11 @@
 //      player->advance(fromTick, toTick,
 //          // EmitParam -> hosted VST parameter change on this track
 //          [](int trk, unsigned id, float v){
-//              seq24::app::audio_app_route_param(trk, id, v);
+//              PatchKnob::app::audio_app_route_param(trk, id, v);
 //          },
 //          // EmitCC -> a MIDI control-change on this track's output
 //          [](int trk, int cc, int v127){
-//              seq24::app::audio_app_route_midi(
+//              PatchKnob::app::audio_app_route_midi(
 //                  trk, 0xB0 | (chan & 0x0F), (unsigned char)cc, (unsigned char)v127);
 //          });
 //  On locate / play-start call player->emitAt(startTick, ...) with the same two
@@ -45,16 +45,16 @@
 //      app.on_layout = [&](ui::App& a){ av.rect = { x, y, w, h }; };
 //      // call av.refresh_params() after a track's instrument changes.
 //----------------------------------------------------------------------------
-#ifndef SEQ24_SDLUI_VIEWS_AUTOMATION_VIEW_H
-#define SEQ24_SDLUI_VIEWS_AUTOMATION_VIEW_H
+#ifndef PATCHKNOB_SDLUI_VIEWS_AUTOMATION_VIEW_H
+#define PATCHKNOB_SDLUI_VIEWS_AUTOMATION_VIEW_H
 
 #include "gui.h"
 #include <string>
 #include <vector>
 
-class sequence;                                     // seq24 engine (gtkmm-free)
-class perform;                                      // seq24 engine (gtkmm-free)
-namespace seq24 { namespace engine {
+class sequence;                                     // PatchKnob engine core
+class perform;                                      // PatchKnob engine core
+namespace PatchKnob { namespace engine {
     class AutomationPlayer;
     class AutomationLane;
     class AutomationTrack;
@@ -68,11 +68,11 @@ namespace automation {
 class AutomationView : public ui::Widget {
 public:
     AutomationView(sequence* seq, int track,
-                   seq24::engine::AutomationPlayer* player);
+                   PatchKnob::engine::AutomationPlayer* player);
 
     // Rebind to a (new) sequence + track index (keeps the same player).
     void set_target(sequence* seq, int track);
-    void set_player(seq24::engine::AutomationPlayer* player) { player_ = player; }
+    void set_player(PatchKnob::engine::AutomationPlayer* player) { player_ = player; }
 
     int  track() const { return track_; }
 
@@ -90,8 +90,8 @@ private:
     struct ParamRef { unsigned int id; std::string name; };
 
     // --- model access --------------------------------------------------------
-    seq24::engine::AutomationTrack* atrack() const;   // player_->track(track_) or null
-    seq24::engine::AutomationLane*  lane(int idx) const;
+    PatchKnob::engine::AutomationTrack* atrack() const;   // player_->track(track_) or null
+    PatchKnob::engine::AutomationLane*  lane(int idx) const;
     int  lane_count() const;
     long seq_length();                                // >= 1
 
@@ -107,7 +107,7 @@ private:
     // --- editing -------------------------------------------------------------
     void add_lane_for_picker();
     void cycle_interp();
-    int  pick_point(seq24::engine::AutomationLane* L, const SDL_Rect& plot,
+    int  pick_point(PatchKnob::engine::AutomationLane* L, const SDL_Rect& plot,
                     long len, int px, int py) const;   // nearest bp idx or -1
 
     // --- drawing helpers -----------------------------------------------------
@@ -115,13 +115,13 @@ private:
     void draw_lane(ui::App& app, int row);
     bool draw_box(ui::App& app, const SDL_Rect& r, const std::string& s,
                   bool active, bool enabled = true) const;
-    std::string target_label(const seq24::engine::AutomationLane* L) const;
+    std::string target_label(const PatchKnob::engine::AutomationLane* L) const;
     std::string picker_label() const;
 
     // --- model ---------------------------------------------------------------
     sequence*                        seq_    = nullptr;
     int                              track_  = 0;
-    seq24::engine::AutomationPlayer* player_ = nullptr;
+    PatchKnob::engine::AutomationPlayer* player_ = nullptr;
 
     // --- toolbar / picker state ---------------------------------------------
     bool                  pickCC_   = false;   // false=VST param, true=MIDI CC
@@ -176,4 +176,4 @@ private:
 
 } // namespace automation
 
-#endif // SEQ24_SDLUI_VIEWS_AUTOMATION_VIEW_H
+#endif // PATCHKNOB_SDLUI_VIEWS_AUTOMATION_VIEW_H

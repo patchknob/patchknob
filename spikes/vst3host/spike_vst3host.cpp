@@ -1,6 +1,6 @@
 // spike_vst3host.cpp
 //
-// ZERO-JUCE VST3 host spike for the seq24 Windows port.
+// ZERO-JUCE VST3 host spike for the PatchKnob Windows port.
 //
 // Goal: prove we can load a .vst3 plugin with the mingw64 toolchain using
 // Steinberg's VST3 SDK hosting layer (VST3::Hosting::Module), enumerate its

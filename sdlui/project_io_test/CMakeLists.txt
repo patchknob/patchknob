@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(seq24sdl_projectio CXX)
+project(PatchKnob_projectio CXX)
 
 # ---------------------------------------------------------------------------
 # Stand-alone test build for project_io (save_project / load_project).
@@ -10,7 +10,7 @@ project(seq24sdl_projectio CXX)
 #   ./sdlui/project_io_test/build/project_io_test
 #
 # Compiles project_io.cpp + the SDL toolkit (gui.cpp, for the theme mode) + a
-# test main, and links the REAL gtkmm-free seq24 core (perform/sequence/event/
+# test main, and links the real UI-neutral PatchKnob core (perform/sequence/event/
 # ...) plus the engine module libs that audio_app.cpp references.  No audio
 # device and no window are opened by the test.
 # ---------------------------------------------------------------------------
@@ -32,6 +32,10 @@ add_subdirectory(${SRC}/engine/graph  ${CMAKE_CURRENT_BINARY_DIR}/e_graph  EXCLU
 add_subdirectory(${SRC}/engine/vst2   ${CMAKE_CURRENT_BINARY_DIR}/e_vst2   EXCLUDE_FROM_ALL)
 add_subdirectory(${SRC}/engine/vst3   ${CMAKE_CURRENT_BINARY_DIR}/e_vst3   EXCLUDE_FROM_ALL)
 add_subdirectory(${SRC}/engine/host   ${CMAKE_CURRENT_BINARY_DIR}/e_host   EXCLUDE_FROM_ALL)
+add_subdirectory(${SRC}/engine/audioclip ${CMAKE_CURRENT_BINARY_DIR}/e_aclip EXCLUDE_FROM_ALL)
+add_subdirectory(${SRC}/engine/patch     ${CMAKE_CURRENT_BINARY_DIR}/e_patch EXCLUDE_FROM_ALL)
+add_subdirectory(${SRC}/engine/rack      ${CMAKE_CURRENT_BINARY_DIR}/e_rack EXCLUDE_FROM_ALL)
+add_subdirectory(${SRC}/engine/kitchensink ${CMAKE_CURRENT_BINARY_DIR}/e_kitch EXCLUDE_FROM_ALL)
 
 set(CORE_SRC
     ${SRC}/perform.cpp ${SRC}/sequence.cpp ${SRC}/event.cpp
@@ -58,5 +62,6 @@ target_link_directories(project_io_test PRIVATE ${SDL2_LIBRARY_DIRS} ${SDL2TTF_L
 
 target_link_libraries(project_io_test PRIVATE
     ${SDL2TTF_LIBRARIES} ${SDL2_LIBRARIES}
-    seq24_pluginhost seq24_vst2 seq24_vst3 seq24_graph seq24_audio
+    PatchKnob_pluginhost PatchKnob_vst2 PatchKnob_vst3 PatchKnob_graph PatchKnob_audio
+    PatchKnob_audioclip PatchKnob_patch PatchKnob_rack PatchKnob_kitchensink
     winmm pthread)

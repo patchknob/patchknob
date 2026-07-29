@@ -17,6 +17,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <fstream>
 #include <string>
 #include <vector>
 
@@ -27,6 +28,7 @@ static int g_fail = 0;
 } while (0)
 
 struct Note { long s, f; int note, vel; };
+struct Trigger { long start, length, offset; };
 
 static std::vector<Note> notes_of(sequence* seq) {
     std::vector<Note> v;
@@ -46,6 +48,15 @@ static int count_cc(sequence* seq, unsigned char cc) {
         if (d0 == cc) ++n;
     }
     return n;
+}
+
+static std::vector<Trigger> triggers_of(sequence* seq) {
+    std::vector<Trigger> v;
+    seq->reset_draw_trigger_marker();
+    long start, end, offset; bool selected;
+    while (seq->get_next_trigger(&start, &end, &selected, &offset))
+        v.push_back(Trigger{start, end - start + 1, offset});
+    return v;
 }
 
 int main(int argc, char** argv)
@@ -87,14 +98,33 @@ int main(int argc, char** argv)
         s->add_event(24, EVENT_NOTE_OFF, 60, 0);
     }
     src.set_follows_master(5, true);
+    src.get_sequence(0)->add_trigger(0, c_ppqn * 4, 0, false);
+    src.get_sequence(0)->add_trigger(c_ppqn * 8, c_ppqn * 2, c_ppqn / 2, false);
 
     src.set_bpm(140);
     ui::set_mode(ui::Mode::Midnight);
 
     // ---- save --------------------------------------------------------------
-    bool saved = save_project(src, path);
+    std::vector<ProjectPatchNodePosition> patchLayout = {
+        { 11, 123.5, 45.25 }, { 27, 640.0, 310.0 }
+    };
+    bool saved = save_project(src, path, patchLayout);
     CHECK(saved, "save_project returned true");
     if (!saved) { std::printf("  err: %s\n", project_io_last_error()); return 1; }
+    {
+        char magic[8] = {};
+        unsigned char version[4] = {};
+        std::ifstream file(path.c_str(), std::ios::binary);
+        file.read(magic, sizeof(magic));
+        file.read(reinterpret_cast<char*>(version), sizeof(version));
+        const unsigned int formatVersion = (unsigned int)version[0] |
+            ((unsigned int)version[1] << 8) |
+            ((unsigned int)version[2] << 16) |
+            ((unsigned int)version[3] << 24);
+        CHECK(file.good() && std::string(magic, sizeof(magic)) == "S24DAWPJ",
+              "project header magic is present");
+        CHECK(formatVersion == 3, "project uses the V3 container format");
+    }
 
     // ---- load into a fresh perform ----------------------------------------
     ui::set_mode(ui::Mode::Light);   // clobber, load must restore Midnight
@@ -133,6 +163,14 @@ int main(int argc, char** argv)
         CHECK(found36, "seq 0 note 36 (tick 0..48 vel100) round-tripped");
         CHECK(found38, "seq 0 note 38 (tick 96..144 vel90) round-tripped");
         CHECK(count_cc(a, 7) == 1, "seq 0 CC7 event round-tripped");
+        std::vector<Trigger> triggers = triggers_of(a);
+        CHECK(triggers.size() == 2, "seq 0 timeline clips round-tripped");
+        bool foundFirst = false, foundSecond = false;
+        for (const auto& trigger : triggers) {
+            if (trigger.start == 0 && trigger.length == c_ppqn * 4 && trigger.offset == 0) foundFirst = true;
+            if (trigger.start == c_ppqn * 8 && trigger.length == c_ppqn * 2 && trigger.offset == c_ppqn / 2) foundSecond = true;
+        }
+        CHECK(foundFirst && foundSecond, "timeline clip positions and offsets round-tripped");
     }
 
     if (b) {
@@ -148,6 +186,11 @@ int main(int argc, char** argv)
     }
 
     CHECK(dst.get_scale_master() == 0, "perform scale-master index == 0");
+    const auto& restoredLayout = project_io_loaded_patch_layout();
+    CHECK(restoredLayout.size() == 2, "patch node layout round-tripped");
+    CHECK(restoredLayout.size() == 2 && restoredLayout[0].nodeId == 11 &&
+          restoredLayout[0].x == 123.5 && restoredLayout[0].y == 45.25,
+          "first patch node coordinates round-tripped");
 
     std::printf("\n%s  (%d failures)\n", g_fail == 0 ? "ALL PASSED" : "FAILURES", g_fail);
     return g_fail == 0 ? 0 : 1;

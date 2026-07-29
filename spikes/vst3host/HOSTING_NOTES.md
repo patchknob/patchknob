@@ -1,4 +1,4 @@
-# VST3 Hosting Notes — seq24 Windows port (ZERO-JUCE)
+# VST3 Hosting Notes — PatchKnob Windows port (ZERO-JUCE)
 
 Status of this spike: **SUCCESS.** The Steinberg VST3 SDK hosting layer
 (`VST3::Hosting::Module`, `PlugProvider`, and the `Steinberg::Vst` core
@@ -37,7 +37,7 @@ Verified plugin topologies (all worked):
 | CHOWTapeModel     | bundle dir   | separated component + controller | 1 / 1        | 0           |
 | TAL-U-NO-LX-V2    | single file  | separated component + controller | 0 / 1        | 1 in / 1 out (MIDI) |
 
-The TAL case is exactly the shape seq24 needs for an instrument: **no audio
+The TAL case is exactly the shape PatchKnob needs for an instrument: **no audio
 input, stereo audio output, a MIDI event input bus** to receive note on/off.
 
 ---
@@ -118,7 +118,7 @@ meant to retire is retired.
 ## 3. Plan for the full host
 
 Below is the realistic path from "load + introspect" (done) to "play audio
-with MIDI from seq24". Effort estimates assume one developer already familiar
+with MIDI from PatchKnob". Effort estimates assume one developer already familiar
 with this spike.
 
 ### 3.0 Host application context (do first)
@@ -135,7 +135,7 @@ interfaces the host supports. **Effort: ~0.5 day.**
 
 ### 3.1 Module loading & class selection — DONE
 - `Module::create`, enumerate `classInfos()`, choose by category.
-- For seq24, let the user pick the class when a module exposes more than one
+- For PatchKnob, let the user pick the class when a module exposes more than one
   audio class (rare, but Arturia/UVI bundles can). Persist the class UID in the
   project file so reopening is deterministic. **Effort: ~0.5 day.**
 
@@ -162,7 +162,7 @@ we will likely roll our own so we control lifetime + threading):
 state sync right).
 
 ### 3.3 Bus arrangement + processing setup
-1. Decide arrangements. For seq24's mixer we will typically want one stereo
+1. Decide arrangements. For PatchKnob's mixer we will typically want one stereo
    main in (effects) or none (instruments) and one stereo main out.
    - `processor->setBusArrangements(inArr*, nIn, outArr*, nOut)` with
      `Steinberg::Vst::SpeakerArr::kStereo`. Honor the plugin's reply — some
@@ -197,11 +197,11 @@ Per block:
   `numInputs = 0`.)
 - `data.processContext` -> a `ProcessContext` we fill each block: sample rate,
   `projectTimeSamples`, tempo, time-sig, transport `kPlaying` / `kRecording`
-  flags, bar position. seq24 already knows tempo/PPQN/transport, so this is a
+  flags, bar position. PatchKnob already knows tempo/PPQN/transport, so this is a
   mapping job. Many plugins need a valid `ProcessContext` for tempo-synced
   LFOs/delays.
 - **MIDI in**: `data.inputEvents` -> an `IEventList`. Use the SDK's
-  `EventList` (`public.sdk/source/vst/hosting/eventlist.h`). For each seq24
+  `EventList` (`public.sdk/source/vst/hosting/eventlist.h`). For each PatchKnob
   note in the block, push a `Steinberg::Vst::Event`:
   - note on  -> `Event::kNoteOnEvent`, fill `noteOn` (pitch, velocity 0..1,
     channel, `sampleOffset` within the block, `noteId = -1` or a real id).
@@ -223,7 +223,7 @@ Per block:
   can report parameter changes back (e.g. its own UI moving a knob); drain it
   on the UI thread to keep our model in sync.
 - Call `processor->process(data)`. Read `data.outputs[...].channelBuffers32`
-  into seq24's mixer.
+  into PatchKnob's mixer.
 
 Threading rule: **everything in `process()` must be lock-free / no
 allocation.** Pre-allocate the EventList, ParameterChanges, and
@@ -262,7 +262,7 @@ silence flags, or block size).
   MSVC dependency. The one thing to watch is that some plugin editors built
   against MSVC may expect a message pump that processes their timer/paint
   messages; ensure the editor HWND lives on a thread with a running
-  `GetMessage`/`DispatchMessage` loop (seq24's main UI thread). **Effort:
+  `GetMessage`/`DispatchMessage` loop (PatchKnob's main UI thread). **Effort:
   ~2–4 days** including making resize and DPI behave.
 
 ### 3.7 State save/restore (for the project file)

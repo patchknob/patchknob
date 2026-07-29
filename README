@@ -1,22 +1,48 @@
+PatchKnob
+==============
 
-How to install ? 
+PatchKnob is a Windows DAW and modular synthesis environment built around:
 
-    read INSTALL.
+- tracker, piano-roll, and timeline sequencing
+- sampler instruments with keyzones and per-sample editing
+- VST2/VST3 hosting with parameter automation
+- a GPU-drawn modular rack with Cardinal/VCV-style bridge modules
+- Pure Data and Csound patch nodes
+- project save/load for sequences, patch graphs, rack state, instruments, and embedded audio
 
-How to use seq24 ?
-    
-    Documentation on using seq24 is in the SEQ24 file.
+## Windows Build
 
-Information on modifying, copying ?
+Build from an MSYS2 MINGW64 shell or a PowerShell with MSYS2 on `PATH`:
 
-    This software is free, and released under the GPL.
-    This is available in the COPYING file.
+```sh
+export PATH="/c/msys64/mingw64/bin:/c/msys64/usr/bin:$PATH"
+cmake -S . -B build -G "MinGW Makefiles"
+cmake --build build --config Release
+./build/PatchKnob.exe
+```
 
-Who wrote this ?
+The build stages the runtime DLL closure next to the executable in `build/`.
 
-    Read AUTHORS.
+## Installer
 
-Why did they write this ?
+Create the NSIS installer with:
 
-    Again, Read SEQ24
+```sh
+cmake --build build --target nsis_installer --config Release
+```
 
+The installer is written to:
+
+```text
+build/installer/PatchKnob-0.8.7-Setup.exe
+```
+
+## Rack Modules
+
+The app loads rack bridge modules from a `modules/` directory next to the
+executable, or from the path in `PATCHKNOB_RACK_MODULE_DIR` for compatibility with
+older module builds.
+
+## License
+
+PatchKnob is GPL-licensed. See `COPYING`.

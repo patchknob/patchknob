@@ -12,15 +12,15 @@
 //    T                    : toggle Light / Midnight theme
 //    Esc                  : quit
 //
-//  SEQ24_BROWSER_SHOT=<path> renders one frame to a BMP and exits (headless).
+//  PATCHKNOB_BROWSER_SHOT=<path> renders one frame to a BMP and exits (headless).
 //----------------------------------------------------------------------------
 #include "browser_view.h"
 #include <cstdio>
 #include <cstdlib>
 #include <vector>
 
-using seq24::engine::PluginDescriptor;
-using seq24::engine::PluginFormat;
+using PatchKnob::engine::PluginDescriptor;
+using PatchKnob::engine::PluginFormat;
 
 static PluginDescriptor mk(PluginFormat fmt, const char* name, const char* vendor,
                            bool instr, int ai, int ao) {
@@ -96,7 +96,7 @@ int main(int argc, char** argv) {
     };
 
     // Headless one-shot screenshot path.
-    if (const char* shot = getenv("SEQ24_BROWSER_SHOT")) {
+    if (const char* shot = getenv("PATCHKNOB_BROWSER_SHOT")) {
         if (app.on_layout) app.on_layout(app);
         ui::fill_rect(app.ren, SDL_Rect{0,0,app.w,app.h}, ui::theme().bg);
         browser.draw(app);

@@ -2,13 +2,12 @@
 //  sdlui/views/browser/browser_view.h -- SDL2 port of the VST plugin browser.
 //
 //  A scrollable, filterable list of scanned PluginDescriptors rendered in the
-//  lean grayscale/green toolkit (gui.h).  Mirrors the GTK PluginBrowser
-//  (src/ui/rack/plugin_browser.h): columns NAME | VENDOR | FORMAT | INSTR/FX |
+//  lean grayscale/green toolkit (gui.h).  Columns NAME | VENDOR | FORMAT | INSTR/FX |
 //  I/O, a type-to-filter box, and two actions -- "load as instrument" (double
 //  click / Enter) and "add as FX" (F2 / button).
 //
 //  PURE UI: depends only on the header-only engine contract
-//  (seq24::engine::PluginDescriptor) + the toolkit.  It never calls audio_app;
+//  (PatchKnob::engine::PluginDescriptor) + the toolkit.  It never calls audio_app;
 //  the shell wires the callbacks below to audio_app_set_track_instrument /
 //  audio_app_add_track_fx.
 //
@@ -21,8 +20,8 @@
 //      app.roots.push_back(&browser);
 //      app.on_layout = [&](ui::App& a){ browser.rect = {0,0,a.w,a.h}; };
 //----------------------------------------------------------------------------
-#ifndef SEQ24_SDLUI_VIEWS_BROWSER_VIEW_H
-#define SEQ24_SDLUI_VIEWS_BROWSER_VIEW_H
+#ifndef PATCHKNOB_SDLUI_VIEWS_BROWSER_VIEW_H
+#define PATCHKNOB_SDLUI_VIEWS_BROWSER_VIEW_H
 
 #include "gui.h"
 #include "engine/plugin_api.h"
@@ -35,7 +34,7 @@ namespace ui {
 
 class BrowserView : public Widget {
 public:
-    typedef seq24::engine::PluginDescriptor PluginDescriptor;
+    typedef PatchKnob::engine::PluginDescriptor PluginDescriptor;
 
     BrowserView() {}
 
@@ -101,4 +100,4 @@ private:
 
 } // namespace ui
 
-#endif // SEQ24_SDLUI_VIEWS_BROWSER_VIEW_H
+#endif // PATCHKNOB_SDLUI_VIEWS_BROWSER_VIEW_H

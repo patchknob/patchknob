@@ -11,7 +11,7 @@
 #include <string>
 
 using namespace ui;
-using seq24::engine::AudioClip;
+using PatchKnob::engine::AudioClip;
 
 namespace waveform {
 

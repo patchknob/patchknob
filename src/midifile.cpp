@@ -1,19 +1,19 @@
 //----------------------------------------------------------------------------
 //
-//  This file is part of seq24.
+//  This file is part of PatchKnob.
 //
-//  seq24 is free software; you can redistribute it and/or modify
+//  PatchKnob is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
 //  the Free Software Foundation; either version 2 of the License, or
 //  (at your option) any later version.
 //
-//  seq24 is distributed in the hope that it will be useful,
+//  PatchKnob is distributed in the hope that it will be useful,
 //  but WITHOUT ANY WARRANTY; without even the implied warranty of
 //  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 //  GNU General Public License for more details.
 //
 //  You should have received a copy of the GNU General Public License
-//  along with seq24; if not, write to the Free Software
+//  along with PatchKnob; if not, write to the Free Software
 //  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //
 //-----------------------------------------------------------------------------
@@ -388,7 +388,7 @@ bool midifile::parse (perform * a_perf, int a_screen_set)
 
                                     // If delta is 0, then another event happened at the same time 
                                     // as the track end.  the sequence class will discard the last 
-                                    // note.  This is a fix for that.   Native Seq24 file will always
+                                    // note.  This is a fix for that.   Native PatchKnob file will always
                                     // have a Delta >= 1
                                     if ( Delta == 0 ){
                                         CurrentTime += 1;

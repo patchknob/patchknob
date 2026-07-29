@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------
-//  seq24 Windows port — MODULAR PATCH-GRAPH ENGINE.
+//  PatchKnob — MODULAR PATCH-GRAPH ENGINE.
 //
 //  A flat, node-based signal-processing graph. Nodes are wired together by
 //  Connections (an output Port of one node -> an input Port of another). Audio
@@ -22,21 +22,30 @@
 //  Realtime contract (identical to the rest of the engine):
 //    * All buffers are pre-allocated in prepare(). process() is lock-free and
 //      allocation-free. Graph edits never touch the audio thread's live plan;
-//      they build a fresh plan into the inactive double-buffer slot and flip an
-//      atomic pointer. Retired nodes are deferred to gc_ and freed by
-//      collectGarbage() after a block has certainly passed.
+//      they build a fresh plan into a retired rotating slot and flip an atomic
+//      pointer. The audio thread publishes a per-block GENERATION counter; a
+//      retired plan slot is rewritten — and a retired node freed by
+//      collectGarbage() — only once that generation has provably advanced past
+//      the retirement, so an in-flight block can never observe a torn plan.
+//    * Every node process()/bypass call is guarded: a throwing node degrades
+//      to silence (outputs zeroed, MIDI dropped) instead of unwinding into the
+//      audio callback or leaving the parallel wave barrier hanging.
 //
 //  Cycles are rejected at connect() time (Kahn check on the tentative edge);
 //  intentional feedback is expressed with an explicit one-block FeedbackNode.
 //  Fixed capacities (kMaxNodes, kMaxFanIn, ...) fail the EDIT — they never
-//  truncate audio at runtime.
+//  truncate audio at runtime. addNode()/connect() pre-flight the pool budgets
+//  so an edit that could never compile is rejected on the spot.
 //----------------------------------------------------------------------------
-#ifndef SEQ24_ENGINE_PATCH_PATCH_GRAPH_H
-#define SEQ24_ENGINE_PATCH_PATCH_GRAPH_H
+#ifndef PATCHKNOB_ENGINE_PATCH_PATCH_GRAPH_H
+#define PATCHKNOB_ENGINE_PATCH_PATCH_GRAPH_H
 
 #include <atomic>
+#include <condition_variable>
 #include <cstdint>
 #include <memory>
+#include <mutex>
+#include <thread>
 #include <unordered_map>
 #include <vector>
 
@@ -44,18 +53,19 @@
 #include "../graph/track.h"    // RenderContext
 #include "../graph/vu_meter.h" // VuMeter
 
-namespace seq24 { namespace engine { namespace patch {
+namespace PatchKnob { namespace engine { namespace patch {
 
-// ---- compile-time capacities (compile()/connect() reject the EDIT if exceeded)
-constexpr int kMaxNodes         = 256;
-constexpr int kMaxPortsPerNode  = 32;
+// ---- compile-time capacities (addNode()/connect() reject the EDIT if exceeded)
+constexpr int kMaxNodes         = 512;    // sized for the 500-node patch goal
+constexpr int kMaxPortsPerNode  = 260;    // a 256-channel mixer = 257 ports (+out)
 constexpr int kMaxFanIn         = 64;
 constexpr int kNodeMidiCap      = 512;
-constexpr int kMaxAudioSlots    = 512;
-constexpr int kMaxMidiSlots     = 512;
+constexpr int kMaxAudioSlots    = 4096;   // 512 stereo node outs = 1024 slots + summing headroom
+constexpr int kMaxMidiSlots     = 1024;   // 512 MIDI-out ports + merge slots + headroom
 constexpr int kMaxBusChan       = 2;      // audio bus width cap (engine is stereo)
-constexpr int kMaxSumSrcs       = 2048;   // total summed source-buses across a plan
-constexpr int kMaxMidiMergeSrcs = 2048;   // total merged MIDI sources across a plan
+constexpr int kMaxSumSrcs       = 4096;   // total summed source-buses across a plan
+constexpr int kMaxMidiMergeSrcs = 4096;   // total merged MIDI sources across a plan
+constexpr int kPlanSlots        = 3;      // rotating RCU plan buffers (grace period)
 
 // ---- identifiers & ports ---------------------------------------------------
 using NodeId = uint32_t;                 // 0 == invalid
@@ -120,6 +130,12 @@ public:
     bool bypass() const    { return bypass_.load(std::memory_order_relaxed); }
     virtual int latencySamples() const { return 0; }   // for PDC (deferred)
 
+    // Optional MIDI channel filter (-1 == omni, default).  Instrument-like nodes
+    // (PluginNode / PdNode / RackNode) override so a clip can target exactly one
+    // of them by matching its MIDI channel.  Used by the clip instrument picker.
+    virtual void setMidiChannel(int ch) { (void)ch; }
+    virtual int  midiChannel() const { return -1; }
+
 protected:
     NodeId            id_ = 0;
     std::atomic<bool> bypass_{false};
@@ -130,7 +146,7 @@ protected:
 class PatchGraph {
 public:
     PatchGraph() = default;
-    ~PatchGraph() = default;
+    ~PatchGraph();
 
     PatchGraph(const PatchGraph&)            = delete;
     PatchGraph& operator=(const PatchGraph&) = delete;
@@ -141,6 +157,9 @@ public:
     bool   connect(const Connection& c);       // false: mismatch/dup/cycle/cap
     bool   disconnect(const Connection& c);
     void   disconnectAll(NodeId id);
+    //! Drop any connection whose endpoints no longer resolve to a live port
+    //! (e.g. after a node's port count shrank).  Returns how many were removed.
+    int    pruneDanglingConnections();
 
     // --- lifecycle (message thread) ---
     bool   prepare(double sampleRate, int maxBlock);   // sizes pools; compiles once
@@ -158,8 +177,16 @@ public:
     // Drop-in compatible with AudioEngine::RenderCallback.
     void   process(float** out, int numChannels, int nframes, const RenderContext& ctx);
 
+    // --- optional multi-threaded processing (message thread) ---
+    //! Enable/disable parallel (multi-core) node processing. Default OFF. While
+    //! off — and also whenever the live plan carries MIDI or is tiny — the exact
+    //! single-threaded path runs unchanged. Safe to toggle at runtime.
+    void   setMultiThreaded(bool on) { multiThreaded_.store(on, std::memory_order_relaxed); }
+    bool   multiThreaded() const { return multiThreaded_.load(std::memory_order_relaxed); }
+
     // --- query (message thread; UI) ---
     Node*                   node(NodeId id) const;
+    std::vector<NodeId>     nodeIds() const;
     std::vector<Connection> connections() const { return conns_; }
     int                     nodeCount() const { return (int)nodes_.size(); }
     bool                    lastCompileOk() const { return lastCompileOk_; }
@@ -187,38 +214,89 @@ private:
 
     struct Step {
         Node* node;
+        int   level;       // dependency wave: 1 + max upstream level (sources == 0)
         int   numAudioIn;  AudioInPortPlan  ain [kMaxPortsPerNode];
         int   numAudioOut; AudioOutPortPlan aout[kMaxPortsPerNode];
         int   numMidiIn;   MidiInPortPlan   min [kMaxPortsPerNode];
         int   numMidiOut;  MidiOutPortPlan  mout[kMaxPortsPerNode];
     };
+    // Node-indexed arrays live on the HEAP (vectors sized once in prepare()),
+    // not inline: at kMaxNodes=512 a Step is ~20 KB (four kMaxPortsPerNode port
+    // arrays), so an inline steps[] would make each plan slot >10 MB of object.
+    // The audio thread only ever indexes the vectors — never resizes them.
     struct RenderPlan {
-        Step   steps[kMaxNodes];        int nSteps;
-        SumSrc sumSrc[kMaxSumSrcs];     int sumUsed;
-        int    midiMergeSrc[kMaxMidiMergeSrcs]; int mergeUsed;
+        std::vector<Step>   steps;          int nSteps;
+        std::vector<SumSrc> sumSrc;         int sumUsed;
+        std::vector<int>    midiMergeSrc;   int mergeUsed;
         int    deviceOutStep;
+        // ---- parallel schedule (built on the message thread in buildPlan;
+        //      READ-ONLY on the audio/worker threads during process()) ---------
+        std::vector<int>    stepsByLevel;   // step indices bucketed by ascending level
+        std::vector<int>    levelOffset;    // wave L == [levelOffset[L], levelOffset[L+1])
+        int    numLevels;                   // number of dependency waves
+        bool   parallelSafe;                // false if ANY step uses MIDI ports
     };
 
     // ---- compile helpers (message thread) ----
     bool topoSort(std::vector<NodeId>& order) const;   // false on cycle
     bool wouldCycle(const Connection& c) const;         // Kahn on conns_ + c
     bool buildPlan(RenderPlan* plan);                   // false: cap exceeded
+    //! Pre-flight the pool/sum/merge budget for the current topology plus an
+    //! optional tentative node/edge, WITHOUT writing a plan. addNode()/connect()
+    //! call this so an edit that could never compile is rejected on the spot.
+    bool budgetFits(Node* extraNode, const Connection* extraConn) const;
+    //! True once the audio thread can no longer be walking retired slot `s`.
+    bool planSlotReusable(int s) const;
+    //! Pick a rewritable plan slot; waits briefly for an in-flight block to end
+    //! (bounded). Returns -1 if none frees up (audio thread wedged mid-block).
+    int  acquirePlanSlot();
+
+    // ---- realtime step execution (audio thread + worker threads) ----
+    //! Run ONE compiled step: fan-in sum/merge -> node process -> publish counts.
+    //! The sequential loop and every parallel worker call this identical body, so
+    //! behaviour is the same on either path. Each step owns disjoint pool slots,
+    //! so distinct same-level steps are safe to run concurrently.
+    void runStep(RenderPlan* plan, int stepIndex, int nframes,
+                 const RenderContext& ctx);
+    //! Cooperative pull-loop for one wave: claim step indices in [base, end) off
+    //! workCursor_ and run them. Called by the audio thread AND every worker.
+    void drainLevel(RenderPlan* plan, int64_t base, int64_t end,
+                    int nframes, const RenderContext& ctx);
+
+    // ---- worker pool lifecycle (message thread) ----
+    void startWorkerPool();   // idempotent; spins up N = min(hw,8)-1 workers
+    void stopWorkerPool();    // signals stop, joins, clears (no-op if none)
+    void workerLoop();        // persistent worker: sleep -> drain waves -> sleep
 
     // Locate a port on a node: fills kind/dir/index-within-(kind,dir)/channels.
     struct PortLoc { PortKind kind; PortDir dir; int idx; int channels; bool ok; };
     static PortLoc locate(Node* n, PortId port);
 
+    // A retired node parked until the epoch gate proves no in-flight block can
+    // still reference it: `stamped` flips (with the then-current block
+    // generation) at the first publish AFTER retirement — only stamped entries
+    // whose generation has passed may be freed by collectGarbage().
+    struct GcNode { std::unique_ptr<Node> node; uint64_t retireGen; bool stamped; };
+
     // ---- message-thread truth ----
     std::unordered_map<NodeId, std::unique_ptr<Node>> nodes_;
     std::vector<Connection>                           conns_;
-    std::vector<std::unique_ptr<Node>>                gc_;   // retired; freed post-swap
+    std::vector<GcNode>                               gc_;   // retired; freed post-swap
     NodeId nextId_    = 1;
     NodeId deviceOut_ = 0;
     NodeId deviceIn_  = 0;
 
-    // ---- audio-thread view: RCU double-buffer + live pointer ----
-    std::unique_ptr<RenderPlan> planStore_[2];
-    std::atomic<int>            activeSlot_{0};
+    // ---- audio-thread view: RCU rotating slots + live pointer ----
+    // rtGen_ is the audio thread's block generation: incremented (seq_cst) on
+    // entering process() and again (release) on leaving, so it is ODD exactly
+    // while a block is in flight. A slot retired at an odd generation may be
+    // rewritten only once rtGen_ has advanced past it; a slot retired at an
+    // even generation (audio idle) is immediately reusable. kPlanSlots >= 3
+    // keeps two back-to-back compiles inside one audio block from ever
+    // touching the plan that block is walking.
+    std::unique_ptr<RenderPlan> planStore_[kPlanSlots];
+    uint64_t                    slotRetireGen_[kPlanSlots] = { 0, 0, 0 };
+    std::atomic<uint64_t>       rtGen_{0};
     std::atomic<RenderPlan*>    livePlan_{nullptr};
     std::atomic<Node*>          deviceOutNode_{nullptr};
     std::atomic<Node*>          deviceInNode_{nullptr};
@@ -238,8 +316,31 @@ private:
     int    maxBlock_     = 0;
     bool   prepared_     = false;
     bool   lastCompileOk_ = false;
+
+    // ---- optional multi-threaded processing (default OFF) --------------------
+    std::atomic<bool>          multiThreaded_{false};
+
+    std::vector<std::thread>   workers_;            // persistent pool (may be empty)
+    std::mutex                 poolMutex_;          // guards blockGen_ + the cv wait
+    std::condition_variable    poolCv_;             // workers sleep here between blocks
+    unsigned                   blockGen_ = 0;       // bumped per block to wake the pool
+    std::atomic<bool>          poolStop_{false};    // shutdown flag
+
+    // Per-block job: written by the audio thread BEFORE the wake, read by the
+    // workers AFTER it (publication ordered by ++blockGen_ under poolMutex_).
+    RenderPlan*                jobPlan_   = nullptr;
+    int                        jobFrames_ = 0;
+    RenderContext              jobCtx_{};
+    int64_t                    jobBase_   = 0;       // workCursor_ value at block start
+    int64_t                    jobEnd_    = 0;       // base + nSteps: the block's last claim
+
+    // Cooperative wave scheduling. Monotonic across blocks (never reset per block),
+    // so a straggler's stale read can never disturb a later block's window.
+    std::atomic<int64_t>       workCursor_{0};      // shared claim counter (fetch/CAS)
+    std::atomic<int64_t>       levelEnd_{0};        // armed wave end (exclusive); the gate
+    std::atomic<int>           levelRemaining_{0};  // wave barrier: steps still in flight
 };
 
-}}} // namespace seq24::engine::patch
+}}} // namespace PatchKnob::engine::patch
 
-#endif // SEQ24_ENGINE_PATCH_PATCH_GRAPH_H
+#endif // PATCHKNOB_ENGINE_PATCH_PATCH_GRAPH_H

@@ -13,12 +13,12 @@
 #include <cstdio>
 
 using namespace ui;
-using seq24::engine::AutomationPlayer;
-using seq24::engine::AutomationTrack;
-using seq24::engine::AutomationLane;
-using seq24::engine::LaneTarget;
-using seq24::engine::LaneTargetKind;
-using seq24::engine::Interpolation;
+using PatchKnob::engine::AutomationPlayer;
+using PatchKnob::engine::AutomationTrack;
+using PatchKnob::engine::AutomationLane;
+using PatchKnob::engine::LaneTarget;
+using PatchKnob::engine::LaneTargetKind;
+using PatchKnob::engine::Interpolation;
 
 namespace automation {
 
@@ -59,10 +59,10 @@ void AutomationView::set_target(sequence* seq, int track) {
 
 void AutomationView::refresh_params() {
     params_.clear();
-    const int n = seq24::app::audio_app_track_param_count(track_);
+    const int n = PatchKnob::app::audio_app_track_param_count(track_);
     for (int i = 0; i < n; ++i) {
         unsigned int id = 0; float def = 0.0f; char nm[64] = {0};
-        if (seq24::app::audio_app_track_param_info(track_, i, &id, nm, (int)sizeof(nm), &def))
+        if (PatchKnob::app::audio_app_track_param_info(track_, i, &id, nm, (int)sizeof(nm), &def))
             params_.push_back(ParamRef{ id, std::string(nm) });
     }
     if (paramSel_ >= (int)params_.size()) paramSel_ = 0;

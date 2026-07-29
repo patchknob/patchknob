@@ -1,19 +1,19 @@
 //----------------------------------------------------------------------------
 //
-//  This file is part of seq24.
+//  This file is part of PatchKnob.
 //
-//  seq24 is free software; you can redistribute it and/or modify
+//  PatchKnob is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
 //  the Free Software Foundation; either version 2 of the License, or
 //  (at your option) any later version.
 //
-//  seq24 is distributed in the hope that it will be useful,
+//  PatchKnob is distributed in the hope that it will be useful,
 //  but WITHOUT ANY WARRANTY; without even the implied warranty of
 //  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 //  GNU General Public License for more details.
 //
 //  You should have received a copy of the GNU General Public License
-//  along with seq24; if not, write to the Free Software
+//  along with PatchKnob; if not, write to the Free Software
 //  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //
 //-----------------------------------------------------------------------------
@@ -291,7 +291,7 @@ optionsfile::write( perform *a_perf  )
 
     /* manual alsa ports */
     file << "\n\n\n[manual-alsa-ports]\n";
-    file << "# set to 1 if you want seq24 to create its own alsa ports and\n";
+    file << "# set to 1 if you want PatchKnob to create its own alsa ports and\n";
     file << "# not connect to other clients\n";
     file << global_manual_alsa_ports << "\n";
     
@@ -331,10 +331,10 @@ optionsfile::write( perform *a_perf  )
          << "# jack_transport - Enable sync with JACK Transport.\n" 
          << global_with_jack_transport << "\n\n"
 
-         << "# jack_master - Seq24 will attempt to serve as JACK Master.\n"
+         << "# jack_master - PatchKnob will attempt to serve as JACK Master.\n"
          << global_with_jack_master << "\n\n"
 
-         << "# jack_master_cond -  Seq24 will fail to be master if there is already a master set.\n"
+         << "# jack_master_cond -  PatchKnob will fail to be master if there is already a master set.\n"
          << global_with_jack_master_cond  << "\n\n"
 
          << "# jack_start_mode\n"

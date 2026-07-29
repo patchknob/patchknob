@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(seq24sdl_mixer CXX)
+project(PatchKnob_mixer CXX)
 
 # ---------------------------------------------------------------------------
 # Stand-alone test build for the SDL2 MixerView.
@@ -10,8 +10,8 @@ project(seq24sdl_mixer CXX)
 #   ./sdlui/views/mixer/build/mixer_test
 #
 # Compiles: mixer_view.cpp + the SDL toolkit (gui.cpp) + a test main, and links
-# the REAL engine graph model (seq24_graph = Track / MixerGraph / VuMeter) so
-# the view drives a live MixerGraph. No gtkmm, no audio device.
+# the REAL engine graph model (PatchKnob_graph = Track / MixerGraph / VuMeter) so
+# the view drives a live MixerGraph. No alternate UI toolkit, no audio device.
 # ---------------------------------------------------------------------------
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -43,5 +43,5 @@ target_link_directories(mixer_test PRIVATE ${SDL2_LIBRARY_DIRS} ${SDL2TTF_LIBRAR
 
 target_link_libraries(mixer_test PRIVATE
     ${SDL2TTF_LIBRARIES} ${SDL2_LIBRARIES}
-    seq24_graph
+    PatchKnob_graph
     winmm pthread)

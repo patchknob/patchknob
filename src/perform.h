@@ -1,25 +1,25 @@
 //----------------------------------------------------------------------------
 //
-//  This file is part of seq24.
+//  This file is part of PatchKnob.
 //
-//  seq24 is free software; you can redistribute it and/or modify
+//  PatchKnob is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
 //  the Free Software Foundation; either version 2 of the License, or
 //  (at your option) any later version.
 //
-//  seq24 is distributed in the hope that it will be useful,
+//  PatchKnob is distributed in the hope that it will be useful,
 //  but WITHOUT ANY WARRANTY; without even the implied warranty of
 //  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 //  GNU General Public License for more details.
 //
 //  You should have received a copy of the GNU General Public License
-//  along with seq24; if not, write to the Free Software
+//  along with PatchKnob; if not, write to the Free Software
 //  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //
 //-----------------------------------------------------------------------------
 
-#ifndef SEQ24_PERFORM
-#define SEQ24_PERFORM
+#ifndef PATCHKNOB_PERFORM
+#define PATCHKNOB_PERFORM
 
 class perform;
 
@@ -30,6 +30,7 @@ class perform;
 #include "sequence.h"
 #include <unistd.h>
 #include <pthread.h>
+#include <vector>
 
 
 /* if we have jack, include the jack headers */
@@ -72,6 +73,15 @@ class perform
 
     /* vector of sequences */
     sequence *m_seqs[c_max_sequence];
+
+    /* deleted sequences are RETIRED here instead of freed: the output thread
+       (1ms scheduler) and UI views may still hold the pointer for an instant,
+       so freeing live caused use-after-free crashes (idiv on garbage m_length
+       in get_last_tick).  Freed by gc_graveyard() a couple of UI frames after
+       retirement (well past the one-audio-block reference window), or, failing
+       that, in the destructor. */
+    std::vector<sequence *> m_seq_graveyard;
+    std::vector<int>        m_seq_graveyard_age;   // gc_graveyard() passes survived
 
     bool m_seqs_active[ c_max_sequence ];
 
@@ -178,6 +188,10 @@ class perform
     
     void add_sequence( sequence *a_seq, int a_perf );
     void delete_sequence( int a_num );
+    // Free retired (deleted) sequences that have survived >=2 gc passes, so the
+    // graveyard doesn't grow for the whole session.  Call once per UI frame from
+    // the MESSAGE thread only.
+    void gc_graveyard( void );
     bool is_sequence_in_edit( int a_num );
     
     void clear_sequence_triggers( int a_seq  );
@@ -249,10 +263,13 @@ class perform
     int  get_scale_master( void );
     void set_follows_master( int a_seq, bool a_follow );
 
-    void set_bpm(int a_bpm);
-    int  get_bpm( );
+    /* fractional BPM survives end-to-end; the engine tempo map is the
+       authority (set_bpm funnels every write into it) */
+    void   set_bpm(double a_bpm);
+    double get_bpm( );
 
     void set_looping( bool a_looping ){ m_looping = a_looping; };
+    bool get_looping( void ) const { return m_looping; };
  
     void set_sequence_control_status( int a_status );
     void unset_sequence_control_status( int a_status );

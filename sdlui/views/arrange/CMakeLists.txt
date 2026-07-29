@@ -3,7 +3,7 @@ project(arrange_view_test CXX)
 
 # ---------------------------------------------------------------------------
 # Standalone TEST exe for the SDL2 Arrangement (song) view.  Mirrors
-# sdlui/CMakeLists.txt: compiles the gtkmm-free engine core + the SDL toolkit +
+# sdlui/CMakeLists.txt: compiles the UI-neutral engine core + the SDL toolkit +
 # this view + a test main, and links the engine module libs.
 #   export PATH="/c/msys64/mingw64/bin:$PATH"
 #   cmake -S sdlui/views/arrange -B sdlui/views/arrange/build -G "MinGW Makefiles"
@@ -28,7 +28,7 @@ add_subdirectory(${SRC}/engine/vst2   ${CMAKE_CURRENT_BINARY_DIR}/e_vst2   EXCLU
 add_subdirectory(${SRC}/engine/vst3   ${CMAKE_CURRENT_BINARY_DIR}/e_vst3   EXCLUDE_FROM_ALL)
 add_subdirectory(${SRC}/engine/host   ${CMAKE_CURRENT_BINARY_DIR}/e_host   EXCLUDE_FROM_ALL)
 
-# --- gtkmm-free engine core sources -----------------------------------------
+# --- UI-neutral engine core sources -----------------------------------------
 set(CORE_SRC
     ${SRC}/perform.cpp ${SRC}/sequence.cpp ${SRC}/event.cpp
     ${SRC}/midibus.cpp ${SRC}/midifile.cpp ${SRC}/mutex.cpp
@@ -53,5 +53,5 @@ target_link_directories(arrange_view_test PRIVATE ${SDL2_LIBRARY_DIRS} ${SDL2TTF
 
 target_link_libraries(arrange_view_test PRIVATE
     ${SDL2TTF_LIBRARIES} ${SDL2_LIBRARIES}
-    seq24_pluginhost seq24_vst2 seq24_vst3 seq24_graph seq24_audio
+    PatchKnob_pluginhost PatchKnob_vst2 PatchKnob_vst3 PatchKnob_graph PatchKnob_audio
     winmm pthread)

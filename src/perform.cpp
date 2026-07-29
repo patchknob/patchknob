@@ -1,19 +1,19 @@
 //----------------------------------------------------------------------------
 //
-//  This file is part of seq24.
+//  This file is part of PatchKnob.
 //
-//  seq24 is free software; you can redistribute it and/or modify
+//  PatchKnob is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
 //  the Free Software Foundation; either version 2 of the License, or
 //  (at your option) any later version.
 //
-//  seq24 is distributed in the hope that it will be useful,
+//  PatchKnob is distributed in the hope that it will be useful,
 //  but WITHOUT ANY WARRANTY; without even the implied warranty of
 //  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 //  GNU General Public License for more details.
 //
 //  You should have received a copy of the GNU General Public License
-//  along with seq24; if not, write to the Free Software
+//  along with PatchKnob; if not, write to the Free Software
 //  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //
 //-----------------------------------------------------------------------------
@@ -21,10 +21,19 @@
 #include "perform.h"
 #include "midibus.h"
 #include "event.h"
-#include "keysyms_compat.h"   /* GDK_* default keybinding values, gtkmm-free */
+#include "audio_app.h"        /* engine-owned tempo: set_bpm funnels into it */
+#include "keycodes_compat.h"  /* legacy default keybinding values */
 #include <stdio.h>
 #include <time.h>
-#include <sched.h>
+#include <math.h>
+
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN   /* keep rpcndr.h's 'byte' away from std::byte */
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>          /* SetThreadPriority for the rt threads */
+#endif
 
 perform::perform()
 {
@@ -59,53 +68,53 @@ perform::perform()
 		m_midi_cc_off[i] = zero;
     }
 
-    key_events[ GDK_1 ] = 0; 
-    key_events[ GDK_q ] = 1; 
-    key_events[ GDK_a ] = 2;
-    key_events[ GDK_z ] = 3; 
-    key_events[ GDK_2 ] = 4; 
-    key_events[ GDK_w ] = 5;
-    key_events[ GDK_s ] = 6; 
-    key_events[ GDK_x ] = 7; 
-    key_events[ GDK_3 ] = 8;
-    key_events[ GDK_e ] = 9; 
-    key_events[ GDK_d ] = 10; 
-    key_events[ GDK_c ] = 11;
-    key_events[ GDK_4 ] = 12; 
-    key_events[ GDK_r ] = 13; 
-    key_events[ GDK_f ] = 14;
-    key_events[ GDK_v ] = 15; 
-    key_events[ GDK_5 ] = 16; 
-    key_events[ GDK_t ] = 17;
-    key_events[ GDK_g ] = 18; 
-    key_events[ GDK_b ] = 19; 
-    key_events[ GDK_6 ] = 20;
-    key_events[ GDK_y ] = 21; 
-    key_events[ GDK_h ] = 22; 
-    key_events[ GDK_n ] = 23;
-    key_events[ GDK_7 ] = 24; 
-    key_events[ GDK_u ] = 25; 
-    key_events[ GDK_j ] = 26;
-    key_events[ GDK_m ] = 27; 
-    key_events[ GDK_8 ] = 28; 
-    key_events[ GDK_i ] = 29;
-    key_events[ GDK_k ] = 30; 
-    key_events[ GDK_comma ] = 31;
+    key_events[ PATCHKNOB_KEY_1 ] = 0;
+    key_events[ PATCHKNOB_KEY_Q ] = 1;
+    key_events[ PATCHKNOB_KEY_A ] = 2;
+    key_events[ PATCHKNOB_KEY_Z ] = 3;
+    key_events[ PATCHKNOB_KEY_2 ] = 4;
+    key_events[ PATCHKNOB_KEY_W ] = 5;
+    key_events[ PATCHKNOB_KEY_S ] = 6;
+    key_events[ PATCHKNOB_KEY_X ] = 7;
+    key_events[ PATCHKNOB_KEY_3 ] = 8;
+    key_events[ PATCHKNOB_KEY_E ] = 9;
+    key_events[ PATCHKNOB_KEY_D ] = 10;
+    key_events[ PATCHKNOB_KEY_C ] = 11;
+    key_events[ PATCHKNOB_KEY_4 ] = 12;
+    key_events[ PATCHKNOB_KEY_R ] = 13;
+    key_events[ PATCHKNOB_KEY_F ] = 14;
+    key_events[ PATCHKNOB_KEY_V ] = 15;
+    key_events[ PATCHKNOB_KEY_5 ] = 16;
+    key_events[ PATCHKNOB_KEY_T ] = 17;
+    key_events[ PATCHKNOB_KEY_G ] = 18;
+    key_events[ PATCHKNOB_KEY_B ] = 19;
+    key_events[ PATCHKNOB_KEY_6 ] = 20;
+    key_events[ PATCHKNOB_KEY_Y ] = 21;
+    key_events[ PATCHKNOB_KEY_H ] = 22;
+    key_events[ PATCHKNOB_KEY_N ] = 23;
+    key_events[ PATCHKNOB_KEY_7 ] = 24;
+    key_events[ PATCHKNOB_KEY_U ] = 25;
+    key_events[ PATCHKNOB_KEY_J ] = 26;
+    key_events[ PATCHKNOB_KEY_M ] = 27;
+    key_events[ PATCHKNOB_KEY_8 ] = 28;
+    key_events[ PATCHKNOB_KEY_I ] = 29;
+    key_events[ PATCHKNOB_KEY_K ] = 30;
+    key_events[ PATCHKNOB_KEY_COMMA ] = 31;
 
     
-    m_key_bpm_up = GDK_apostrophe;
-    m_key_bpm_dn = GDK_semicolon;
+    m_key_bpm_up = PATCHKNOB_KEY_APOSTROPHE;
+    m_key_bpm_dn = PATCHKNOB_KEY_SEMICOLON;
 
-    m_key_replace = GDK_Control_L;
-    m_key_queue = GDK_Control_R;
-    m_key_snapshot_1 = GDK_Alt_L;
-    m_key_snapshot_2 = GDK_Alt_R;
+    m_key_replace = PATCHKNOB_KEY_CONTROL_LEFT;
+    m_key_queue = PATCHKNOB_KEY_CONTROL_RIGHT;
+    m_key_snapshot_1 = PATCHKNOB_KEY_ALT_LEFT;
+    m_key_snapshot_2 = PATCHKNOB_KEY_ALT_RIGHT;
     
-    m_key_screenset_up = GDK_bracketright;
-    m_key_screenset_dn = GDK_bracketleft;
+    m_key_screenset_up = PATCHKNOB_KEY_BRACKET_RIGHT;
+    m_key_screenset_dn = PATCHKNOB_KEY_BRACKET_LEFT;
 
-    m_key_start  = GDK_space;
-    m_key_stop   = GDK_Escape;
+    m_key_start  = PATCHKNOB_KEY_SPACE;
+    m_key_stop   = PATCHKNOB_KEY_ESCAPE;
     
     m_offset = 0;
     m_control_status = 0;
@@ -141,7 +150,7 @@ perform::init_jack( void )
         do {
 
             char client_name[100];
-            sprintf( client_name, "seq24 (%d)", getpid());
+            sprintf( client_name, "PatchKnob (%d)", getpid());
             
             /* become a new client of the JACK server */
             if (( m_jack_client = jack_client_new(client_name)) == 0) {
@@ -278,6 +287,11 @@ perform::~perform()
 	    delete m_seqs[i];
 	}
     }
+
+    /* threads are joined: retired sequences are finally safe to free */
+    for ( size_t i = 0; i < m_seq_graveyard.size(); i++ )
+        delete m_seq_graveyard[i];
+    m_seq_graveyard.clear();
 }
 
 void 
@@ -538,18 +552,24 @@ perform::is_running( void )
     return m_running;
 }
 
-void 
-perform::set_bpm(int a_bpm)
+void
+perform::set_bpm(double a_bpm)
 {
-    if ( a_bpm < 20 )  a_bpm = 20;
-    if ( a_bpm > 500 ) a_bpm = 500;
+    if ( a_bpm < 20.0 )  a_bpm = 20.0;
+    if ( a_bpm > 500.0 ) a_bpm = 500.0;
 
     if ( ! (m_jack_running && m_running )){
         m_master_bus.set_bpm( a_bpm );
     }
+
+    /* the AUDIO ENGINE owns tempo: every bpm write (UI, file load, hotkeys,
+       midi control) funnels through here into the kitchensink tempo map, so
+       the sequencer pace, plugin VstTimeInfo and transport clock can never
+       disagree.  fractional BPM survives end-to-end. */
+    PatchKnob::app::audio_app_set_tempo( a_bpm );
 }
 
-int  
+double
 perform::get_bpm( )
 {
     return  m_master_bus.get_bpm( );
@@ -559,14 +579,38 @@ void
 perform::delete_sequence( int a_num )
 {
 	set_active(a_num, false);
-  
+
     if ( m_seqs[a_num] != NULL &&
          !m_seqs[a_num]->get_editing() ){
-		
-		m_seqs[a_num]->set_playing( false );
-		delete m_seqs[a_num];
-    }   
 
+		m_seqs[a_num]->set_playing( false );
+		/* RETIRE, don't free: the output thread / UI may still hold this
+		   pointer for an instant (use-after-free -> divide-by-zero crash in
+		   get_last_tick).  gc_graveyard() frees it a couple of UI frames later. */
+		m_seq_graveyard.push_back( m_seqs[a_num] );
+		m_seq_graveyard_age.push_back( 0 );
+		m_seqs[a_num] = NULL;
+    }
+
+}
+
+void
+perform::gc_graveyard( void )
+{
+    /* Message thread only.  A retired sequence was set_active(false) before it
+       landed here, so the output thread stops referencing it within one audio
+       block; surviving >=2 gc passes (>=2 UI frames, ~tens of ms) is well past
+       that window, so freeing is safe -- and the graveyard stays bounded. */
+    for ( size_t i = 0; i < m_seq_graveyard.size(); )
+    {
+        if ( ++m_seq_graveyard_age[i] >= 2 )
+        {
+            delete m_seq_graveyard[i];
+            m_seq_graveyard.erase( m_seq_graveyard.begin() + (long)i );
+            m_seq_graveyard_age.erase( m_seq_graveyard_age.begin() + (long)i );
+        }
+        else ++i;
+    }
 }
 
 bool 
@@ -929,7 +973,20 @@ perform::inner_start( bool a_state )
 
          if ( a_state )
             off_sequences( );
-        
+
+        /* drive the ENGINE transport too (every start path lands here: UI,
+           MIDI control, JACK sync): position it at our start tick and raise
+           the patch run-state, so host-synced plugins and the sample clock
+           the output thread paces off can never diverge from us. */
+        if ( PatchKnob::app::audio_app_running() ){
+
+            long long start_tick = a_state ? (long long) m_starting_tick : 0;
+
+            PatchKnob::app::audio_app_transport_locate(
+                    PatchKnob::app::audio_app_tick_to_sample( start_tick ) );
+            PatchKnob::app::audio_app_patch_set_playing( true );
+        }
+
         set_running( true );
 		
        
@@ -943,10 +1000,15 @@ perform::inner_start( bool a_state )
 
 
 
-void 
+void
 perform::inner_stop( )
 {
     set_running( false );
+
+    /* drop the engine transport run-state with us (all stop paths) */
+    if ( PatchKnob::app::audio_app_running() )
+        PatchKnob::app::audio_app_patch_set_playing( false );
+
     //off_sequences();
     reset_sequences(  );
 }
@@ -1050,27 +1112,17 @@ output_thread_func(void *a_pef )
     /* set our performance */
     perform *p = (perform *) a_pef;
     assert(p);
-	
-    struct sched_param *schp = new sched_param;
-    /*
-     * set the process to realtime privs
-     */
-    
-    if ( global_priority ){
-		
-		memset(schp, 0, sizeof(sched_param));
-		schp->sched_priority = 1;
-		
-		if (sched_setscheduler(0, SCHED_FIFO, schp) != 0) 	{
-			
-			printf("output_thread_func: couldnt sched_setscheduler(FIFO), you need to be root.\n");
-			pthread_exit(0);
-		}
-    }
-	
-	p->output_func();
 
-	return 0;
+    /* the scheduling feed must not lose the CPU to UI repaints or plugin
+       scans; on failure just log and keep going -- never kill the thread */
+#ifdef _WIN32
+    if ( !SetThreadPriority( GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL ))
+        printf( "output_thread_func: SetThreadPriority(TIME_CRITICAL) failed\n" );
+#endif
+
+    p->output_func();
+
+    return 0;
 }
 
 
@@ -1164,9 +1216,155 @@ perform::output_func(void)
 
         m_condition_var.unlock();
 
-        //printf( "signaled [%d]\n", m_playback_mode ); 
+        //printf( "signaled [%d]\n", m_playback_mode );
 
+        /*******************************************************************
 
+          AUDIO-TRANSPORT-PACED LOOKAHEAD SCHEDULER
+
+          When the audio engine runs (and we are not slaved to JACK), the
+          engine's sample clock is the only time authority: each iteration
+          we read the transport sample position, convert position+lookahead
+          to a musical tick through the shared tempo map, and play() every
+          event up to that horizon.  Events leave play() carrying their
+          ABSOLUTE tick, so the audio thread places each one at its exact
+          sample offset -- wall-clock wake jitter only affects how early
+          the ring is fed, never audible timing.
+
+         *******************************************************************/
+
+        if ( PatchKnob::app::audio_app_running() && !m_jack_running ){
+
+            struct timespec pace;
+            pace.tv_sec  = 0;
+            pace.tv_nsec = c_thread_trigger_width_ms * 1000000L;
+
+            long long start_tick = 0;
+
+            /* if we are in the performance view, we care
+               about starting from the offset */
+            if ( m_playback_mode ){
+
+                start_tick = m_starting_tick;
+                set_orig_ticks( m_starting_tick );
+            }
+
+            /* inner_start already located the engine transport onto
+               start_tick; the seek applies at a block boundary, so wait
+               (bounded) until the transport reads near our start before
+               computing the first horizon off a stale position */
+            for ( int w = 0; w < 200 && m_running; w++ ){
+
+                long long cur = PatchKnob::app::audio_app_sample_to_tick(
+                        PatchKnob::app::audio_app_transport_sample() );
+
+                if ( cur >= start_tick - (c_ppqn / 4) &&
+                     cur <= start_tick + (c_ppqn / 4) )
+                    break;
+
+                nanosleep( &pace, NULL );
+            }
+
+            m_master_bus.init_clock( (long) start_tick );
+
+            long long last_scheduled = start_tick - 1;
+
+            /* the ENGINE owns looping now: publish the loop markers as ticks
+               and the audio callback cycle-splits at the loop-end FRAME.  We
+               never seek the transport for a wrap -- we only wrap the tick
+               window we schedule.  (The old horizon-triggered seek jumped
+               ~a-lookahead EARLY, so the loop tail's events were left for the
+               next pass -- "clips playing outside their positions".) */
+            bool      loop_sent  = false;
+            long long loop_l = -1, loop_r = -1;
+            /* the wrap branch schedules tail+head ONCE per pass; it must not
+               re-fire while the horizon still hangs past the loop end waiting
+               for the engine's sample-exact wrap to move the playhead back */
+            bool      tail_done = false;
+
+            while ( m_running ){
+
+                /* keep the engine's loop in sync with ours (cheap when idle) */
+                {
+                    const bool want = m_looping && m_playback_mode;
+                    const long long ll = get_left_tick(), rr = get_right_tick();
+                    if ( want != loop_sent || ( want && ( ll != loop_l || rr != loop_r ) ) ){
+                        PatchKnob::app::audio_app_set_loop_ticks( ll, rr, want ? 1 : 0 );
+                        loop_sent = want; loop_l = ll; loop_r = rr;
+                    }
+                }
+
+                const long long s = PatchKnob::app::audio_app_transport_sample();
+
+                /* the UI playhead reads the SAME clock the audio renders */
+                m_tick = (long) PatchKnob::app::audio_app_sample_to_tick( s );
+
+                /* two audio blocks + the configured margin of early feed */
+                const long long lookahead_samples =
+                    2 * (long long) PatchKnob::app::audio_app_buffer_size()
+                    + (long long)( 0.001 * c_thread_trigger_lookahead_ms
+                                   * PatchKnob::app::audio_app_sample_rate() );
+
+                long long horizon_tick = PatchKnob::app::audio_app_sample_to_tick(
+                        s + lookahead_samples );
+
+                if ( m_looping && m_playback_mode &&
+                     horizon_tick >= get_right_tick() ){
+
+                    if ( !tail_done ){
+
+                        /* schedule the tail right up to the loop end... */
+                        long long leftover_tick = horizon_tick - get_right_tick();
+                        if ( leftover_tick > get_right_tick() - get_left_tick() )
+                            leftover_tick = 0;   /* degenerate/moved markers */
+
+                        play( get_right_tick() - 1 );
+                        reset_sequences();
+                        set_orig_ticks( get_left_tick() );
+
+                        /* ...then continue from the loop start.  The transport
+                           itself wraps sample-exactly inside the audio
+                           callback; our tick window simply follows the music. */
+                        last_scheduled = get_left_tick() + leftover_tick;
+                        play( (long) last_scheduled );
+                        m_master_bus.clock( (long) last_scheduled );
+                        tail_done = true;
+                    }
+                    /* else: tail + head are queued; wait for the engine wrap
+                       to pull the playhead (and thus the horizon) back */
+                }
+                else {
+
+                    tail_done = false;    /* horizon back inside the loop */
+
+                    if ( horizon_tick > last_scheduled ){
+
+                        play( (long) horizon_tick );
+                        m_master_bus.clock( (long) horizon_tick );
+                        last_scheduled = horizon_tick;
+
+                        /* play() published the horizon; snap the display back
+                           to the real transport position */
+                        m_tick = (long) PatchKnob::app::audio_app_sample_to_tick( s );
+                    }
+                }
+
+                nanosleep( &pace, NULL );
+            }
+
+            /* leaving the scheduler: the engine loop dies with it */
+            if ( loop_sent )
+                PatchKnob::app::audio_app_set_loop_ticks( 0, 0, 0 );
+
+            m_tick = 0;
+            m_master_bus.flush( );
+            m_master_bus.stop();
+
+            continue;
+        }
+
+        /* ------- fallback: no audio engine (or JACK slave/master) -------
+           legacy wall-clock integration, paced off CLOCK_MONOTONIC */
 
         /* begning time */
         struct timespec last;
@@ -1224,7 +1422,7 @@ perform::output_func(void)
 
         int ppqn = m_master_bus.get_ppqn();
         /* get start time position */
-        clock_gettime(CLOCK_REALTIME, &last);
+        clock_gettime(CLOCK_MONOTONIC, &last);
 
         if ( global_stats )
             stats_last_clock_us= (last.tv_sec * 1000000) + (last.tv_nsec / 1000);
@@ -1245,23 +1443,23 @@ perform::output_func(void)
              **************************************/
 
             if ( global_stats ){
-                clock_gettime(CLOCK_REALTIME, &stats_loop_start);
+                clock_gettime(CLOCK_MONOTONIC, &stats_loop_start);
             }
 
 
             /* delta time */
-            clock_gettime(CLOCK_REALTIME, &current);
+            clock_gettime(CLOCK_MONOTONIC, &current);
             delta.tv_sec  =  (current.tv_sec  - last.tv_sec  );
             delta.tv_nsec =  (current.tv_nsec - last.tv_nsec );
             long delta_us = (delta.tv_sec * 1000000) + (delta.tv_nsec / 1000);
 
 
             /* delta time to ticks */
-            /* bpm */
-            int bpm  = m_master_bus.get_bpm();
+            /* bpm -- fractional, in DOUBLE precision end-to-end */
+            double bpm  = m_master_bus.get_bpm();
 
             /* get delta ticks, delta_ticks_f is in 1000th of a tick */
-            double delta_tick   =  (double) (bpm * ppqn * (delta_us/60000000.0f) ); 
+            double delta_tick   =  (double) (bpm * ppqn * (delta_us/60000000.0) );
 
             //printf ( "delta_tick[%ld.%03ld]\n", delta_tick, delta_tick_f  );
 #ifdef JACK_SUPPORT
@@ -1444,12 +1642,17 @@ perform::output_func(void)
                     }
                 }
 
-                /* play */
-                play( (long) current_tick );
+                /* play -- round the double tick window to nearest instead
+                   of truncating a whole tick away */
+                play( (long) llround( current_tick ) );
                 //printf( "play[%d]\n", current_tick );
 
+                /* publish the live transport position so the UI playhead
+                   (perform::get_tick) tracks playback in real time. */
+                m_tick = (long) llround( current_tick );
+
                 /* midi clock */
-                m_master_bus.clock( (long) clock_tick );
+                m_master_bus.clock( (long) llround( clock_tick ) );
 
 
                 if ( global_stats ){	  
@@ -1483,7 +1686,7 @@ perform::output_func(void)
             /* set last */
             last = current;
 
-            clock_gettime(CLOCK_REALTIME, &current);
+            clock_gettime(CLOCK_MONOTONIC, &current);
             delta.tv_sec  =  (current.tv_sec  - last.tv_sec  );
             delta.tv_nsec =  (current.tv_nsec - last.tv_nsec );
             long elapsed_us = (delta.tv_sec * 1000000) + (delta.tv_nsec / 1000);
@@ -1496,17 +1699,18 @@ perform::output_func(void)
             //printf( "sleeping_us[%ld]\n", delta_us );
 
 
-            /* check midi clock adjustment */
+            /* check midi clock adjustment: wake exactly on the next midi
+               clock boundary if it lands sooner than the trigger width --
+               use the FRACTIONAL distance to the boundary, and never
+               lengthen the pacing sleep */
 
-            double next_total_tick = (total_tick + (c_ppqn / 24.0)); 
-            double next_clock_delta   = (next_total_tick - total_tick - 1); 
+            double frac_tick = fmod( total_tick, c_ppqn / 24.0 );
+            double next_clock_delta_us =
+                ((c_ppqn / 24.0) - frac_tick) * 60000000.0 / c_ppqn / bpm;
 
-
-            double next_clock_delta_us =  (( next_clock_delta ) * 60000000.0f / c_ppqn  / bpm );
-
-            if ( next_clock_delta_us < (c_thread_trigger_width_ms * 1000.0f * 2.0f) ){
+            if ( next_clock_delta_us < (double) delta_us ){
                 delta_us = (long)next_clock_delta_us;
-            } 
+            }
 
 
             if ( delta_us > 0.0 ){
@@ -1526,7 +1730,7 @@ perform::output_func(void)
             }
 
             if ( global_stats ){	  
-                clock_gettime(CLOCK_REALTIME, &stats_loop_finish);
+                clock_gettime(CLOCK_MONOTONIC, &stats_loop_finish);
             }
 
             if ( global_stats ){
@@ -1576,9 +1780,9 @@ perform::output_func(void)
                 printf( "[%3d][%8ld]\n", i * 100, stats_all[i] );
             }
             printf ( "\n\n-- clock width --\n" );
-            int bpm  = m_master_bus.get_bpm();
+            double bpm  = m_master_bus.get_bpm();
 
-            printf ( "optimal : [%d]us\n", ((c_ppqn / 24)* 60000000 / c_ppqn  / bpm ));
+            printf ( "optimal : [%d]us\n", (int)((c_ppqn / 24) * 60000000.0 / c_ppqn / bpm ));
 
 
             for ( int i=0; i<100; i++ ){
@@ -1607,28 +1811,16 @@ input_thread_func(void *a_pef )
     /* set our performance */
     perform *p = (perform *) a_pef;
     assert(p);
-    
-    
-    struct sched_param *schp = new sched_param;
-    /*
-     * set the process to realtime privs
-     */
-    
-    if ( global_priority ){
-        
-        memset(schp, 0, sizeof(sched_param));
-        schp->sched_priority = 1;
-        
-        if (sched_setscheduler(0, SCHED_FIFO, schp) != 0) 	{
-            
-            printf("input_thread_func: couldnt sched_setscheduler(FIFO), you need to be root.\n");
-            pthread_exit(0);
-        }
-    }
-    
-    
+
+    /* same treatment as the output thread: keep MIDI input responsive, and
+       never kill the thread if the priority bump is refused */
+#ifdef _WIN32
+    if ( !SetThreadPriority( GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL ))
+        printf( "input_thread_func: SetThreadPriority(TIME_CRITICAL) failed\n" );
+#endif
+
     p->input_func();
-    
+
     return 0;
 }
 

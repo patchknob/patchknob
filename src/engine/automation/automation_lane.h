@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------
-//  seq24 Windows port — AutomationLane: one automated target + its breakpoints.
+//  PatchKnob — AutomationLane: one automated target + its breakpoints.
 //
 //  An AutomationLane is the atom of the automation data model. It binds ONE
 //  target to a time-ordered list of breakpoints and an interpolation mode:
@@ -32,13 +32,13 @@
 //  them per audio block. The lane itself is a pure data model: it holds no
 //  playback / emit state.
 //----------------------------------------------------------------------------
-#ifndef SEQ24_ENGINE_AUTOMATION_AUTOMATION_LANE_H
-#define SEQ24_ENGINE_AUTOMATION_AUTOMATION_LANE_H
+#ifndef PATCHKNOB_ENGINE_AUTOMATION_AUTOMATION_LANE_H
+#define PATCHKNOB_ENGINE_AUTOMATION_AUTOMATION_LANE_H
 
 #include <cstdint>
 #include <vector>
 
-namespace seq24 { namespace engine {
+namespace PatchKnob { namespace engine {
 
 //! What kind of thing a lane drives.
 enum class LaneTargetKind {
@@ -222,6 +222,6 @@ private:
     std::vector<Breakpoint> bps_;    //!< sorted ascending by tick, unique ticks.
 };
 
-}} // namespace seq24::engine
+}} // namespace PatchKnob::engine
 
-#endif // SEQ24_ENGINE_AUTOMATION_AUTOMATION_LANE_H
+#endif // PATCHKNOB_ENGINE_AUTOMATION_AUTOMATION_LANE_H

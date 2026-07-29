@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------
-//  seq24 Windows port — Track implementation. See track.h for the design and
+//  PatchKnob — Track implementation. See track.h for the design and
 //  the FX-chain hot-swap (RCU snapshot) documentation.
 //----------------------------------------------------------------------------
 #include "track.h"
@@ -7,7 +7,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace seq24 { namespace engine {
+namespace PatchKnob { namespace engine {
 
 Track::Track() {
     // Publish an initial empty snapshot so the audio thread always has a valid
@@ -121,6 +121,13 @@ void Track::processBlock(const MidiEvent* midi, int nMidi,
     if (nframes <= 0) return;
     if (nframes > maxBlock_) nframes = maxBlock_;   // clamp; never overrun scratch
 
+    // Disabled (e.g. a frozen source track): emit silence and run no plugins.
+    if (disabled_.load(std::memory_order_relaxed)) {
+        for (int c = 0; c < 2; ++c)
+            for (int i = 0; i < nframes; ++i) out[c][i] = 0.0f;
+        return;
+    }
+
     // Ping-pong pointers: cur holds the "current" audio, nxt the destination.
     float* cur[2] = { chA_[0], chA_[1] };
     float* nxt[2] = { chB_[0], chB_[1] };
@@ -203,4 +210,4 @@ void Track::processBlock(const MidiEvent* midi, int nMidi,
     vuR_.push(out[1], nframes);
 }
 
-}} // namespace seq24::engine
+}} // namespace PatchKnob::engine

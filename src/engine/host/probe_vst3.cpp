@@ -1,6 +1,6 @@
 // probe_vst3.cpp
 //
-// Out-of-process VST3 introspection helper for the seq24 unified plugin host.
+// Out-of-process VST3 introspection helper for the PatchKnob unified plugin host.
 //
 // Like probe_vst2, this runs as a separate child process so a misbehaving
 // plugin cannot take down the scanner. It loads a .vst3 (single file OR bundle

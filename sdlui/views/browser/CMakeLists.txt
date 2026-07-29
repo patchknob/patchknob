@@ -9,7 +9,7 @@ project(browser_view_test CXX)
 #   ./sdlui/views/browser/build/browser_view_test
 #
 # BrowserView is PURE UI: it depends only on the header-only engine contract
-# (seq24::engine::PluginDescriptor from src/engine/plugin_api.h) plus the
+# (PatchKnob::engine::PluginDescriptor from src/engine/plugin_api.h) plus the
 # toolkit (sdlui/gui.cpp).  No engine libraries / core sources are linked -- the
 # test feeds a hardcoded descriptor vector instead of running the slow scan.
 # ---------------------------------------------------------------------------

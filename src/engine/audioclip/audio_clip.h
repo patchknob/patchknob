@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------
-//  seq24 Windows port — AudioClip: an in-memory stereo audio buffer.
+//  PatchKnob — AudioClip: an in-memory stereo audio buffer.
 //
 //  An AudioClip is the raw material an audio track plays back. It is a pair of
 //  planar (non-interleaved) float channel buffers plus metadata:
@@ -24,15 +24,15 @@
 //
 //  Buffer convention matches plugin_api.h everywhere: float, non-interleaved.
 //----------------------------------------------------------------------------
-#ifndef SEQ24_ENGINE_AUDIOCLIP_AUDIO_CLIP_H
-#define SEQ24_ENGINE_AUDIOCLIP_AUDIO_CLIP_H
+#ifndef PATCHKNOB_ENGINE_AUDIOCLIP_AUDIO_CLIP_H
+#define PATCHKNOB_ENGINE_AUDIOCLIP_AUDIO_CLIP_H
 
 #include <cstdint>
 #include <string>
 #include <vector>
 #include <cmath>
 
-namespace seq24 { namespace engine {
+namespace PatchKnob { namespace engine {
 
 //! In-memory stereo audio buffer + metadata. Message-thread owned; the audio
 //! thread only ever reads a clip's samples through a published schedule.
@@ -78,20 +78,66 @@ struct AudioClip {
     }
 };
 
-//! A clip placed on the timeline: play `clip` starting at absolute sample
-//! `startSample`, scaled by `gain`. Non-owning: `clip` must outlive the
-//! schedule that references it.
+//! A REGION: an audio `clip` (the source) placed on the timeline as an
+//! independent, non-destructive view -- the Ardour model.  The region occupies
+//! timeline samples [startSample, startSample+regionLength()) and plays SOURCE
+//! samples [sourceOffset, sourceOffset+regionLength()).  Trimming changes
+//! `length` (and, from the left, `sourceOffset` too); slipping changes
+//! `sourceOffset` alone; moving changes `startSample` alone.  Non-owning: `clip`
+//! must outlive the schedule that references it.
 struct ScheduledClip {
-    const AudioClip* clip        = nullptr;
-    int64_t          startSample = 0;      //!< timeline position of clip frame 0
-    float            gain        = 1.0f;
+    const AudioClip* clip         = nullptr;
+    int64_t          startSample  = 0;     //!< timeline sample of the region START
+    int64_t          sourceOffset = 0;     //!< first SOURCE frame the region plays
+    int64_t          length       = 0;     //!< region length in frames (0 = to source end)
+    float            gain         = 1.0f;  //!< region gain (Ardour _scale_amplitude)
+    bool             muted        = false; //!< region mute (silent but kept)
+    bool             loop         = false; //!< loop the source to fill `length`
+    //! Fade envelope (applied on top of gain in AudioClipPlayer::process).
+    //! Lengths in frames; tension in [-1,+1] (0 linear, >0 convex/slow-start,
+    //! <0 concave/fast-start).  Overlapping fades on adjacent regions crossfade.
+    int64_t          fadeInFrames  = 0;
+    int64_t          fadeOutFrames = 0;
+    float            fadeInTension  = 0.0f;
+    float            fadeOutTension = 0.0f;
+
+    //! Effective region length in frames, clamped to the source available from
+    //! `sourceOffset`.  `length==0` means "to the end of the source".
+    int64_t regionLength() const {
+        if (!clip) return 0;
+        const int64_t n = clip->numFrames();
+        int64_t off = sourceOffset < 0 ? 0 : (sourceOffset > n ? n : sourceOffset);
+        int64_t len = length > 0 ? length : (n - off);
+        if (!loop && off + len > n) len = n - off;             // clamp to source (unless looping)
+        return len < 0 ? 0 : len;
+    }
 
     //! One-past-the-end timeline sample of this placement.
-    int64_t endSample() const {
-        return startSample + (clip ? clip->numFrames() : 0);
+    int64_t endSample() const { return startSample + regionLength(); }
+
+    //! Tension-shaped 0..1 ramp: u in [0,1] -> [0,1]; k bends the curve.
+    static float fadeShape(float u, float k) {
+        if (u <= 0.0f) return 0.0f;
+        if (u >= 1.0f) return 1.0f;
+        if (k > -1e-4f && k < 1e-4f) return u;                 // linear
+        const float a = k * 3.0f;                              // steepness
+        return (std::exp(a * u) - 1.0f) / (std::exp(a) - 1.0f);
+    }
+
+    //! Fade gain multiplier at REGION-relative frame `ri` (0..regionLen-1), so
+    //! fades track the region edges, not the source's.
+    float fadeGain(int64_t ri, int64_t regionLen) const {
+        float envIn = 1.0f, envOut = 1.0f;
+        if (fadeInFrames > 0 && ri < fadeInFrames)
+            envIn = fadeShape((float)ri / (float)fadeInFrames, fadeInTension);
+        if (fadeOutFrames > 0 && ri >= regionLen - fadeOutFrames) {
+            const float u = (float)(regionLen - 1 - ri) / (float)fadeOutFrames;
+            envOut = fadeShape(u, fadeOutTension);
+        }
+        return envIn * envOut;
     }
 };
 
-}} // namespace seq24::engine
+}} // namespace PatchKnob::engine
 
-#endif // SEQ24_ENGINE_AUDIOCLIP_AUDIO_CLIP_H
+#endif // PATCHKNOB_ENGINE_AUDIOCLIP_AUDIO_CLIP_H

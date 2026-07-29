@@ -1,27 +1,27 @@
 //----------------------------------------------------------------------------
 //
-//  This file is part of seq24.
+//  This file is part of PatchKnob.
 //
-//  seq24 is free software; you can redistribute it and/or modify
+//  PatchKnob is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
 //  the Free Software Foundation; either version 2 of the License, or
 //  (at your option) any later version.
 //
-//  seq24 is distributed in the hope that it will be useful,
+//  PatchKnob is distributed in the hope that it will be useful,
 //  but WITHOUT ANY WARRANTY; without even the implied warranty of
 //  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 //  GNU General Public License for more details.
 //
 //  You should have received a copy of the GNU General Public License
-//  along with seq24; if not, write to the Free Software
+//  along with PatchKnob; if not, write to the Free Software
 //  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //
 //-----------------------------------------------------------------------------
 
 class sequence;
 
-#ifndef SEQ24_SEQUENCE
-#define SEQ24_SEQUENCE
+#ifndef PATCHKNOB_SEQUENCE
+#define PATCHKNOB_SEQUENCE
 
 #include "event.h"
 #include "midibus.h"
@@ -100,6 +100,12 @@ class sequence
     /* song playback mode mute */
     bool m_song_mute;
 
+    /* PER-PATTERN tracker FX state (bindings + VST-param values), an opaque blob
+       the TrackerView serialises into/out of.  Lives here (not in the reused
+       view) so each pattern keeps its own FX automation instead of inheriting the
+       last-edited pattern's. */
+    std::string m_fx_blob;
+
     /* outputs to sequence to this Bus on midichannel */
     mastermidibus *m_masterbus;
 
@@ -170,14 +176,15 @@ class sequence
     long m_time_beat_width;
 
     /* locking */
-    seq24mutex m_mutex;
+    PatchKnobMutex m_mutex;
 
     /* used to idenfity which events are ours in the out queue */
     //unsigned char m_tag;
 
-    /* takes an event this sequence is holding and
-       places it on our midibus */
-    void put_event_on_bus (event * a_e);
+    /* takes an event this sequence is holding and places it on our midibus.
+       a_tick = the event's ABSOLUTE due-time in sequencer ticks (-1 = "now"),
+       carried to the audio engine for sample-accurate delivery */
+    void put_event_on_bus (event * a_e, long a_tick = -1);
 
     /* resetes the location counters */
     void reset_loop (void);
@@ -225,6 +232,10 @@ class sequence
 
     void set_song_mute (bool a_mute);
     bool get_song_mute (void);
+
+    /* per-pattern tracker FX blob (opaque; owned by TrackerView's format) */
+    void set_fx_blob (const std::string& a_blob) { m_fx_blob = a_blob; }
+    const std::string& get_fx_blob (void) const { return m_fx_blob; }
 
     /* returns string of name */
     const char *get_name (void);
@@ -414,6 +425,9 @@ class sequence
     
     /* deletes events */
     void remove_marked();
+    /* remove one note-on at exactly tick/note, plus its linked partner */
+    bool remove_note_at (long a_tick, int a_note);
+    bool remove_note_at (long a_tick, int a_note, int a_occurrence);
     void mark_selected();
     void unpaint_all();
     
@@ -432,6 +446,7 @@ class sequence
     /* flushes a note to the midibus to preview its 
        sound, used by the virtual paino */
     void play_note_on (int a_note);
+    void play_note_on (int a_note, int a_velocity);   // audition at a given velocity
     void play_note_off (int a_note);
 
     /* send a note off for all active notes */

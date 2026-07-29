@@ -90,7 +90,7 @@ int main(int argc, char** argv)
 
     App app;
     app.w = 1280; app.h = 720;
-    if (!app.init("seq24 / SDL2 -- Arrangement (song) view")) { app.shutdown(); return 1; }
+    if (!app.init("PatchKnob -- Arrangement (song) view")) { app.shutdown(); return 1; }
 
     perform perf;
     build_song(perf);

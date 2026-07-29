@@ -87,7 +87,7 @@
 [sysex]
 [ ] add data buffers to event.cpp
 [ ] midi files must read/save sysex.
-[ ] .seq24rc defines known sysex patters
+[ ] .PatchKnobrc defines known sysex patters
 [ ] editor has new menu for known sysex and unknown sysex.
 [ ] known sysex patterns can be changed with data graph
 [ ] unknown sysex patterns can be edited raw

@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------
-//  seq24 Windows port — AutomationTrack: all lanes automated on one track.
+//  PatchKnob — AutomationTrack: all lanes automated on one track.
 //
 //  A track can automate several destinations at once (e.g. filter cutoff via a
 //  VST parameter AND mod-wheel via MIDI CC1). AutomationTrack is just the owned,
@@ -11,14 +11,14 @@
 //  them. Lanes are stored by value; references returned by lane()/findLane() are
 //  invalidated by addLane()/removeLane() (standard std::vector semantics).
 //----------------------------------------------------------------------------
-#ifndef SEQ24_ENGINE_AUTOMATION_AUTOMATION_TRACK_H
-#define SEQ24_ENGINE_AUTOMATION_AUTOMATION_TRACK_H
+#ifndef PATCHKNOB_ENGINE_AUTOMATION_AUTOMATION_TRACK_H
+#define PATCHKNOB_ENGINE_AUTOMATION_AUTOMATION_TRACK_H
 
 #include <vector>
 
 #include "automation_lane.h"
 
-namespace seq24 { namespace engine {
+namespace PatchKnob { namespace engine {
 
 //! The set of automation lanes belonging to one sequencer track.
 class AutomationTrack {
@@ -75,6 +75,6 @@ private:
     std::vector<AutomationLane> lanes_;
 };
 
-}} // namespace seq24::engine
+}} // namespace PatchKnob::engine
 
-#endif // SEQ24_ENGINE_AUTOMATION_AUTOMATION_TRACK_H
+#endif // PATCHKNOB_ENGINE_AUTOMATION_AUTOMATION_TRACK_H

@@ -22,8 +22,8 @@
 //      // draw()/wheel/mouse are self-contained; the view calls
 //      // app.request_redraw() whenever the zoom/scroll changes.
 //----------------------------------------------------------------------------
-#ifndef SEQ24_SDLUI_VIEWS_WAVEFORM_VIEW_H
-#define SEQ24_SDLUI_VIEWS_WAVEFORM_VIEW_H
+#ifndef PATCHKNOB_SDLUI_VIEWS_WAVEFORM_VIEW_H
+#define PATCHKNOB_SDLUI_VIEWS_WAVEFORM_VIEW_H
 
 #include "gui.h"
 
@@ -31,21 +31,21 @@
 #include <memory>
 #include <vector>
 
-namespace seq24 { namespace engine { struct AudioClip; } }
+namespace PatchKnob { namespace engine { struct AudioClip; } }
 
 namespace waveform {
 
 class WaveformView : public ui::Widget {
 public:
     WaveformView();
-    explicit WaveformView(const seq24::engine::AudioClip* clip);
+    explicit WaveformView(const PatchKnob::engine::AudioClip* clip);
 
     // --- clip binding (message thread) ---------------------------------------
 
     //! Bind a (non-owning) clip to display; rebuilds the peak cache and fits it
     //! to the current width. Pass nullptr to clear.
-    void set_clip(const seq24::engine::AudioClip* clip);
-    const seq24::engine::AudioClip* clip() const { return clip_; }
+    void set_clip(const PatchKnob::engine::AudioClip* clip);
+    const PatchKnob::engine::AudioClip* clip() const { return clip_; }
 
     // --- zoom -----------------------------------------------------------------
 
@@ -85,7 +85,7 @@ private:
     SDL_Rect scrollbar_rect() const;
     void     layout_buttons(ui::App& app);
 
-    const seq24::engine::AudioClip* clip_ = nullptr;
+    const PatchKnob::engine::AudioClip* clip_ = nullptr;
     std::vector<Bin> bins_;                  //!< kBinSamples samples per bin
     int64_t          numFrames_ = 0;
     double           sampleRate_ = 48000.0;
@@ -108,4 +108,4 @@ private:
 
 } // namespace waveform
 
-#endif // SEQ24_SDLUI_VIEWS_WAVEFORM_VIEW_H
+#endif // PATCHKNOB_SDLUI_VIEWS_WAVEFORM_VIEW_H

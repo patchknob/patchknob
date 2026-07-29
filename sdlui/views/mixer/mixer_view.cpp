@@ -14,8 +14,8 @@
 #include <string>
 
 using namespace ui;
-using seq24::engine::MixerGraph;
-using seq24::engine::Track;
+using PatchKnob::engine::MixerGraph;
+using PatchKnob::engine::Track;
 
 namespace mixer {
 

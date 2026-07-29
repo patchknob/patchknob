@@ -1,25 +1,26 @@
 //----------------------------------------------------------------------------
 //
-//  This file is part of seq24.
+//  This file is part of PatchKnob.
 //
-//  seq24 is free software; you can redistribute it and/or modify
+//  PatchKnob is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
 //  the Free Software Foundation; either version 2 of the License, or
 //  (at your option) any later version.
 //
-//  seq24 is distributed in the hope that it will be useful,
+//  PatchKnob is distributed in the hope that it will be useful,
 //  but WITHOUT ANY WARRANTY; without even the implied warranty of
 //  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 //  GNU General Public License for more details.
 //
 //  You should have received a copy of the GNU General Public License
-//  along with seq24; if not, write to the Free Software
+//  along with PatchKnob; if not, write to the Free Software
 //  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //
 //-----------------------------------------------------------------------------
 #include "sequence.h"
 // #include "seqedit.h"  (GUI; not used by engine)
 #include <stdlib.h>
+#include <vector>
     
 list < event > sequence::m_list_clipboard;
 
@@ -199,7 +200,12 @@ sequence::add_event( const event *a_e )
 {
     lock();
 
-    m_list_event.push_front( *a_e );
+    // push_BACK (not front) so that among equal-key events (same timestamp AND
+    // same rank, e.g. two note-ons at one tick) the NEWEST sorts LAST after the
+    // stable sort.  The tracker numbers "occurrences" front-to-back, so the newest
+    // duplicate must be the highest occurrence for its lane/velocity/off bookkeeping
+    // to land on the right note (else two same-pitch notes swap columns/velocities).
+    m_list_event.push_back( *a_e );
     m_list_event.sort( );
 
     reset_draw_marker();
@@ -366,7 +372,14 @@ sequence::play( long a_tick, bool a_playback_mode )
             if ( ((*e).get_timestamp() + offset_base ) >= (start_tick_offset) &&
                     ((*e).get_timestamp() + offset_base ) <= (end_tick_offset) ){
 
-                put_event_on_bus( &(*e) );
+                /* the event's ABSOLUTE due tick: the window compare above is
+                   done in offset space (+m_length keeps things positive,
+                   -m_trigger_offset shifts the pattern), so undo that skew to
+                   get back to global song ticks.  the tick rides all the way
+                   to the audio engine for sample-exact delivery. */
+                put_event_on_bus( &(*e),
+                        (*e).get_timestamp() + offset_base
+                        - m_length + m_trigger_offset );
                 //printf( "bus: ");(*e).print();
             }
 
@@ -581,6 +594,43 @@ sequence::remove_marked( )
     reset_draw_marker();
 
     unlock();
+}
+
+/* Remove exactly one note-on at a precise time and pitch.  The selection API
+   intentionally includes a small timing tolerance for mouse editing, which is
+   wrong for tracker cells: adjacent high-LPB rows can otherwise be deleted. */
+bool
+sequence::remove_note_at( long a_tick, int a_note )
+{
+    return remove_note_at( a_tick, a_note, 0 );
+}
+
+bool
+sequence::remove_note_at( long a_tick, int a_note, int a_occurrence )
+{
+    lock();
+
+    int occurrence = 0;
+    for ( list<event>::iterator i = m_list_event.begin();
+          i != m_list_event.end(); ++i )
+    {
+        if ( (*i).is_note_on() && (*i).get_timestamp() == a_tick &&
+             (*i).get_note() == a_note )
+        {
+            if ( occurrence++ != a_occurrence )
+                continue;
+            (*i).mark();
+            if ( (*i).is_linked() )
+                (*i).get_linked()->mark();
+            remove_marked();
+            set_dirty();
+            unlock();
+            return true;
+        }
+    }
+
+    unlock();
+    return false;
 }
 
 
@@ -1225,6 +1275,12 @@ sequence::copy_selected( void )
 	}
     }
 
+    if ( m_list_clipboard.empty() )
+    {
+        unlock();
+        return;
+    }
+
     long first_tick = (*m_list_clipboard.begin()).get_timestamp();
     
     for ( i = m_list_clipboard.begin(); i != m_list_clipboard.end(); i++ ){
@@ -1238,31 +1294,120 @@ sequence::copy_selected( void )
 void 
 sequence::paste_selected( long a_tick, int a_note )
 {
-    list<event>::iterator i;
-    int highest_note = 0;
-
     lock();
+
+    if ( m_list_clipboard.empty() || m_length <= 0 )
+    {
+        unlock();
+        return;
+    }
+
     list<event> clipboard = m_list_clipboard;
 
-    for ( i = clipboard.begin(); i != clipboard.end(); i++ ){
-	(*i).set_timestamp((*i).get_timestamp() + a_tick );
+    bool has_notes = false;
+    int highest_note = 0;
+    for ( list<event>::iterator i = clipboard.begin(); i != clipboard.end(); i++ )
+    {
+        if ( (*i).is_note_on() || (*i).is_note_off() )
+        {
+            has_notes = true;
+            if ( (*i).get_note() > highest_note )
+                highest_note = (*i).get_note();
+        }
     }
 
-    if ((*clipboard.begin()).is_note_on() ||
-	(*clipboard.begin()).is_note_off() ){
-	
-	for ( i = clipboard.begin(); i != clipboard.end(); i++ )
-	    if ( (*i).get_note( ) > highest_note ) highest_note = (*i).get_note();
+    list<event> pasted;
 
-       
+    if ( has_notes )
+    {
+        std::vector<event> evs( clipboard.begin(), clipboard.end() );
+        std::vector<bool>  used( evs.size(), false );
+        int delta_note = a_note - highest_note;
 
-	for ( i = clipboard.begin(); i != clipboard.end(); i++ ){
+        for ( size_t i = 0; i < evs.size(); ++i )
+        {
+            if ( !evs[i].is_note_on() )
+                continue;
 
-	    (*i).set_note( (*i).get_note( ) - (highest_note - a_note) );
-	}
+            int new_note = (int) evs[i].get_note() + delta_note;
+            if ( new_note < 0 || new_note >= c_num_keys )
+                continue;
+
+            long ts = evs[i].get_timestamp() + a_tick;
+            if ( ts < 0 || ts >= m_length - 1 )
+                continue;
+
+            size_t off_index = evs.size();
+            for ( size_t j = i + 1; j < evs.size(); ++j )
+            {
+                if ( !used[j] && evs[j].is_note_off() &&
+                     evs[j].get_note() == evs[i].get_note() )
+                {
+                    off_index = j;
+                    break;
+                }
+            }
+            if ( off_index == evs.size() )
+                continue;
+
+            long tf = evs[off_index].get_timestamp() + a_tick;
+            if ( tf <= ts )
+                tf = ts + 1;
+            if ( tf >= m_length )
+                tf = m_length - 1;
+            if ( tf <= ts )
+                continue;
+
+            event on = evs[i];
+            event off = evs[off_index];
+            on.clear_link();
+            off.clear_link();
+            on.unmark();
+            off.unmark();
+            on.select();
+            off.select();
+            on.set_note( (char) new_note );
+            off.set_note( (char) new_note );
+            on.set_timestamp( ts );
+            off.set_timestamp( tf );
+            pasted.push_back( on );
+            pasted.push_back( off );
+            used[off_index] = true;
+        }
+
+        for ( size_t i = 0; i < evs.size(); ++i )
+        {
+            if ( evs[i].is_note_on() || evs[i].is_note_off() )
+                continue;
+            long ts = evs[i].get_timestamp() + a_tick;
+            if ( ts < 0 || ts >= m_length )
+                continue;
+            event e = evs[i];
+            e.clear_link();
+            e.unmark();
+            e.select();
+            e.set_timestamp( ts );
+            pasted.push_back( e );
+        }
+    }
+    else
+    {
+        for ( list<event>::iterator i = clipboard.begin(); i != clipboard.end(); i++ )
+        {
+            long ts = (*i).get_timestamp() + a_tick;
+            if ( ts < 0 || ts >= m_length )
+                continue;
+            event e = *i;
+            e.clear_link();
+            e.unmark();
+            e.select();
+            e.set_timestamp( ts );
+            pasted.push_back( e );
+        }
     }
 
-    m_list_event.merge( clipboard );
+    pasted.sort();
+    m_list_event.merge( pasted );
     m_list_event.sort();
 
     verify_and_link();
@@ -1387,7 +1532,16 @@ sequence::add_note( long a_tick, long a_length, int a_note, bool a_paint)
 
     event e;
     
-    if ( a_tick >= 0 && 
+    if ( a_length < 1 )
+        a_length = 1;
+    long off_tick = a_tick + a_length;
+    if ( off_tick >= m_length )
+        off_tick = m_length - 1;
+
+    if ( m_length > 1 &&
+         a_tick >= 0 &&
+         a_tick < m_length - 1 &&
+         off_tick > a_tick &&
          a_note >= 0 &&
          a_note < c_num_keys ){
 
@@ -1429,7 +1583,7 @@ sequence::add_note( long a_tick, long a_length, int a_note, bool a_paint)
 
         e.set_status( EVENT_NOTE_OFF );
         e.set_data( a_note, 100 );
-        e.set_timestamp( a_tick + a_length );
+        e.set_timestamp( off_tick );
 
         add_event( &e );
     }
@@ -1593,16 +1747,25 @@ sequence::is_dirty_edit( )
 
 
 /* plays a note from the paino roll */
-void 
+void
 sequence::play_note_on( int a_note )
 {
+    play_note_on( a_note, 127 );
+}
+
+/* audition a note at a specific velocity (tracker step-entry preview) */
+void
+sequence::play_note_on( int a_note, int a_velocity )
+{
+    if ( a_velocity < 1 )   a_velocity = 1;
+    if ( a_velocity > 127 ) a_velocity = 127;
     lock();
 
     event e;
 
     e.set_status( EVENT_NOTE_ON );
-    e.set_data( a_note, 127 );
-    m_masterbus->play( m_bus, &e, m_midi_channel ); 
+    e.set_data( a_note, a_velocity );
+    m_masterbus->play( m_bus, &e, m_midi_channel );
 
     m_masterbus->flush();
 
@@ -2680,9 +2843,14 @@ sequence::get_name()
     return m_name.c_str();
 }
 
-long 
+long
 sequence::get_last_tick( )
 {
+    /* self-defense: never divide by a zero/garbage length (a freed or
+       half-constructed sequence read from another thread crashed here) */
+    if ( m_length <= 0 )
+        return 0;
+
     return (m_last_tick + (m_length -  m_trigger_offset)) % m_length;
 }
 
@@ -2967,9 +3135,9 @@ sequence::print_triggers()
 }
 
 
-void 
-sequence::put_event_on_bus( event *a_e )
-{		
+void
+sequence::put_event_on_bus( event *a_e, long a_tick )
+{
     lock();
 
     /* SCALE-MASTER / SCALE-FOLLOW
@@ -3033,7 +3201,7 @@ sequence::put_event_on_bus( event *a_e )
     }
 
     if ( !skip ){
-        m_masterbus->play( m_bus, out,  m_midi_channel );
+        m_masterbus->play( m_bus, out,  m_midi_channel, a_tick );
     }
 
     m_masterbus->flush();
@@ -3472,6 +3640,3 @@ sequence::fill_list( list<char> *a_list, int a_pos )
 
 //     a_list->push_front( 0x05 );
 //     addLongList( a_list, c_triggersmidibus );
-
-
-

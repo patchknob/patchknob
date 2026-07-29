@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------
-//  seq24 Windows port — graph module self-test.
+//  PatchKnob — graph module self-test.
 //
 //  Defines FAKE IPluginInstance implementations (no real plugins required):
 //    * SineSynth : an instrument that starts a sine oscillator on note-on and
@@ -21,7 +21,7 @@
 #include <cstdio>
 #include <vector>
 
-using namespace seq24::engine;
+using namespace PatchKnob::engine;
 
 static const double kSr    = 48000.0;
 static const int    kBlock = 256;
@@ -148,7 +148,7 @@ static float renderSeconds(MixerGraph& g, double seconds,
 }
 
 int main() {
-    std::printf("=== seq24 graph_test ===\n");
+    std::printf("=== PatchKnob graph_test ===\n");
     std::printf("sampleRate=%.0f block=%d\n\n", kSr, kBlock);
 
     // ---- Build 3 tracks, each with a sine synth; tracks 0/1 also have a gain FX.

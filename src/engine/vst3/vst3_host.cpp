@@ -1,7 +1,7 @@
 //----------------------------------------------------------------------------
-//  seq24 Windows port - VST3 host module implementation.
+//  PatchKnob - VST3 host module implementation.
 //
-//  Implements seq24::engine::IPluginInstance on Steinberg's VST3 SDK hosting
+//  Implements PatchKnob::engine::IPluginInstance on Steinberg's VST3 SDK hosting
 //  layer. See vst3_host.h and the project HOSTING_NOTES.md for rationale and
 //  the proven mingw64 build recipe.
 //----------------------------------------------------------------------------
@@ -39,7 +39,7 @@
 using namespace Steinberg;
 using namespace Steinberg::Vst;
 
-namespace seq24 { namespace engine {
+namespace PatchKnob { namespace engine {
 
 namespace {
 
@@ -51,6 +51,25 @@ std::string u16ToUtf8(const Vst::TChar* s)
 // Maps a raw 3-byte MIDI controller index from a CC status byte to the VST3
 // CtrlNumber used by IMidiMapping. Channel-mode and standard CCs are 0..127.
 inline CtrlNumber ccToCtrlNumber(uint8_t data1) { return static_cast<CtrlNumber>(data1); }
+
+void clearCallerOutputs(const ProcessBlock& blk)
+{
+    if (!blk.audioOut || blk.nframes <= 0) return;
+    for (int c = 0; c < std::max(0, (int)blk.numAudioOut); ++c)
+        if (blk.audioOut[c])
+            std::memset(blk.audioOut[c], 0, sizeof(float) * static_cast<size_t>(blk.nframes));
+}
+
+void normalizeCallerOutputs(const ProcessBlock& blk, int pluginOutputs)
+{
+    if (!blk.audioOut || blk.nframes <= 0 || pluginOutputs != 1) return;
+    const int callerOutputs = std::max(0, (int)blk.numAudioOut);
+    if (callerOutputs < 2 || !blk.audioOut[0]) return;
+    for (int c = 1; c < callerOutputs; ++c)
+        if (blk.audioOut[c])
+            std::memcpy(blk.audioOut[c], blk.audioOut[0],
+                        sizeof(float) * static_cast<size_t>(blk.nframes));
+}
 
 } // namespace
 
@@ -349,7 +368,16 @@ bool Vst3PluginInstance::prepare(double sampleRate, int maxBlockSize)
     if (!d_->component || !d_->processor)
         return false;
 
-    // Re-preparing requires a clean (inactive) state first.
+    // Idempotent: if already set up for this exact sample rate / block size,
+    // do nothing.  Re-running setupProcessing()/setBusArrangements() is not only
+    // wasteful but some plugins reject the second negotiation and fail -- which
+    // would leave prepared_ false and make a later setActive() a silent no-op.
+    // (This also preserves the active state across a redundant prepare, e.g. the
+    // one PatchGraph::addNode issues after the caller already prepared.)
+    if (d_->prepared && d_->sampleRate == sampleRate && d_->maxBlockSize == maxBlockSize)
+        return true;
+
+    // Re-preparing (changed rate/block) requires a clean (inactive) state first.
     if (d_->active)
         setActive(false);
 
@@ -390,10 +418,7 @@ void Vst3PluginInstance::process(const ProcessBlock& blk)
     Impl& s = *d_;
     if (!s.active || !s.processor)
     {
-        // Still required to clear caller's output to avoid stale audio.
-        for (int c = 0; c < s.descriptor.numAudioOut && blk.audioOut; ++c)
-            if (blk.audioOut[c])
-                std::memset(blk.audioOut[c], 0, sizeof(float) * static_cast<size_t>(blk.nframes));
+        clearCallerOutputs(blk);
         return;
     }
 
@@ -522,6 +547,13 @@ void Vst3PluginInstance::process(const ProcessBlock& blk)
     // --- 4. Wire planar audio buffers into the HostProcessData -------------
     s.processData.numSamples = nframes;
 
+    // Clamp to the CALLER's declared channel counts as well as the plugin's:
+    // never index blk.audioIn/audioOut past what the caller actually supplied
+    // (a multi-out instrument can claim more channels than our stereo bus).
+    const int callerIn  = std::min<int>(s.descriptor.numAudioIn,  blk.numAudioIn);
+    const int callerOut = std::min<int>(s.descriptor.numAudioOut, blk.numAudioOut);
+    clearCallerOutputs(blk);
+
     // Inputs: point each channel of each input bus at the caller's buffer when
     // available, else at the shared silence buffer.
     int inChanCursor = 0;
@@ -532,7 +564,7 @@ void Vst3PluginInstance::process(const ProcessBlock& blk)
         for (int32 c = 0; c < bus.numChannels; ++c)
         {
             float* p = nullptr;
-            if (blk.audioIn && inChanCursor < s.descriptor.numAudioIn)
+            if (blk.audioIn && inChanCursor < callerIn)
                 p = const_cast<float*>(blk.audioIn[inChanCursor]);
             if (!p)
             {
@@ -554,7 +586,7 @@ void Vst3PluginInstance::process(const ProcessBlock& blk)
         for (int32 c = 0; c < bus.numChannels; ++c)
         {
             float* p = nullptr;
-            if (blk.audioOut && outChanCursor < s.descriptor.numAudioOut)
+            if (blk.audioOut && outChanCursor < callerOut)
                 p = blk.audioOut[outChanCursor];
             if (!p)
                 p = s.dump.data();
@@ -570,6 +602,7 @@ void Vst3PluginInstance::process(const ProcessBlock& blk)
     s.processData.processContext       = &s.processContext;
 
     s.processor->process(s.processData);
+    normalizeCallerOutputs(blk, s.descriptor.numAudioOut);
 
     // --- 6. Drain output parameter changes into the controller --------------
     // (Keeps our controller-side cache consistent with plugin-driven moves.)
@@ -756,4 +789,4 @@ IPluginInstance* createVst3Instance(const PluginDescriptor& desc)
     return inst;
 }
 
-}} // namespace seq24::engine
+}} // namespace PatchKnob::engine

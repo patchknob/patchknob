@@ -3,15 +3,15 @@
 Status: design only. This document specifies how to persist the new DAW state added
 in Wave 1 (hosted VST instruments, insert-FX chains, mixer state, keyfollow,
 automation, audio clips, per-pattern editor choice) **without breaking existing
-`.mid` files** written by stock seq24 or by this port so far.
+`.mid` files** written by stock PatchKnob or by this port so far.
 
 All anchors are `path:line` into the tree as of this writing.
 
 ---
 
-## 1. How seq24 persists state today
+## 1. How PatchKnob persists state today
 
-seq24 saves the whole live set as a **Standard MIDI File, format 1** (`MThd`/`MTrk`)
+PatchKnob saves the whole live set as a **Standard MIDI File, format 1** (`MThd`/`MTrk`)
 with two distinct proprietary-data mechanisms layered on top. Both are driven from
 `midifile` (`src/midifile.h:29`, `src/midifile.cpp`). There is no separate project
 file — everything lives in the one `.mid`.
@@ -57,7 +57,7 @@ from `len`, then matches known tags: `c_midibus` (`:318`), `c_midich` (`:324`),
 **The forward-compat property that makes this safe:** after the known-tag `if`
 blocks, whatever bytes remain are discarded with `m_pos += len`
 (`src/midifile.cpp:381-382`). So a reader that does **not** recognise a tag simply
-eats its payload and moves on. Old seq24 will silently skip any new SeqSpec we add.
+eats its payload and moves on. Old PatchKnob will silently skip any new SeqSpec we add.
 This is the extension seam for small, genuinely per-pattern state.
 
 ### 1b. Global trailer chunks (after all MTrks)
@@ -81,8 +81,8 @@ There is no generic "unknown tag → skip length" fallback at file scope. Conseq
 1. New global tags **must be appended strictly after `c_bpmtag`**, in a fixed order,
    each guarded by its own `(file_size - m_pos) > sizeof(unsigned long)` EOF check so
    that an **old file lacking them still loads** (the check fails → we stop).
-2. Old seq24 stops after `c_bpmtag` and ignores anything past it → **forward
-   compatible** (new file still opens in old seq24, minus the new state).
+2. Old PatchKnob stops after `c_bpmtag` and ignores anything past it → **forward
+   compatible** (new file still opens in old PatchKnob, minus the new state).
 
 ### 1c. The write-path memory model (decisive constraint)
 
@@ -153,7 +153,7 @@ Split rule:
   Rationale: they are literally fields on `sequence`, they are 1–4 bytes, and they
   must travel with a pattern through single-pattern export/import
   (`src/mainwnd.cpp:403-404`). The SeqSpec skip-unknown behaviour
-  (`src/midifile.cpp:381-382`) makes them invisible to old seq24.
+  (`src/midifile.cpp:381-382`) makes them invisible to old PatchKnob.
 
 - **Sidecar (new file next to the `.mid`):** track type, instrument
   (format/path/uid/state), FX chain, gain/pan/mute/solo, master gain, automation
@@ -172,7 +172,7 @@ maintenance liability.
 
 The per-pattern keyfollow/clip-view genuinely belong to a `sequence` and should
 survive per-pattern import/export and copy/paste of a `.mid`. Putting them in-band
-(where seq24 already carries `bus`/`channel`/`timesig` per pattern) is the
+(where PatchKnob already carries `bus`/`channel`/`timesig` per pattern) is the
 consistent, low-risk choice and costs only two new SeqSpec tags.
 
 ### Sidecar packaging
@@ -182,7 +182,7 @@ Primary (least disruption to existing plumbing): a **companion file alongside th
 carry (`src/globals.h:171`, `src/mainwnd.cpp:261`):
 
 ```
-song.mid            <- unchanged Standard MIDI File (still opens in old seq24 / other DAWs)
+song.mid            <- unchanged Standard MIDI File (still opens in old PatchKnob / other DAWs)
 song.mid.s24        <- sidecar: DAW state (chunked binary, see §5)
 song.mid.audio/     <- bundle dir: one WAV per AudioClip (see §5c)
     clip_0001.wav
@@ -196,14 +196,14 @@ true bundle directory `song.s24proj/` containing `project.mid` + `daw.s24` +
 only.)
 
 **Missing-sidecar rule:** opening a `.mid` with no sidecar must load exactly as
-today (plain seq24 set, empty engine state). Opening a sidecar whose `.mid` moved is
+today (plain PatchKnob set, empty engine state). Opening a sidecar whose `.mid` moved is
 an error surfaced to the user; never silently discard MIDI.
 
 ---
 
 ## 4. New constants to allocate
 
-seq24's tags are `0x2424xxxx` (`src/globals.h:108-117`). Currently used:
+PatchKnob's tags are `0x2424xxxx` (`src/globals.h:108-117`). Currently used:
 `0x24240001`..`0x24240008` and `0x24240010`. Allocate:
 
 ```cpp
@@ -260,7 +260,7 @@ if (proprietary == c_clipview) {
 ```
 
 Any leftover is still eaten at `src/midifile.cpp:381-382`, so ordering vs. other
-tags is unconstrained. Old seq24 ignores both tags (skip-unknown).
+tags is unconstrained. Old PatchKnob ignores both tags (skip-unknown).
 
 > Note: today `fill_list` does **not** persist the scale-master fields at all, so
 > this is net-new per-pattern data, not a change to existing bytes.
@@ -435,7 +435,7 @@ so files are format-stable now and playback lights up when the player lands.
    (`src/seqmenu.cpp:261-271`) when unset / user forces a chooser; write the chosen
    view back to the sequence so it round-trips.
 6. **Checkpoint:** save a set, reload — key-follow + view survive; open the same
-   `.mid` in stock seq24 (or `git stash` these) and confirm it still loads (unknown
+   `.mid` in stock PatchKnob (or `git stash` these) and confirm it still loads (unknown
    SeqSpec skipped).
 
 **Phase 2 — sidecar writer/reader skeleton**

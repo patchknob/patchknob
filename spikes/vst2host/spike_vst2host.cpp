@@ -1,6 +1,6 @@
 // spike_vst2host.cpp
 //
-// ZERO-JUCE VST2 host spike for the seq24 Windows port.
+// ZERO-JUCE VST2 host spike for the PatchKnob Windows port.
 //
 // Goal: prove we can load and instantiate a VST2 plugin DLL with the mingw64
 // toolchain, using the clean-room "vestige" aeffectx.h header (NOT the
@@ -88,11 +88,11 @@ static intptr_t VST_CALL_CONV hostCallback(AEffect* effect, int32_t opcode,
         return (intptr_t)g_blockSize;
 
     case audioMasterGetVendorString:
-        if (ptr) std::strcpy((char*)ptr, "seq24-spike");
+        if (ptr) std::strcpy((char*)ptr, "PatchKnob-spike");
         return 1;
 
     case audioMasterGetProductString:
-        if (ptr) std::strcpy((char*)ptr, "seq24 VST2 host spike");
+        if (ptr) std::strcpy((char*)ptr, "PatchKnob VST2 host spike");
         return 1;
 
     case audioMasterGetVendorVersion:
@@ -150,7 +150,7 @@ int main(int argc, char** argv)
     }
 
     const char* path = argv[1];
-    std::printf("== seq24 VST2 host spike (clean-room vestige header) ==\n");
+    std::printf("== PatchKnob VST2 host spike (clean-room vestige header) ==\n");
     std::printf("loading: %s\n", path);
 
     // LoadLibraryA so we can pass the argv string straight through.

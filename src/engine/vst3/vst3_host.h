@@ -1,7 +1,7 @@
 //----------------------------------------------------------------------------
-//  seq24 Windows port - VST3 host module.
+//  PatchKnob - VST3 host module.
 //
-//  Vst3PluginInstance implements the shared seq24::engine::IPluginInstance
+//  Vst3PluginInstance implements the shared PatchKnob::engine::IPluginInstance
 //  contract (see src/engine/plugin_api.h) on top of Steinberg's ZERO-JUCE
 //  VST3 SDK hosting layer (VST3::Hosting::Module, IComponent, IAudioProcessor,
 //  IEditController). NON-INTERLEAVED float buffers throughout.
@@ -9,8 +9,8 @@
 //  Only this class (and the createVst3Instance factory) are exposed; nothing
 //  in the rest of the engine ever sees a Steinberg type.
 //----------------------------------------------------------------------------
-#ifndef SEQ24_ENGINE_VST3_VST3_HOST_H
-#define SEQ24_ENGINE_VST3_VST3_HOST_H
+#ifndef PATCHKNOB_ENGINE_VST3_VST3_HOST_H
+#define PATCHKNOB_ENGINE_VST3_VST3_HOST_H
 
 #include "../plugin_api.h"
 
@@ -18,7 +18,7 @@
 #include <vector>
 #include <cstdint>
 
-namespace seq24 { namespace engine {
+namespace PatchKnob { namespace engine {
 
 // Concrete VST3 IPluginInstance. Construct via createVst3Instance(); after
 // construction call prepare() before process().
@@ -63,6 +63,6 @@ private:
 // Returns nullptr on failure. Caller owns the result.
 IPluginInstance* createVst3Instance(const PluginDescriptor& desc);
 
-}} // namespace seq24::engine
+}} // namespace PatchKnob::engine
 
-#endif // SEQ24_ENGINE_VST3_VST3_HOST_H
+#endif // PATCHKNOB_ENGINE_VST3_VST3_HOST_H

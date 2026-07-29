@@ -1,12 +1,12 @@
 //----------------------------------------------------------------------------
-//  seq24 Windows port — AutomationPlayer implementation. See header for the
+//  PatchKnob — AutomationPlayer implementation. See header for the
 //  advance()/emitAt() contract and threading notes.
 //----------------------------------------------------------------------------
 #include "automation_player.h"
 
 #include <cmath>
 
-namespace seq24 { namespace engine {
+namespace PatchKnob { namespace engine {
 
 int AutomationPlayer::ccFromNorm(float v) {
     if (v <= 0.0f) return 0;
@@ -29,7 +29,14 @@ void AutomationPlayer::syncMemo() {
     if (memo_.size() != nt) memo_.resize(nt);
     for (size_t t = 0; t < nt; ++t) {
         const size_t nl = (size_t)tracks_[t].laneCount();
-        if (memo_[t].size() != nl) memo_[t].resize(nl);
+        // A lane-count change means a structural edit (add/delete/reorder).
+        // Deleting a middle lane shifts every later lane down one index, so a
+        // memo kept by index would now belong to a DIFFERENT lane and wrongly
+        // coalesce away its first emit.  Reset the whole track's memo so every
+        // lane re-emits once cleanly.
+        if (memo_[t].size() != nl) {
+            memo_[t].assign(nl, LaneMemo{});
+        }
     }
 }
 
@@ -119,4 +126,4 @@ void AutomationPlayer::emitAt(int64_t tick,
     }
 }
 
-}} // namespace seq24::engine
+}} // namespace PatchKnob::engine

@@ -1,12 +1,12 @@
 //----------------------------------------------------------------------------
-//  seq24 Windows port — MixerGraph implementation. See mixer_graph.h.
+//  PatchKnob — MixerGraph implementation. See mixer_graph.h.
 //----------------------------------------------------------------------------
 #include "mixer_graph.h"
 
 #include <algorithm>
 #include <cmath>
 
-namespace seq24 { namespace engine {
+namespace PatchKnob { namespace engine {
 
 void MixerGraph::setTrackCount(int n) {
     if (n < 0) n = 0;
@@ -119,4 +119,4 @@ void MixerGraph::render(float** out, int numChannels, int nframes, double sample
     renderBlock(out, numChannels, nframes, stagedInputs_, stagedNumInputs_);
 }
 
-}} // namespace seq24::engine
+}} // namespace PatchKnob::engine

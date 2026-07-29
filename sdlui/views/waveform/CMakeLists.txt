@@ -42,5 +42,5 @@ target_link_directories(waveform_test PRIVATE ${SDL2_LIBRARY_DIRS} ${SDL2TTF_LIB
 
 target_link_libraries(waveform_test PRIVATE
     ${SDL2TTF_LIBRARIES} ${SDL2_LIBRARIES}
-    seq24_audioclip seq24_graph
+    PatchKnob_audioclip PatchKnob_graph
     winmm)

@@ -9,7 +9,7 @@ same time and has its **follow** toggle on will have each emitted note snapped t
 the nearest in-scale pitch, **in real time** and **non-destructively** — the stored
 `event` data is never modified; only the byte sent to the MIDI bus is altered.
 
-All file:line references below are against the seq24-0.8.7 tree as read.
+All file:line references below are against the PatchKnob-0.8.7 tree as read.
 
 ---
 
@@ -83,7 +83,7 @@ void set_follows_master( bool ); bool get_follows_master();
 ```
 
 The master's **(root, scale)** itself does NOT need new sequence members for the
-MVP: seq24 already has a per-pattern scale/key concept used only for the piano-roll
+MVP: PatchKnob already has a per-pattern scale/key concept used only for the piano-roll
 (`seqedit::m_scale`, `seqedit::m_key` — seqedit.h:187,190). For the master we add an
 explicit pair of members so the value is owned by the model, not the editor window:
 
@@ -124,7 +124,7 @@ three values that belong to a *different* object (the master sequence) and to
 - the master's `m_master_key`, `m_master_scale`, and whether the master is still
   playing (`get_playing()`).
 
-seq24's locking primitive is a per-object recursive-style `mutex` (mutex.h:27;
+PatchKnob's locking primitive is a per-object recursive-style `mutex` (mutex.h:27;
 `sequence::m_mutex` at sequence.h:150; `sequence::lock/unlock` at sequence.h:165).
 `perform` does **not** itself hold a mutex member, so we cannot take "the perform
 lock."
@@ -248,7 +248,7 @@ the original pitch `p`. If we recompute the snap for the note-off and the master
 scale/root has changed (or the master stopped) between on and off, the off could
 land on a different pitch `p'' != p'`, leaving `p'` sounding forever.
 
-**seq24 already pairs on/off by reference count, not by linkage, at emit time:**
+**PatchKnob already pairs on/off by reference count, not by linkage, at emit time:**
 `put_event_on_bus` does `m_playing_notes[note]++` on note-on and `--` (with an
 underflow `skip`) on note-off (sequence.cpp:2877–2892). `off_playing_notes()`
 (sequence.cpp:2905) later flushes any note whose count is still > 0. So correctness
@@ -361,7 +361,7 @@ test; everything else passes through untouched.
   emit funnel reached from `sequence::play` (sequence.cpp:358) which is driven by
   `perform::play` (perform.cpp:660) on the output thread.
 
-- **Stuck-note handling:** seq24 pairs note-on/off by a reference count
+- **Stuck-note handling:** PatchKnob pairs note-on/off by a reference count
   `m_playing_notes[note]` in `put_event_on_bus` (sequence.cpp:2877–2892), and
   `off_playing_notes()` (sequence.cpp:2905) flushes any count left > 0. To stay
   consistent, snap the note-off to the **same** pitch as its note-on by latching the

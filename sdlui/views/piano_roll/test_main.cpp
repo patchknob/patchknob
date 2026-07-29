@@ -1,13 +1,13 @@
 //----------------------------------------------------------------------------
 //  sdlui/views/piano_roll/test_main.cpp
 //
-//  Stand-alone harness for ui::PianoRoll: builds a sample seq24 `sequence`
+//  Stand-alone harness for ui::PianoRoll: builds a sample PatchKnob `sequence`
 //  (melody + chord + velocity ramp), mounts the piano roll as a full-window
 //  root widget, animates the playhead, and runs the toolkit event loop.
 //
 //  Env:
-//     SEQ24_RUN_MS  -- auto-quit after N ms (screenshot / CI).  0 = run forever.
-//     SEQ24_LIGHT   -- start in Light theme instead of Midnight.
+//     PATCHKNOB_RUN_MS  -- auto-quit after N ms (screenshot / CI).  0 = run forever.
+//     PATCHKNOB_LIGHT   -- start in Light theme instead of Midnight.
 //----------------------------------------------------------------------------
 #include "gui.h"
 #include "pianoroll.h"
@@ -55,11 +55,11 @@ int main(int argc, char** argv)
 {
     (void)argc; (void)argv;
 
-    set_mode(getenv("SEQ24_LIGHT") ? Mode::Light : Mode::Midnight);
+    set_mode(getenv("PATCHKNOB_LIGHT") ? Mode::Light : Mode::Midnight);
 
     App app;
     app.w = 1120; app.h = 720;
-    if (!app.init("seq24 / SDL2 -- Piano Roll")) { app.shutdown(); return 1; }
+    if (!app.init("PatchKnob -- Piano Roll")) { app.shutdown(); return 1; }
 
     sequence seq;
     build_sample(seq);
@@ -78,7 +78,7 @@ int main(int argc, char** argv)
 
     // ---- animate the playhead in a side thread; nudge redraws --------------
     long run_ms = 0;
-    if (const char* rm = getenv("SEQ24_RUN_MS")) run_ms = atol(rm);
+    if (const char* rm = getenv("PATCHKNOB_RUN_MS")) run_ms = atol(rm);
     std::atomic<bool> go{ true };
     Uint32 t0 = SDL_GetTicks();
     std::thread anim([&] {
