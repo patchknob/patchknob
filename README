@@ -1,7 +1,7 @@
 PatchKnob
 ==============
 
-PatchKnob is a Windows DAW and modular synthesis environment built around:
+PatchKnob is a multi-platform SDL DAW and modular synthesis environment built around:
 
 - tracker, piano-roll, and timeline sequencing
 - sampler instruments with keyzones and per-sample editing
@@ -19,6 +19,28 @@ PatchKnob is a Windows DAW and modular synthesis environment built around:
 
 The Patreon link is for project support, custom builds, and binary downloads.
 
+## Linux Build
+
+Install SDL2, SDL2_ttf, libpng, librsvg/cairo, PortAudio backend dependencies,
+then run:
+
+```sh
+./tools/build_linux.sh
+./build-linux/PatchKnob
+```
+
+On Ubuntu/Debian, the basic dependency set is:
+
+```sh
+sudo apt install build-essential cmake pkg-config libsdl2-dev libsdl2-ttf-dev \
+  libpng-dev librsvg2-dev libcairo2-dev libasound2-dev libjack-jackd2-dev \
+  libpulse-dev
+```
+
+VST hosting is currently implemented for Windows; Linux builds include the
+built-in sampler and the SDL sequencing/modular shell while the Linux plugin
+host path is filled in.
+
 ## Windows Build
 
 Build from an MSYS2 MINGW64 shell or a PowerShell with MSYS2 on `PATH`:
@@ -30,7 +52,7 @@ cmake --build build --config Release
 ./build/PatchKnob.exe
 ```
 
-The build stages the runtime DLL closure next to the executable in `build/`.
+The Windows build stages the runtime DLL closure next to the executable in `build/`.
 
 ## Installer
 

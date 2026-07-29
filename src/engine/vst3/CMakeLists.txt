@@ -16,6 +16,12 @@ project(PatchKnob_vst3 CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+if(NOT WIN32)
+    add_library(PatchKnob_vst3 STATIC vst3_stub.cpp)
+    target_include_directories(PatchKnob_vst3 PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")
+    return()
+endif()
+
 # Locate the VST3 SDK relative to this module (lives under spikes/vst3host).
 set(SDK "${CMAKE_CURRENT_SOURCE_DIR}/../../../spikes/vst3host/vst3sdk")
 get_filename_component(SDK "${SDK}" ABSOLUTE)

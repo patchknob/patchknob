@@ -16,7 +16,7 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
-find_program(POWERSHELL_EXECUTABLE powershell.exe REQUIRED)
+find_program(POWERSHELL_EXECUTABLE powershell.exe)
 set(FUNDAMENTAL_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../../vendor/Cardinal/plugins/Fundamental/src)
 set(STABLE16_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/../../../vendor/Cardinal/plugins/GoodSheperd/src/Stable16.cpp)
 set(FUNDAMENTAL_BRIDGE_SOURCE ${CMAKE_CURRENT_BINARY_DIR}/fundamental_dsp_bridge.cpp)
@@ -42,17 +42,27 @@ set(FUNDAMENTAL_BRIDGE_INPUTS
     ${FUNDAMENTAL_SOURCE_DIR}/SequentialSwitch.cpp
     ${STABLE16_SOURCE}
 )
-add_custom_command(
-    OUTPUT ${FUNDAMENTAL_BRIDGE_SOURCE}
-    COMMAND ${POWERSHELL_EXECUTABLE} -ExecutionPolicy Bypass -File
-            ${CMAKE_CURRENT_SOURCE_DIR}/../../../tools/generate_fundamental_dsp.ps1
-            -SourceRoot ${FUNDAMENTAL_SOURCE_DIR}
-            -Output ${FUNDAMENTAL_BRIDGE_SOURCE}
-            -Stable16Source ${STABLE16_SOURCE}
-    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/../../../tools/generate_fundamental_dsp.ps1
-            ${FUNDAMENTAL_BRIDGE_INPUTS}
-    VERBATIM
-)
+if(POWERSHELL_EXECUTABLE AND EXISTS "${FUNDAMENTAL_SOURCE_DIR}/VCO.cpp")
+    add_custom_command(
+        OUTPUT ${FUNDAMENTAL_BRIDGE_SOURCE}
+        COMMAND ${POWERSHELL_EXECUTABLE} -ExecutionPolicy Bypass -File
+                ${CMAKE_CURRENT_SOURCE_DIR}/../../../tools/generate_fundamental_dsp.ps1
+                -SourceRoot ${FUNDAMENTAL_SOURCE_DIR}
+                -Output ${FUNDAMENTAL_BRIDGE_SOURCE}
+                -Stable16Source ${STABLE16_SOURCE}
+        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/../../../tools/generate_fundamental_dsp.ps1
+                ${FUNDAMENTAL_BRIDGE_INPUTS}
+        VERBATIM
+    )
+else()
+    file(WRITE ${FUNDAMENTAL_BRIDGE_SOURCE}
+"#include \"fundamental_bridge.h\"\nnamespace rackx { namespace fundamental {\n")
+    foreach(fn makeVCO makeVCF makeVCA1 makeADSR makeLFO makeMixer make8vert makeMerge makeMidSide makeOctave makeSplit makeSum makeVCA2 makeVCMixer makeMutes makePulses makeRandom makeSEQ3 makeSequentialSwitch1 makeSequentialSwitch2 makeStable16)
+        file(APPEND ${FUNDAMENTAL_BRIDGE_SOURCE}
+"std::unique_ptr<rack::engine::Module> ${fn}(){ return nullptr; }\n")
+    endforeach()
+    file(APPEND ${FUNDAMENTAL_BRIDGE_SOURCE} "} }\n")
+endif()
 
 add_library(PatchKnob_rack STATIC
     rack_factory.cpp
@@ -78,7 +88,10 @@ target_include_directories(PatchKnob_rack PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/../../../vendor/Cardinal/src/Rack/include
 )
 
-target_compile_options(PatchKnob_rack PRIVATE -Wall -msse4.2)
+target_compile_options(PatchKnob_rack PRIVATE -Wall)
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64|i.86")
+    target_compile_options(PatchKnob_rack PRIVATE -msse4.2)
+endif()
 
 # --- test executable --------------------------------------------------------
 # Headless self-test + 500-module scaling bench.  Uses RackEngine directly (no

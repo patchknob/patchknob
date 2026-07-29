@@ -53,11 +53,17 @@ target_include_directories(PatchKnob_audio
 
 # Static PortAudio + the Windows backend link deps (WASAPI / WDM-KS / DSound /
 # MME need these system libs; PortAudio has no external runtime dependency).
-target_link_libraries(PatchKnob_audio
-    PUBLIC
-        "${PORTAUDIO_DIR}/build/libportaudio.a"
-        winmm ole32 uuid ksuser setupapi mfplat mfuuid wmcodecdspuuid
-)
+target_link_libraries(PatchKnob_audio PUBLIC "${PORTAUDIO_DIR}/build/libportaudio.a")
+if(WIN32)
+    target_link_libraries(PatchKnob_audio
+        PUBLIC winmm ole32 uuid ksuser setupapi mfplat mfuuid wmcodecdspuuid)
+elseif(UNIX AND NOT APPLE)
+    find_package(Threads REQUIRED)
+    target_link_libraries(PatchKnob_audio PUBLIC Threads::Threads asound jack pulse pulse-simple dl m)
+elseif(APPLE)
+    target_link_libraries(PatchKnob_audio
+        PUBLIC "-framework CoreAudio" "-framework AudioToolbox" "-framework AudioUnit" "-framework CoreServices")
+endif()
 
 #-----------------------------------------------------------------------------
 # Test executable: audio_test

@@ -49,14 +49,13 @@ target_include_directories(PatchKnob_pluginhost PUBLIC
 )
 
 # -----------------------------------------------------------------------------
-# 2. VST2 probe (self-contained; only needs the vestige header + Win32).
+# 2. Probe helpers. They are currently Windows-only; non-Windows builds still
+#    get the built-in sampler through PluginHost.
 # -----------------------------------------------------------------------------
+if(WIN32)
 add_executable(probe_vst2 probe_vst2.cpp)
 target_compile_options(probe_vst2 PRIVATE -O2 -Wno-multichar)
 
-# -----------------------------------------------------------------------------
-# 3. VST3 probe (minimal Steinberg SDK hosting subset, mirroring the vst3 spike).
-# -----------------------------------------------------------------------------
 if(EXISTS ${VST3SDK}/pluginterfaces/vst/ivstaudioprocessor.h)
     set(SDK_SOURCES
         ${VST3SDK}/pluginterfaces/base/funknown.cpp
@@ -98,6 +97,7 @@ else()
     message(WARNING "VST3 SDK not found at ${VST3SDK}; probe_vst3 will not be built. "
                     "VST3 scanning will be unavailable at runtime.")
 endif()
+endif()
 
 # -----------------------------------------------------------------------------
 # 4. Standalone inventory test (weak stub factories).
@@ -114,8 +114,9 @@ target_include_directories(scan_test PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/..)
 
-# scan_test depends on the probe exes existing alongside it.
-add_dependencies(scan_test probe_vst2)
+if(TARGET probe_vst2)
+    add_dependencies(scan_test probe_vst2)
+endif()
 if(TARGET probe_vst3)
     add_dependencies(scan_test probe_vst3)
 endif()

@@ -103,7 +103,9 @@ endif()
 target_include_directories(PatchKnob PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR} ${SRC} ${SRC}/engine ${RTMIDI_DIR}
     ${SDL2_INCLUDE_DIRS} ${SDL2TTF_INCLUDE_DIRS} ${PNG_INCLUDE_DIRS})
-target_compile_definitions(PatchKnob PRIVATE __WINDOWS_MM__)
+if(WIN32)
+    target_compile_definitions(PatchKnob PRIVATE __WINDOWS_MM__)
+endif()
 target_compile_options(PatchKnob PRIVATE -Wall)
 target_link_directories(PatchKnob PRIVATE ${SDL2_LIBRARY_DIRS} ${SDL2TTF_LIBRARY_DIRS} ${PNG_LIBRARY_DIRS})
 
@@ -111,16 +113,23 @@ target_link_libraries(PatchKnob PRIVATE
     ${SDL2TTF_LIBRARIES} ${SDL2_LIBRARIES} ${PNG_LIBRARIES}
     PatchKnob_pluginhost PatchKnob_vst2 PatchKnob_vst3 PatchKnob_graph PatchKnob_audio
     PatchKnob_automation PatchKnob_audioclip PatchKnob_patch PatchKnob_rack PatchKnob_kitchensink
-    PatchKnob_buzz
-    winmm comdlg32 pthread)
+    PatchKnob_buzz)
+if(WIN32)
+    target_link_libraries(PatchKnob PRIVATE winmm comdlg32 pthread)
+elseif(UNIX)
+    find_package(Threads REQUIRED)
+    target_link_libraries(PatchKnob PRIVATE Threads::Threads dl)
+endif()
 
 # The plugin scanner probes each plugin out-of-process via probe_vst2/3.exe,
 # which it looks for next to the running exe.  Build them and stage them there.
-add_dependencies(PatchKnob probe_vst2)
-add_custom_command(TARGET PatchKnob POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            $<TARGET_FILE:probe_vst2> $<TARGET_FILE_DIR:PatchKnob>
-    VERBATIM)
+if(TARGET probe_vst2)
+    add_dependencies(PatchKnob probe_vst2)
+    add_custom_command(TARGET PatchKnob POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_FILE:probe_vst2> $<TARGET_FILE_DIR:PatchKnob>
+        VERBATIM)
+endif()
 if(TARGET probe_vst3)
     add_dependencies(PatchKnob probe_vst3)
     add_custom_command(TARGET PatchKnob POST_BUILD
@@ -134,16 +143,18 @@ endif()
 # runs self-contained -- a detached launch otherwise loads stale DLLs off PATH
 # and aborts with STATUS_ENTRYPOINT_NOT_FOUND (missing clock_gettime).  Runs
 # last (after the probe helpers are staged, so ldd sees the whole set).
-set(MSYS_BASH_HINT "C:/msys64/usr/bin/bash.exe")
-if(EXISTS "${MSYS_BASH_HINT}")
-    set(BASH_EXE "${MSYS_BASH_HINT}" CACHE FILEPATH "MSYS bash" FORCE)
-else()
-    find_program(BASH_EXE bash)
-endif()
-if(BASH_EXE)
-    add_custom_command(TARGET PatchKnob POST_BUILD
-        COMMAND ${BASH_EXE} ${CMAKE_CURRENT_SOURCE_DIR}/deploy_dlls.sh $<TARGET_FILE:PatchKnob>
-        VERBATIM)
-else()
-    message(WARNING "bash not found: run sdlui/deploy_dlls.sh manually to bundle DLLs")
+if(WIN32)
+    set(MSYS_BASH_HINT "C:/msys64/usr/bin/bash.exe")
+    if(EXISTS "${MSYS_BASH_HINT}")
+        set(BASH_EXE "${MSYS_BASH_HINT}" CACHE FILEPATH "MSYS bash" FORCE)
+    else()
+        find_program(BASH_EXE bash)
+    endif()
+    if(BASH_EXE)
+        add_custom_command(TARGET PatchKnob POST_BUILD
+            COMMAND ${BASH_EXE} ${CMAKE_CURRENT_SOURCE_DIR}/deploy_dlls.sh $<TARGET_FILE:PatchKnob>
+            VERBATIM)
+    else()
+        message(WARNING "bash not found: run sdlui/deploy_dlls.sh manually to bundle DLLs")
+    endif()
 endif()

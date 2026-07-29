@@ -5,7 +5,9 @@
 #include "plugin_host.h"
 #include "../buzz/sampler_instrument.h"
 
+#ifdef _WIN32
 #include <windows.h>
+#endif
 
 #include <algorithm>
 #include <atomic>
@@ -18,6 +20,8 @@
 #include <string>
 #include <thread>
 #include <vector>
+
+#ifdef _WIN32
 
 namespace PatchKnob { namespace engine {
 
@@ -586,3 +590,41 @@ __attribute__((weak)) IPluginInstance* createVst3Instance(const PluginDescriptor
 #endif
 
 }} // namespace PatchKnob::engine
+
+#else
+
+namespace PatchKnob { namespace engine {
+
+PluginHost::PluginHost() = default;
+PluginHost::~PluginHost() = default;
+
+std::string PluginHost::findProbeExe(const char*) const { return {}; }
+
+bool PluginHost::probeVst2(const std::string&, std::vector<PluginDescriptor>&) const { return false; }
+bool PluginHost::probeVst3(const std::string&, std::vector<PluginDescriptor>&) const { return false; }
+
+std::vector<PluginDescriptor> PluginHost::scan(const std::vector<std::string>&)
+{
+    PluginDescriptor sampler;
+    sampler.name = "Sampler";
+    sampler.vendor = "PatchKnob";
+    sampler.path.clear();
+    sampler.isInstrument = true;
+    sampler.numAudioIn = 0;
+    sampler.numAudioOut = 2;
+    return { sampler };
+}
+
+IPluginInstance* PluginHost::instantiate(const PluginDescriptor& desc)
+{
+    if (desc.name == "Sampler" && desc.path.empty())
+        return create_sampler_instrument();
+    return nullptr;
+}
+
+bool PluginHost::saveCache(const std::vector<PluginDescriptor>&) const { return false; }
+bool PluginHost::loadCache(std::vector<PluginDescriptor>& out) const { out.clear(); return false; }
+
+}} // namespace PatchKnob::engine
+
+#endif

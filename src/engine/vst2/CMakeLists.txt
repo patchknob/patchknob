@@ -20,17 +20,18 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
-add_library(PatchKnob_vst2 STATIC
-    vst2_host.cpp
-    seh_guard.cpp
-)
+if(WIN32)
+add_library(PatchKnob_vst2 STATIC vst2_host.cpp seh_guard.cpp)
+else()
+add_library(PatchKnob_vst2 STATIC vst2_stub.cpp)
+endif()
 target_include_directories(PatchKnob_vst2 PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 target_compile_options(PatchKnob_vst2 PRIVATE -Wall -Wextra)
 
-add_executable(vst2_test
-    vst2_test.cpp
-)
-target_link_libraries(vst2_test PRIVATE PatchKnob_vst2)
-target_compile_options(vst2_test PRIVATE -Wall -Wextra)
+if(WIN32)
+    add_executable(vst2_test vst2_test.cpp)
+    target_link_libraries(vst2_test PRIVATE PatchKnob_vst2)
+    target_compile_options(vst2_test PRIVATE -Wall -Wextra)
+endif()
