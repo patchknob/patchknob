@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=PatchKnob
+GenericName=Digital Audio Workstation
+Comment=Tracker, timeline and modular synthesis environment
+Exec=patchknob %f
+Icon=patchknob
+Terminal=false
+Categories=AudioVideo;Audio;AudioVideoEditing;Music;
+Keywords=DAW;audio;music;sequencer;synthesizer;tracker;modular;
+MimeType=application/x-patchknob-project;
+StartupNotify=true

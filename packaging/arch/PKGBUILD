@@ -1,0 +1,30 @@
+# Maintainer: PatchKnob <https://patchknob.com>
+#
+# Builds from the working tree this PKGBUILD sits in, so it packages exactly
+# what you have checked out.  Run it through ../build-arch.sh, which stages the
+# tree and invokes makepkg for you.
+pkgname=patchknob
+pkgver=0.8.7
+pkgrel=1
+pkgdesc="Tracker, timeline and modular synthesis DAW with VST hosting, Csound and Pure Data nodes"
+arch=('x86_64' 'aarch64')
+url="https://patchknob.com"
+license=('GPL3')
+depends=('alsa-lib' 'sdl2' 'sdl2_ttf' 'libx11' 'libgl' 'curl' 'libpng' 'freetype2' 'fontconfig')
+optdepends=('jack2: JACK audio backend'
+            'pipewire-jack: JACK via PipeWire')
+makedepends=('cmake' 'ninja' 'pkgconf' 'bison' 'flex')
+options=('!strip' '!debug')   # stripping a 50 MB binary is slow and buys little here
+
+build() {
+    cd "$srcdir"
+    cmake -S . -B build -G Ninja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=/usr
+    cmake --build build --target PatchKnob -j"$(nproc)"
+}
+
+package() {
+    cd "$srcdir"
+    DESTDIR="$pkgdir" cmake --install build --prefix /usr
+}
