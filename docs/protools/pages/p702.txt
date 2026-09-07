@@ -1,0 +1,48 @@
+      If you are working on a film or video scene, you          Timeline and Edit Selection
+      may want to unlink the Timeline and Edit selec-           Markers
+      tions to find or audition material that is at a differ-
+                                                                Timeline selections are displayed in the Main
+      ent location than the current Timeline selection.
+                                                                Timebase ruler with Timeline Selection Markers,
+      Edit selections can be played (choose Edit > Selec-
+                                                                which appear as blue arrows (red when recording).
+      tion > Play Edit) without disrupting the current
+                                                                In addition, there are Pre- and Post-Roll Flags
+      Timeline selection. Once you find the material,
+                                                                (which are green when enabled) indicating the lo-
+      you can then go back to the Timeline selection and
+                                                                cation for pre- and post-roll.
+      place it within the context of the scene.
+
+      The following figure illustrates another reason
+      why you might want to unlink the Timeline and
+      Edit selections. In this example, the Timeline se-        Timeline Selection Markers with Pre- and Post-Roll
+                                                                Flags
+      lection sets a range to be looped on playback, while
+      a MIDI clip (residing within the loop) is selected        When the Timeline and Edit selections are un-
+      for editing purposes.                                     linked, Edit selections are displayed in the ruler
+                                                                with Edit Markers, which appear as black brackets.
+      During playback, the Edit selection can be nudged,
+      quantized, or transposed while the loop plays back
+      completely independent and uninterrupted.
+                                                                Edit Markers
+
+                                                                If the Timeline and Edit selections are linked, Edit
+                                                                selections are represented by the blue Timeline Se-
+                                                                lection Markers.
+
+                                                                See the following topics for more information on
+                                                                working with Timeline and Edit selections:
+      Timeline and Edit selections unlinked
+                                                                • “Selecting Track Material” on page 671
+      While you could theoretically do this with the
+                                                                • “Timeline Selections” on page 682
+      Timeline and Edit selections linked, as soon as
+      playback is stopped, the playback range would             • “Setting Punch and Loop Points” on page 562
+      then be updated to that of the more recent edit           • “Setting Pre- and Post-Roll” on page 565
+      range, or to a single note when editing MIDI.
+
+
+
+
+670   Pro Tools Reference Guide

@@ -24,7 +24,10 @@ static std::string fit_text(const ui::Font& font, std::string text, int maxw) {
     return text.empty() ? ell : text + ell;
 }
 
-static const unsigned kBufs[] = { 64, 128, 256, 512, 1024, 2048 };
+static const unsigned kBufs[] = {
+    64, 128, 256, 512, 1024, 2048, 4096,
+    8192, 16384, 32768, 65536
+};
 
 int AudioSettingsView::row_h(App& app) const { return app.font.ch() + 8; }
 

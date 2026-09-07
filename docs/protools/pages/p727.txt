@@ -1,0 +1,49 @@
+Auto-Name Separated Clips                               Separating Multiple Tracks
+Option
+                                                        The following figure illustrates a separation across
+With the Auto-Name Separated Clips option in the        one mono audio track and two stereo tracks. For
+Editing Preferences page selected, Pro Tools auto-      some tracks, the selection resides within a clip,
+matically names separated clips for you. The name       while others reside at the start or end of a clip.
+is a numbered variation of the original clip’s name.
+
+By separating a clip, additional clips are auto-cre-
+ated from data on either side of the separation,
+which have new numbers assigned to their names.
+The original clip remains intact and unchanged on
+the Clips List.
+
+     The Clips List can quickly fill up with auto-
+     created clips. For easier clip management,
+     click the Clips List menu, deselect Show >
+     Auto-Created to hide all auto-created clips in
+     the Clips List.
+
+“Separate Clip” Operates On All
+Related Takes
+When the “Separate Clip” Operates on All Related
+Takes option is enabled in the Editing Preferences,
+editing a clip with the Separate Clip command also
+affects all other related takes with the same User
+Time Stamp.                                             Separating across multiple tracks
+
+This option helps you compare different sections        Once separated, this material can be moved or cop-
+from a group of related takes. For example, you         ied to another location.
+can quickly separate an entire group of related vo-
+cal takes into sections, then audition and select the   Separation Grabber Tool
+best material from each section independently.
+                                                        You can use the Separation Grabber tool to auto-
+If this option is selected, make sure the Track         matically separate an Edit selection and move it to
+Name and Clip Start and End options are also se-        another location or another track.
+lected in the Matching Criteria window (see
+“Matching Criteria” on page 745). If they are not,      To separate a selection with the Separation
+all clips in the session that have the same User        Grabber tool:
+Time Stamp will be affected.                            1   With the Selector tool, make an Edit selection.
+                                                            The selection can reside within a single clip,
+In most instances, you will want to disable the
+                                                            across adjacent clips within the same track, or
+Separate Clip Operates On All Related Takes op-
+                                                            across multiple tracks.
+tion, to prevent a large number of clips from being
+created when you use the Separate Clip command.
+
+                                                                         Chapter 31: Editing Clips and Selections   695

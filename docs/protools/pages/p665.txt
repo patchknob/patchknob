@@ -1,0 +1,57 @@
+When the number of operations in the Undo queue        To show (or hide) the Undo History window:
+reaches the maximum specified level of Undo (set          Choose Window > Undo History.
+in the Editing Preferences page), performing an-
+other undoable operation will remove the oldest        To undo operations in the Undo History window:
+operation at the top of the queue.
+                                                          Click the operation (bold) in the list to undo.
+To undo the last operation, do one of the following:
+                                                       All operations in the queue that were performed af-
+   Choose Edit > Undo.                                ter the operation you select are also undone. In the
+                                                       Undo History window, undoable operations are
+   Press Command+Z (Mac) or Control+Z (Win-
+                                                       shown in bold and redoable operations (operations
+    dows).
+                                                       that have already been undone) are shown in ital-
+      If no actions are available to undo, the menu    ics.
+      displays Can’t Undo.
+                                                       To redo operations in the Undo History window:
+To redo the last undone operation, do one of the          Click the operation (italics) in the list to redo.
+following:
+
+   Choose Edit > Redo.                                The operation you choose, as well as all the opera-
+                                                       tions in the queue before it, are redone.
+   Press Shift+Command+Z (Mac) or Shift+Con-
+    trol+Z (Windows).                                  To toggle display of creation times in the Undo
+                                                       History window:
+      If no actions are available to redo, the menu
+                                                          Click the Options pop-up menu and choose
+      displays Can’t Redo.
+                                                           Show Creation Times.
+
+Undo History Window                                    To undo all the operations in the Undo Queue:
+You can use the Undo History window to view the           Click the Options pop-up menu and choose
+queue of the undoable and redoable operations and          Undo All.
+return to any previous state. The Undo History can
+show edit creation times, enabling you to revert to    To redo all the operations in the Redo Queue:
+the state a session held at a particular time.
+                                                          Click the Options pop-up menu and choose
+                                                           Redo All.
+                 Options selector
+
+
+                                                       Clearing the Undo Queue
+
+                                    Undoable           To manually clear the Undo Queue
+                                    operations
+                                                          Click the Options pop-up menu and choose
+                                    Redoable               Clear Undo Queue.
+                                    operations
+
+
+
+Creation times
+Undo History Window
+
+
+
+                                                                                      Chapter 28: Editing Basics   633

@@ -13,10 +13,12 @@
 #include "sequence.h"
 #include "event.h"
 #include "globals.h"
+#include "quantize.h"
 
 #include <algorithm>
 #include <cstdio>
 #include <cmath>
+#include <utility>          // std::pair -- the (status, cc) kind list
 
 namespace ui {
 
@@ -47,6 +49,12 @@ static const int G_NLANES = (int)(sizeof(g_lanes) / sizeof(g_lanes[0]));
 // pitch-class names for note labels + scale/root readouts (ASCII only)
 static const char* const g_pc_names[12] =
     { "C","C#","D","D#","E","F","F#","G","G#","A","A#","B" };
+
+static bool piano_black_key(int note)
+{
+    const int pc = ((note % 12) + 12) % 12;
+    return pc == 1 || pc == 3 || pc == 6 || pc == 8 || pc == 10;
+}
 
 // scale membership masks, one bool per pitch-class relative to the root.
 // 0 == off and 4 == chromatic both return null (identity, no snapping).
@@ -154,6 +162,17 @@ void PianoRoll::stop_preview_notes()
     }
 }
 
+void PianoRoll::cancel_interaction(App& app)
+{
+    stop_preview_notes();
+    if(m_seq) m_seq->unpaint_all();
+    m_down=false; m_dragging=false; m_mode=M_NONE; m_popup_open=false;
+    m_keying_note=-1; m_prev_note=-1;
+    m_len_drag_loop_valid=false;   // the END gesture is over; see on_mouse
+
+    app.request_redraw();
+}
+
 // ---- geometry -------------------------------------------------------------
 void PianoRoll::layout()
 {
@@ -209,7 +228,12 @@ int  PianoRoll::y_to_note(int y) const {
 }
 long PianoRoll::snap_tick(long t) const {
     if (m_snap <= 0) return t;
-    return t - (t % m_snap);
+    // THE shared quantiser (src/quantize.h), same as record quantise and the
+    // offline pattern quantise.  This used to floor with `t - (t % m_snap)`,
+    // so dragging a note always dropped it on the line BEHIND the pointer --
+    // and, because C++ % keeps the sign, a negative tick snapped the wrong way
+    // entirely.  Nearest-line snapping is what the pointer actually indicates.
+    return PatchKnob::quantize::snap(t, m_snap);
 }
 
 void PianoRoll::clamp_scroll()
@@ -235,9 +259,116 @@ void PianoRoll::set_sequence_length_ticks(long ticks)
     if (ticks < step) ticks = step;
     if (ticks == m_seq->get_length()) return;
     m_seq->set_length(ticks, false);
+    // sequence::set_length CLAMPS the loop window into the new length and, by
+    // design, never restores it when the pattern grows back.  For a live END
+    // drag that made a leftward wobble permanently destroy the loop the user
+    // had set: drag END in past the loop end, drag it straight back out, and
+    // the band was gone.  The gesture remembers the window at press time and
+    // re-applies as much of it as the current length allows, so END is a
+    // reversible edit for as long as the button is held.
+    if (m_len_drag_loop_valid) {
+        const long L  = m_seq->get_length();
+        long e = m_len_drag_loop_end   < L ? m_len_drag_loop_end   : L;
+        long s = m_len_drag_loop_start < e ? m_len_drag_loop_start : e;
+        // Direction-dependent order, same reason as in
+        // set_sequence_loop_range_ticks(): whichever bound must move out of the
+        // way goes first, or the other's clamp truncates the restored window.
+        if (s >= m_seq->get_loop_end()) { m_seq->set_loop_end(e);   m_seq->set_loop_start(s); }
+        else                            { m_seq->set_loop_start(s); m_seq->set_loop_end(e); }
+        if (on_loop_changed) on_loop_changed();
+    }
     m_seq->set_dirty();
     m_dirty_flag = true;
     clamp_scroll();
+}
+
+void PianoRoll::set_sequence_loop_start_ticks(long ticks)
+{
+    if (!m_seq) return;
+    ticks = snap_tick(ticks);
+    if (ticks < 0) ticks = 0;
+    // The loop window lives INSIDE the pattern's data: it can never start past
+    // the END marker.  Without this clamp a press in the empty ruler beyond the
+    // pattern end (easy whenever the pattern is shorter than the widget is
+    // wide) drove loop_start into sequence::set_loop_start's own length-1
+    // clamp, leaving a 1-tick sliver loop pinned at the end -- invisible in the
+    // ruler but enough to wash out the whole tracker grid.
+    if (ticks > m_seq->get_length()) ticks = m_seq->get_length();
+    // Never let an edge drag COLLAPSE the window.  A zero-width [x,x) reads as
+    // "no loop" to sequence::play_span (which needs end > start) while the
+    // ruler still shows a stem and the hit test still hands out its edges, so
+    // the clip quietly went back to repeating its whole length with a mark on
+    // screen claiming otherwise.  Keep at least one snap step of width.
+    { const long step = m_snap > 0 ? m_snap : (long)(c_ppqn / 4);
+      const long lim  = m_seq->get_loop_end() - (step > 0 ? step : 1);
+      if (ticks > lim) ticks = lim > 0 ? lim : 0; }
+    if (ticks == m_seq->get_loop_start()) return;
+    m_seq->set_loop_start(ticks);   // clamps to [0, length) itself
+    m_seq->set_dirty();
+    m_dirty_flag = true;
+    if (on_loop_changed) on_loop_changed();
+}
+
+void PianoRoll::set_sequence_loop_end_ticks(long ticks)
+{
+    if (!m_seq) return;
+    ticks = snap_tick(ticks);
+    if (ticks < 0) ticks = 0;
+    if (ticks > m_seq->get_length()) ticks = m_seq->get_length();   // never past END
+    { const long step = m_snap > 0 ? m_snap : (long)(c_ppqn / 4);   // see above:
+      const long lim  = m_seq->get_loop_start() + (step > 0 ? step : 1);
+      if (ticks < lim) ticks = lim < m_seq->get_length() ? lim : m_seq->get_length(); }
+    if (ticks == m_seq->get_loop_end()) return;
+    m_seq->set_loop_end(ticks);   // clamps into [loop_start, length] itself
+    m_seq->set_dirty();
+    m_dirty_flag = true;
+    if (on_loop_changed) on_loop_changed();
+}
+
+// Sets the loop window WITHOUT touching the pattern's own length -- the loop
+// is a sub-region positionable anywhere inside a longer pattern, with content
+// before/after it still present (see sequence::m_loop_start's comment).
+void PianoRoll::set_sequence_loop_range_ticks(long start_ticks, long end_ticks)
+{
+    if (!m_seq) return;
+    long step = m_snap > 0 ? m_snap : (c_ppqn / 4);
+    if (step < 1) step = 1;
+    start_ticks = snap_tick(start_ticks);
+    end_ticks   = snap_tick(end_ticks);
+    if (start_ticks < 0) start_ticks = 0;
+    // The window is a sub-region of the DATA, so the END marker bounds it at
+    // both ends.  Clamp the whole span here (keeping its width where there is
+    // room) rather than letting sequence's per-bound clamps collapse a
+    // dragged-past-the-end region into a 1-tick sliver at the pattern end.
+    const long L = m_seq->get_length();
+    if (start_ticks > L - step) start_ticks = L - step > 0 ? L - step : 0;
+    if (end_ticks < start_ticks + step) end_ticks = start_ticks + step;
+    if (end_ticks > L) {
+        end_ticks = L;
+        if (start_ticks > end_ticks - step)
+            start_ticks = end_ticks - step > 0 ? end_ticks - step : 0;
+    }
+    //  ORDER MATTERS, AND IT DEPENDS ON THE DIRECTION.  Each setter clamps
+    //  against the CURRENT value of the other (set_loop_start against loop_end,
+    //  set_loop_end against loop_start), so the bound that has to move OUT OF
+    //  THE WAY must be written first or the stale one truncates the new window.
+    //  This wrote the end unconditionally first, which is right only when the
+    //  new region lies to the RIGHT: dragging a fresh region entirely to the
+    //  LEFT of the existing one had set_loop_end() clamped up to the old
+    //  loop_start, and the set_loop_start() that followed could not pull it back
+    //  -- the user let go and got [new_start, OLD_start), a window they never
+    //  drew.  Same shape as TrackerView::set_loop_from_selection(), so the two
+    //  editors agree.
+    if (start_ticks >= m_seq->get_loop_end()) {
+        m_seq->set_loop_end(end_ticks);
+        m_seq->set_loop_start(start_ticks);
+    } else {
+        m_seq->set_loop_start(start_ticks);
+        m_seq->set_loop_end(end_ticks);
+    }
+    m_seq->set_dirty();
+    m_dirty_flag = true;
+    if (on_loop_changed) on_loop_changed();
 }
 
 // ---- snap-to-scale (K) ----------------------------------------------------
@@ -425,11 +556,35 @@ void PianoRoll::draw_status_bar(App& app)
     int  note = y_to_note(m_last_my);
     int  sel  = m_seq ? m_seq->get_num_selected_notes() : 0;
 
-    char buf[192];
+    // LOOP READOUT.  The grey band is the only place the loop window is shown,
+    // and it scrolls/zooms out of sight with the pattern -- so a clip could be
+    // repeating a sub-region with nothing on screen saying so.  The status line
+    // never scrolls, so state it here in bar.beat, with the enable flag.
+    char loopbuf[48] = "";
+    if (m_seq) {
+        const long ls = m_seq->get_loop_start(), le = m_seq->get_loop_end();
+        if (ls > 0 || le < m_seq->get_length()) {
+            const int bw  = m_seq->get_bw()  > 0 ? (int)m_seq->get_bw()  : 4;
+            const int bpm = m_seq->get_bpm() > 0 ? (int)m_seq->get_bpm() : 4;
+            const long tpb   = (4 * c_ppqn) / (bw > 0 ? bw : 4);
+            const long tpbar = (tpb > 0 ? tpb : c_ppqn) * bpm;
+            auto bb = [&](long tk, char* o, size_t n) {
+                if (tk < 0) tk = 0;
+                snprintf(o, n, "%ld.%ld", tpbar > 0 ? tk / tpbar + 1 : 1,
+                         tpb > 0 ? (tpbar > 0 ? (tk % tpbar) : tk) / tpb + 1 : 1);
+            };
+            char a[16], b2[16];
+            bb(ls, a, sizeof a); bb(le, b2, sizeof b2);
+            snprintf(loopbuf, sizeof loopbuf, "  loop %s-%s%s", a, b2,
+                     m_seq->get_loop_enabled() ? "" : " (1-shot)");
+        }
+    }
+
+    char buf[256];
     snprintf(buf, sizeof buf,
-             "%s  pitch %s (%d)  snap %s  sel %d  tool %s  %s",
+             "%s  pitch %s (%d)  snap %s  sel %d  tool %s%s  %s",
              bbt(tick).c_str(), note_name(note).c_str(), note,
-             frac_label(m_snap).c_str(), sel, toolnm[m_tool],
+             frac_label(m_snap).c_str(), sel, toolnm[m_tool], loopbuf,
              m_dirty_flag ? "[*]" : "");
     app.mono.draw(r, m_status.x + 3,
                   m_status.y + (m_status.h - app.mono.ch()) / 2, buf, t.text);
@@ -486,6 +641,11 @@ void PianoRoll::erase_at(int x, int y)
     if (!m_seq) return;
     long ts, tf; int note; bool edge;
     if (!find_note_at(x, y, &ts, &tf, &note, &edge)) return;
+    // mark_selected() marks EVERY selected event, not just the one just picked,
+    // so erasing with a selection live deleted the whole selection along with
+    // the note under the pointer.  e_select_one adds to the selection; it does
+    // not replace it.
+    m_seq->unselect();
     m_seq->select_note_events(ts, note, tf, note, sequence::e_select_one);
     m_seq->mark_selected();
     m_seq->remove_marked();
@@ -566,6 +726,12 @@ void PianoRoll::layout_popup(int x, int y)
     int w = maxc * m_cw + 12;
     int h = (int)m_popup_items.size() * rowh + 2;
 
+    // Cap to the widget FIRST.  Previously an over-tall popup (the 10-row
+    // context menu in a short docked editor, or a long division list) was only
+    // pushed up, then snapped to rect.y -- so it still ran off the bottom, its
+    // lower rows drawn over whatever sat underneath and still clickable.
+    if (w > rect.w) w = rect.w;
+    if (h > rect.h) h = rect.h;
     if (x + w > rect.x + rect.w) x = rect.x + rect.w - w;
     if (y + h > rect.y + rect.h) y = rect.y + rect.h - h;
     if (x < rect.x) x = rect.x;
@@ -575,11 +741,21 @@ void PianoRoll::layout_popup(int x, int y)
     m_popup_rowh = rowh;
 }
 
+// Rows the (possibly capped) popup can actually show.
+int PianoRoll::popup_rows() const
+{
+    if (m_popup_rowh <= 0) return 0;
+    const int rows = (m_popup.h - 2) / m_popup_rowh;
+    return std::min(std::max(0, rows), (int)m_popup_items.size());
+}
+
 int PianoRoll::popup_hit(int y)
 {
     if (m_popup_rowh <= 0) return -1;
     int idx = (y - (m_popup.y + 1)) / m_popup_rowh;
-    if (idx < 0 || idx >= (int)m_popup_items.size()) return -1;
+    // Only DRAWN rows are pickable -- a click below the last visible row used to
+    // resolve to an item that was never on screen.
+    if (idx < 0 || idx >= popup_rows()) return -1;
     return idx;
 }
 
@@ -591,7 +767,8 @@ void PianoRoll::draw_popup(App& app)
     fill_rect(r, m_popup, t.panel);
     frame_rect(r, m_popup, t.dim);
 
-    for (int i = 0; i < (int)m_popup_items.size(); ++i) {
+    const int rows = popup_rows();
+    for (int i = 0; i < rows; ++i) {
         const PopItem& it = m_popup_items[i];
         SDL_Rect row{ m_popup.x + 1, m_popup.y + 1 + i * m_popup_rowh,
                       m_popup.w - 2, m_popup_rowh };
@@ -614,6 +791,38 @@ void PianoRoll::draw(App& app)
     const Theme& t = theme();
     m_cw  = app.mono.cw();       // cache metrics for app-less helpers (popups)
     m_chh = app.mono.ch();
+
+    // follow-playhead ([Foll] toggle): page the view so the playhead stays
+    // visible during playback, mirroring the Arrange view's m_follow logic.
+    // The toggle button existed but nothing ever consulted it, so playback
+    // would happily scroll the playhead right off the edge of the grid.
+    if (m_follow && m_seq && m_seq->get_length() > 0) {
+        long span = visible_ticks();
+        if (span < 1) span = 1;
+        const long ls = m_seq->get_loop_start(), le = m_seq->get_loop_end();
+        const bool looping = m_seq->get_loop_enabled() && le > ls &&
+                             (ls > 0 || le < m_seq->get_length());
+        if (looping && (le - ls) <= span) {
+            // A LOOPED CLIP'S PLAYHEAD NEVER LEAVES ITS WINDOW.  Paging on the
+            // playhead the way the general case does made a short window shove
+            // the grid sideways on every repetition -- the bar being edited slid
+            // out from under the pointer several times a bar and follow-mode was
+            // unusable with a loop set.  When the whole window fits on screen
+            // there is nothing to follow: park the view on it once and hold.
+            if (ls < m_scroll_ticks || le > m_scroll_ticks + span) {
+                m_scroll_ticks = ls - (span - (le - ls)) / 2;   // centre it
+                if (m_scroll_ticks < 0) m_scroll_ticks = 0;
+                clamp_scroll();
+            }
+        } else {
+            long ph = m_seq->get_last_tick();
+            if (ph < m_scroll_ticks || ph > m_scroll_ticks + span) {
+                m_scroll_ticks = ph - span / 4;
+                if (m_scroll_ticks < 0) m_scroll_ticks = 0;
+                clamp_scroll();
+            }
+        }
+    }
 
     // whole widget backdrop
     fill_rect(app.ren, rect, t.bg);
@@ -642,7 +851,7 @@ void PianoRoll::draw_grid(App& app)
     const Theme& t = theme();
     SDL_Renderer* r = app.ren;
 
-    SDL_RenderSetClipRect(r, &m_grid);
+    ui::ScopedClip clipScope(r,m_grid);
     fill_rect(r, m_grid, t.bg);
 
     // horizontal: row striping by black/white key + octave separators
@@ -651,7 +860,7 @@ void PianoRoll::draw_grid(App& app)
         int note = (K - 1) - (m_scroll_key + i);
         if (note < 0) break;
         int key = ((note % 12) + 12) % 12;
-        bool is_black = (key == 1 || key == 3 || key == 6 || key == 8 || key == 10);
+        bool is_black = piano_black_key(note);
         int y = m_grid.y + i * m_row_h;
 
         if (is_black)
@@ -667,9 +876,13 @@ void PianoRoll::draw_grid(App& app)
     }
 
     // vertical: bar / beat / sub-beat lines
-    int tpb  = (4 * c_ppqn) / (m_seq ? (int)m_seq->get_bw()  : 4);          // ticks/beat
-    int tpbar= (m_seq ? (int)m_seq->get_bpm() : 4) * (4 * c_ppqn) /
-               (m_seq ? (int)m_seq->get_bw() : 4);                          // ticks/measure
+    // get_bw() is nominally always > 0 (project_io clamps it on load), but
+    // dividing by it unguarded -- unlike bbt() below, which already guards
+    // this same division -- is a live SIGFPE waiting for a stray 0 to reach
+    // here, so clamp it the same way.
+    int bw = m_seq ? (int)m_seq->get_bw() : 4; if (bw <= 0) bw = 4;
+    int tpb  = (4 * c_ppqn) / bw;                                           // ticks/beat
+    int tpbar= (m_seq ? (int)m_seq->get_bpm() : 4) * (4 * c_ppqn) / bw;     // ticks/measure
     int step = tpb / 4;                       // 16th grid
     if (step < 1) step = 1;
     bool draw_sub = (step / m_zoom) >= 4;     // hide sub lines when too dense
@@ -686,7 +899,6 @@ void PianoRoll::draw_grid(App& app)
         vline(r, x, m_grid.y, m_grid.y + m_grid.h, c);
     }
 
-    SDL_RenderSetClipRect(r, nullptr);
 }
 
 // ---- notes ----------------------------------------------------------------
@@ -695,7 +907,7 @@ void PianoRoll::draw_notes(App& app)
     if (!m_seq) return;
     const Theme& t = theme();
     SDL_Renderer* r = app.ren;
-    SDL_RenderSetClipRect(r, &m_grid);
+    ui::ScopedClip clipScope(r,m_grid);
 
     long ts, tf; int note, vel; bool sel;
     m_seq->reset_draw_marker();
@@ -720,10 +932,29 @@ void PianoRoll::draw_notes(App& app)
         }
 
         // --- bar mode --------------------------------------------------------
+        // A note that WRAPS the pattern end has its off at a LOWER tick than its
+        // on, so (tf - ts) came out negative and was clamped to a 1 px sliver --
+        // a wrapped note was effectively invisible.  Draw the two segments it
+        // really is: on..pattern end, and pattern start..off.
+        long barEnd  = tf;
+        long wrapEnd = -1;
+        if (dt == DRAW_NORMAL_LINKED && tf < ts) {
+            barEnd  = m_seq->get_length();
+            wrapEnd = tf;
+        }
         int w;
-        if (dt == DRAW_NORMAL_LINKED) w = int((tf - ts) / m_zoom);
+        if (dt == DRAW_NORMAL_LINKED) w = int((barEnd - ts) / m_zoom);
         else                          w = 8 / m_zoom;                 // unlinked stub
         if (w < 1) w = 1;
+        if (wrapEnd > 0) {
+            const int hx = tick_to_x(0);
+            int hw = int(wrapEnd / m_zoom); if (hw < 1) hw = 1;
+            SDL_Rect hb{ hx, y + 1, hw, h };
+            fill_rect(r, hb, t.dim);
+            int hlit = h * vel / 127; if (hlit < 1) hlit = 1; if (hlit > h) hlit = h;
+            fill_rect(r, SDL_Rect{ hx, y + 1 + (h - hlit), hw, hlit }, body);
+            frame_rect(r, hb, t.hi);
+        }
         if (x + w < m_grid.x || x > m_grid.x + m_grid.w) continue;
 
         SDL_Rect nb{ x, y + 1, w, h };
@@ -748,7 +979,6 @@ void PianoRoll::draw_notes(App& app)
                 app.mono.draw(r, x + 2, y + 1 + (h - app.mono.ch()) / 2, nm, t.bg);
         }
     }
-    SDL_RenderSetClipRect(r, nullptr);
 }
 
 // ---- overlay: lasso box / move / grow preview -----------------------------
@@ -757,7 +987,7 @@ void PianoRoll::draw_overlay(App& app)
     if (m_mode == M_NONE || !m_dragging) return;
     const Theme& t = theme();
     SDL_Renderer* r = app.ren;
-    SDL_RenderSetClipRect(r, &m_grid);
+    ui::ScopedClip clipScope(r,m_grid);
 
     if (m_mode == M_SELECT || m_mode == M_ADDPEND || m_mode == M_ZOOM) {
         int x0 = std::min(m_drop_x, m_cur_x), x1 = std::max(m_drop_x, m_cur_x);
@@ -783,7 +1013,6 @@ void PianoRoll::draw_overlay(App& app)
         frame_rect(r, SDL_Rect{ x, y, w, h }, t.hi);
     }
 
-    SDL_RenderSetClipRect(r, nullptr);
 }
 
 // ---- playhead -------------------------------------------------------------
@@ -806,7 +1035,7 @@ void PianoRoll::draw_keys(App& app)
 {
     const Theme& t = theme();
     SDL_Renderer* r = app.ren;
-    SDL_RenderSetClipRect(r, &m_keys);
+    ui::ScopedClip clipScope(r,m_keys);
     fill_rect(r, m_keys, t.bg);
 
     int vis = m_grid.h / m_row_h + 2;
@@ -814,31 +1043,37 @@ void PianoRoll::draw_keys(App& app)
         int note = (K - 1) - (m_scroll_key + i);
         if (note < 0) break;
         int key = ((note % 12) + 12) % 12;
-        bool is_black = (key == 1 || key == 3 || key == 6 || key == 8 || key == 10);
+        bool is_black = piano_black_key(note);
         bool is_root  = (key == 0);
         int y = m_keys.y + i * m_row_h;
 
-        // white keys use the bright 'hi' role, black keys the dark 'keybg'
-        // role, root C the accent.
-        Color face = is_root ? t.accent : (is_black ? t.keybg : t.hi);
-        int kx = m_keys.x + 10, kw = m_keys.w - 12;
-        fill_rect(r, SDL_Rect{ kx, y + 1, kw, m_row_h - 1 }, face);
+        const Color ivory{ 245, 245, 240, 255 };
+        const Color ebony{ 10, 10, 12, 255 };
+        const Color ink{ 18, 18, 20, 255 };
+        const int kx = m_keys.x + 1;
+        const int whiteW = m_keys.w - 3;
+        const int kw = is_black ? std::max(12, whiteW * 2 / 3) : whiteW;
+        SDL_Rect keyRect{ kx, y + 1, kw, std::max(1, m_row_h - 1) };
+        fill_rect(r, keyRect, is_black ? ebony : ivory);
+        frame_rect(r, keyRect, ink);
         hline(r, m_keys.x, m_keys.x + m_keys.w, y + m_row_h, t.dim);
 
-        // hover hint (from grid / keys motion)
+        // State uses outlines, so C stays white and sharps stay black.
+        if (is_root)
+            frame_rect(r, SDL_Rect{keyRect.x+1,keyRect.y+1,
+                                   std::max(1,keyRect.w-2),std::max(1,keyRect.h-2)}, t.accent);
         if (note == m_keying_note)
-            fill_rect(r, SDL_Rect{ kx, y + 1, kw, m_row_h - 1 }, t.active);
+            frame_rect(r, keyRect, t.active);
 
-        // octave label on each C
-        if (is_root && m_row_h >= 8) {
+        if (m_row_h >= 8) {
             char lbl[8];
             int oct = (note / 12) - 1;
-            snprintf(lbl, sizeof lbl, "C%d", oct);
-            app.mono.draw(r, m_keys.x + 1, y + (m_row_h - app.mono.ch()) / 2, lbl, t.bg);
+            snprintf(lbl, sizeof lbl, "%s%d", g_pc_names[key], oct);
+            app.mono.draw(r, keyRect.x + 2, y + (m_row_h - app.mono.ch()) / 2,
+                          lbl, is_black ? ivory : ink);
         }
     }
     vline(r, m_keys.x + m_keys.w - 1, m_keys.y, m_keys.y + m_keys.h, t.dim);
-    SDL_RenderSetClipRect(r, nullptr);
 }
 
 // ---- top ruler ------------------------------------------------------------
@@ -846,12 +1081,12 @@ void PianoRoll::draw_ruler(App& app)
 {
     const Theme& t = theme();
     SDL_Renderer* r = app.ren;
-    SDL_RenderSetClipRect(r, &m_ruler);
+    ui::ScopedClip clipScope(r,m_ruler);
     fill_rect(r, m_ruler, t.panel);
     hline(r, m_ruler.x, m_ruler.x + m_ruler.w, m_ruler.y + m_ruler.h - 1, t.dim);
 
-    int tpbar = (m_seq ? (int)m_seq->get_bpm() : 4) * (4 * c_ppqn) /
-                (m_seq ? (int)m_seq->get_bw() : 4);
+    int rbw = m_seq ? (int)m_seq->get_bw() : 4; if (rbw <= 0) rbw = 4;
+    int tpbar = (m_seq ? (int)m_seq->get_bpm() : 4) * (4 * c_ppqn) / rbw;
     if (tpbar < 1) tpbar = 4 * c_ppqn;
     // draw a label at most every ~48px: coarsen the measure step if needed
     int measures_per_step = 1;
@@ -869,17 +1104,119 @@ void PianoRoll::draw_ruler(App& app)
         app.mono.draw(r, x + 2, m_ruler.y + 1, bar, t.text);
     }
 
-    // END marker at sequence length; the visible tab is also the drag handle.
+    // Ableton-style loop brace: a shaded band over the [loop_start, loop_end)
+    // window, independent of the pattern's own length -- content before/after
+    // the loop is still there, just not part of it.  No separate tab/text
+    // widgets -- the ruler itself IS the control (see on_mouse: drag empty
+    // ruler to select a new region, drag the band to move it, drag right at
+    // an edge to resize just that edge).  NOT the song/transport loop
+    // (perform's left/right tick, shown in the Arrange view) -- separate,
+    // global range.  Default state (loop_end == length, loop_start == 0)
+    // means "no loop set": draw nothing so a fresh pattern looks unchanged.
     if (m_seq) {
-        int ex = tick_to_x(m_seq->get_length());
-        if (ex >= m_ruler.x - 20 && ex <= m_ruler.x + m_ruler.w) {
-            SDL_Rect eb{ ex, m_ruler.y + m_ruler.h / 2, 22, m_ruler.h / 2 };
-            fill_rect(r, eb, t.active);
-            vline(r, ex, m_ruler.y, m_ruler.y + m_ruler.h, t.hi);
-            app.mono.draw(r, ex + 1, m_ruler.y + m_ruler.h / 2, "END", t.bg);
+        const long ls = m_seq->get_loop_start(), le = m_seq->get_loop_end();
+        const bool loopSet = ls > 0 || le < m_seq->get_length();
+        const bool loopOn  = m_seq->get_loop_enabled();
+        const int lx = tick_to_x(ls), ex = tick_to_x(le);
+        if (loopSet && ex > lx) {
+            // A band with looping OFF is inert -- draw it faint so it does not
+            // claim to be doing something it is not.
+            Color band = loopOn ? t.accent : t.dim; band.a = loopOn ? 48 : 24;
+            SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
+            fill_rect(r, SDL_Rect{lx, m_ruler.y, ex-lx, m_ruler.h}, band);
+            SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_NONE);
+            // Bright double-line edges hint the grabbable resize handles.
+            const Color edge = loopOn ? t.hi : t.dim;
+            vline(r, lx,     m_ruler.y, m_ruler.y + m_ruler.h, edge);
+            vline(r, lx + 1, m_ruler.y, m_ruler.y + m_ruler.h, edge);
+            vline(r, ex - 1, m_ruler.y, m_ruler.y + m_ruler.h, edge);
+            vline(r, ex,     m_ruler.y, m_ruler.y + m_ruler.h, edge);
         }
+        else if (loopSet) {
+            // Sub-pixel window: ex == lx at this zoom, so the block above drew
+            // NOTHING even though the loop is live and the hit test below still
+            // treats it as grabbable.  A pattern that audibly repeated a sliver
+            // had no mark on the ruler to explain why.  Always leave a stem.
+            const Color edge = loopOn ? t.hi : t.dim;
+            vline(r, lx,     m_ruler.y, m_ruler.y + m_ruler.h, edge);
+            vline(r, lx + 1, m_ruler.y, m_ruler.y + m_ruler.h, edge);
+        }
+
+
+        // END MARKER -- where the pattern's DATA ends (sequence::get_length()),
+        // which is a different thing from the loop window drawn above: the loop
+        // is a sub-region inside the pattern, the END is the pattern itself.
+        // Drag it to lengthen or shorten the sequence.  It was missing
+        // entirely: set_sequence_length_ticks() existed but nothing drew a
+        // handle or called it, so the only length you could get was whatever
+        // the pattern was created with.
+        const int endx = tick_to_x(m_seq->get_length());
+        if (endx >= m_ruler.x - 2 && endx <= m_ruler.x + m_ruler.w + 2) {
+            vline(r, endx,     m_ruler.y, m_ruler.y + m_ruler.h, t.note);
+            vline(r, endx + 1, m_ruler.y, m_ruler.y + m_ruler.h, t.note);
+            // Flag pointing back over the pattern, so it reads as "ends here".
+            // Geometry comes from end_marker_rect() so the hit-test grabs
+            // exactly what is painted (its top strip is the flag).
+            const SDL_Rect g = end_marker_rect();
+            const int fh = m_ruler.h / 2 > 5 ? 5 : m_ruler.h / 2;
+            SDL_Rect flag{ g.x, m_ruler.y, g.w - 2, fh };
+            if (flag.x < m_ruler.x) { flag.w -= (m_ruler.x - flag.x); flag.x = m_ruler.x; }
+            if (flag.w > 0) fill_rect(r, flag, t.note);
+        }
+
+        // LOOP / 1-SHOT chip, pinned to the RIGHT of the ruler.  It used to be
+        // plain "1-SHOT" text at m_ruler.x + 3, i.e. painted straight over bar
+        // 1's number, and it was display-only.  Here it is a real button:
+        // clicking it toggles THIS pattern's sequence::m_loop_enabled, the same
+        // thing Shift+L does, so the per-clip one-shot state is visible and
+        // reachable without knowing the shortcut.
+        {
+            const char* lbl = loopOn ? "LOOP" : "1-SHOT";
+            const int cw = app.mono.text_w(lbl);
+            SDL_Rect chip{ m_ruler.x + m_ruler.w - cw - 8, m_ruler.y + 1,
+                           cw + 6, m_ruler.h - 2 };
+            if (chip.h < 4) chip.h = 4;
+            m_loopchip = chip;
+            fill_rect(r, chip, loopOn ? t.accent : t.panel);
+            frame_rect(r, chip, loopOn ? t.hi : t.dim);
+            app.mono.draw(r, chip.x + 3, chip.y + 1, lbl, loopOn ? t.bg : t.note);
+        }
+
+        // OFF-SCREEN LOOP.  The band is the only thing in the whole editor that
+        // says "this pattern repeats a sub-region", and it is painted in pattern
+        // coordinates -- so scrolling right, or zooming in on a later bar, hid
+        // it completely and the ruler then looked exactly like a pattern with no
+        // loop at all, while playback kept repeating the window.  Point at it
+        // from the ruler edge instead: an arrow towards the side the window sits
+        // on, in the same colour the band would have had.  Drawn LAST so the
+        // LOOP chip cannot paint over it (the chip owns the right end, so the
+        // right-hand arrow parks just inside it).
+        if (loopSet && (ex <= m_ruler.x || lx >= m_ruler.x + m_ruler.w)) {
+            const Color mark = loopOn ? t.hi : t.dim;
+            const int ah = m_ruler.h >= 10 ? 4 : 2;             // arrow half-height
+            const int ay = m_ruler.y + m_ruler.h / 2;
+            const bool left = (ex <= m_ruler.x);
+            const int  x0 = left ? m_ruler.x
+                                 : (m_loopchip.w > 0 ? m_loopchip.x - 2
+                                                     : m_ruler.x + m_ruler.w - 1);
+            for (int i = 0; i < ah; ++i)
+                fill_rect(r, SDL_Rect{ left ? x0 + i : x0 - i, ay - i, 1, 2*i + 1 },
+                          mark);
+        }
+    } else {
+        m_loopchip = SDL_Rect{ 0, 0, 0, 0 };
     }
-    SDL_RenderSetClipRect(r, nullptr);
+}
+
+// Shared END-marker geometry (see the declaration).  The flag is drawn back
+// over the pattern from the stem, so the grab area is that flag plus a couple
+// of pixels either side of the stem itself.
+SDL_Rect PianoRoll::end_marker_rect() const
+{
+    const int endx = m_seq ? tick_to_x(m_seq->get_length()) : m_ruler.x;
+    const int fh = m_ruler.h / 2 > 5 ? 5 : m_ruler.h / 2;
+    const int fw = 3 * fh;
+    return SDL_Rect{ endx - fw, m_ruler.y, fw + 4, m_ruler.h };
 }
 
 // ---- bottom velocity lane -------------------------------------------------
@@ -887,7 +1224,7 @@ void PianoRoll::draw_data(App& app)
 {
     const Theme& t = theme();
     SDL_Renderer* r = app.ren;
-    SDL_RenderSetClipRect(r, &m_data);
+    ui::ScopedClip clipScope(r,m_data);
     fill_rect(r, m_data, t.panel);
     hline(r, m_data.x, m_data.x + m_data.w, m_data.y, t.dim);
 
@@ -938,7 +1275,6 @@ void PianoRoll::draw_data(App& app)
     app.mono.draw(r, hb.x + 2, hb.y + (hb.h - app.mono.ch()) / 2,
                   g_lanes[m_data_type].label, t.bg);
 
-    SDL_RenderSetClipRect(r, nullptr);
 }
 
 // ---- corner status: scale + toggle flags ----------------------------------
@@ -1092,12 +1428,39 @@ bool PianoRoll::on_mouse(App& app, const MouseEv& e)
                 grow_selection(delta, (mod & KMOD_SHIFT) != 0);
             break; }
 
-        case M_END:
-            set_sequence_length_ticks(x_to_tick(m_cur_x));
+        case M_LOOP_EDGE_L:
+            set_sequence_loop_start_ticks(x_to_tick(m_cur_x));
             break;
+        case M_LOOP_EDGE_R:
+            set_sequence_loop_end_ticks(x_to_tick(m_cur_x));
+            break;
+        case M_LOOP_MOVE: {
+            const long delta = x_to_tick(m_cur_x) - m_loop_drag_press_tick;
+            long newStart = m_loop_drag_anchor_start + delta;
+            if (newStart < 0) newStart = 0;
+            set_sequence_loop_range_ticks(newStart, newStart + m_loop_drag_anchor_len);
+            break; }
+        case M_LOOP_SELECT: {
+            // A press that never moved is a click, and a click must leave the
+            // existing window alone (see the press handler).
+            if (!m_dragging) break;
+            const long cur = snap_tick(x_to_tick(m_cur_x));
+            const long lo  = std::min(cur, m_loop_drag_press_tick);
+            const long hi  = std::max(cur, m_loop_drag_press_tick);
+            set_sequence_loop_range_ticks(lo, hi);
+            break; }
 
         default: break;
         }
+
+        // The remembered loop window is only good for the END gesture that just
+        // ended, so it is dropped HERE, on the button release.  It used to be
+        // cleared at the bottom of the motion handler instead -- which runs on
+        // every motion event, not once per gesture, so only the FIRST pixel of
+        // an END drag was reversible: drag END left past the loop end and the
+        // second motion event let sequence::set_length() clamp the window away
+        // for good, exactly the destruction the anchor exists to prevent.
+        m_len_drag_loop_valid = false;
 
         m_down = false; m_dragging = false; m_mode = M_NONE;
         app.request_redraw();
@@ -1128,7 +1491,22 @@ bool PianoRoll::on_mouse(App& app, const MouseEv& e)
             clamp_scroll();
             break; }
         case M_HBAR: hbar_set(e.x); break;
-        case M_END: set_sequence_length_ticks(x_to_tick(e.x)); break;
+        case M_LENGTH_EDGE: set_sequence_length_ticks(x_to_tick(e.x)); break;
+        case M_LOOP_EDGE_L: set_sequence_loop_start_ticks(x_to_tick(e.x)); break;
+        case M_LOOP_EDGE_R: set_sequence_loop_end_ticks(x_to_tick(e.x)); break;
+        case M_LOOP_MOVE: {
+            const long delta = x_to_tick(e.x) - m_loop_drag_press_tick;
+            long newStart = m_loop_drag_anchor_start + delta;
+            if (newStart < 0) newStart = 0;
+            set_sequence_loop_range_ticks(newStart, newStart + m_loop_drag_anchor_len);
+            break; }
+        case M_LOOP_SELECT: {
+            if (!m_dragging) break;      // inside the click slop: not an edit yet
+            const long cur = snap_tick(x_to_tick(e.x));
+            const long lo  = std::min(cur, m_loop_drag_press_tick);
+            const long hi  = std::max(cur, m_loop_drag_press_tick);
+            set_sequence_loop_range_ticks(lo, hi);
+            break; }
         case M_ERASE: erase_at(e.x, e.y); m_dirty_flag = true; break;
         case M_PAN: {                            // hand-drag scrolls both axes
             m_scroll_ticks += (long)(m_drop_x - e.x) * m_zoom;
@@ -1171,7 +1549,11 @@ bool PianoRoll::on_mouse(App& app, const MouseEv& e)
                     case CM_QUANT:
                         if (m_snap > 0 && m_seq->get_num_selected_notes() > 0) {
                             m_seq->push_undo();
-                            m_seq->quanize_events(EVENT_NOTE_ON, 0, m_snap, 1, true);
+                            // Nearest grid line, matching record quantize and
+                            // note insertion.  `leftward=true` was the obsolete
+                            // floor-only mode and pulled early notes a full step
+                            // backwards.
+                            m_seq->quanize_events(EVENT_NOTE_ON, 0, m_snap, 1, true, false);
                             m_seq->set_dirty();
                         }
                         break;
@@ -1231,15 +1613,79 @@ bool PianoRoll::on_mouse(App& app, const MouseEv& e)
         return true;
     }
 
+    // Ableton-style loop brace on the ruler.  No draggable tab widgets: the
+    // ruler bar itself is the control.
+    //   - within ~6px of an edge  -> resize just that edge
+    //   - inside the shaded band  -> move the whole region (span preserved)
+    //   - anywhere else in the ruler (empty grey area) -> marquee-select a
+    //     brand new region from this press point
     if (m_seq && SDL_PointInRect(&pt, &m_ruler)) {
-        const int ex = tick_to_x(m_seq->get_length());
-        SDL_Rect endHandle{ ex - 6, m_ruler.y, 34, m_ruler.h };
-        if (SDL_PointInRect(&pt, &endHandle)) {
-            m_mode = M_END;
-            set_sequence_length_ticks(x_to_tick(e.x));
+        // The LOOP / 1-SHOT chip sits on top of the ruler and is checked first,
+        // or the brace logic below would swallow the click and start a marquee
+        // under the button.
+        if (SDL_PointInRect(&pt, &m_loopchip)) {
+            m_seq->set_loop_enabled(!m_seq->get_loop_enabled());
+            m_dirty_flag = true;
+            m_down = false; m_mode = M_NONE;
+            if (on_loop_changed) on_loop_changed();
             app.request_redraw();
             return true;
         }
+        const long ls = m_seq->get_loop_start(), le = m_seq->get_loop_end();
+        // Nothing is drawn for the default "no loop set" state (see
+        // draw_ruler), so there is nothing to grab an edge/middle of either --
+        // any press there always starts a fresh marquee-select.
+        const bool loopSet = ls > 0 || le < m_seq->get_length();
+        const int  lx = tick_to_x(ls), ex = tick_to_x(le);
+        const int  endx = tick_to_x(m_seq->get_length());
+        const int  kEdge = 6;
+        // END vs the loop's right edge COINCIDE whenever the loop runs to the
+        // end of the data (loop_end == length, which includes every pattern
+        // whose loop start alone was moved).  The loop-edge test used to run
+        // first and win outright, so the END marker -- drawn on top, with a
+        // flag you can see -- was simply not grabbable on those patterns and
+        // the pattern length could never be changed.  Resolve by DISTANCE, with
+        // END taking an exact tie: it is the marker painted over the other.
+        const SDL_Rect eg = end_marker_rect();
+        const int dEnd = SDL_PointInRect(&pt, &eg) ? 0 : std::abs(e.x - endx);
+        const int dL   = std::abs(e.x - lx), dR = std::abs(e.x - ex);
+        const bool endWins = dEnd <= kEdge && dEnd <= dR;
+        if (!endWins && loopSet && dL <= kEdge && dL <= dR) {
+            m_mode = M_LOOP_EDGE_L;
+            set_sequence_loop_start_ticks(x_to_tick(e.x));
+        } else if (!endWins && loopSet && dR <= kEdge) {
+            m_mode = M_LOOP_EDGE_R;
+            set_sequence_loop_end_ticks(x_to_tick(e.x));
+        } else if (dEnd <= kEdge) {
+            // GRAB ONLY -- do not resize on the press.  A bare click near END
+            // used to snap the pattern length to the nearest snap line, and
+            // sequence::set_length then clamped the loop window to the new
+            // (shorter) end for good.  Length now changes on MOTION only, and
+            // the window is remembered so the drag stays reversible.
+            m_mode = M_LENGTH_EDGE;
+            m_len_drag_loop_start = ls;
+            m_len_drag_loop_end   = le;
+            m_len_drag_loop_valid = true;
+        } else if (loopSet && ex > lx && e.x > lx && e.x < ex) {
+            m_mode = M_LOOP_MOVE;
+            m_loop_drag_anchor_start = ls;
+            m_loop_drag_anchor_len   = le - ls;
+            m_loop_drag_press_tick   = x_to_tick(e.x);
+        } else {
+            // GRAB ONLY -- the new region is committed on MOTION, exactly like
+            // the END marker two branches up.  This used to call
+            // set_sequence_loop_range_ticks(t, t) on the press itself, which
+            // collapsed whatever window existed into a single snap step under
+            // the pointer.  One stray click on the ruler -- at a bar number, in
+            // the empty stretch past the pattern, or anywhere at all while the
+            // band was scrolled or zoomed off screen and so invisible -- threw
+            // the user's loop away silently, and nothing (no undo, no re-drag)
+            // brought it back.  A click is not an edit; only a drag is.
+            m_mode = M_LOOP_SELECT;
+            m_loop_drag_press_tick = snap_tick(x_to_tick(e.x));
+        }
+        app.request_redraw();
+        return true;
     }
 
     // horizontal scrollbar
@@ -1344,6 +1790,44 @@ bool PianoRoll::on_mouse(App& app, const MouseEv& e)
     return true;
 }
 
+// The data lane edits WHAT YOU DRAG OVER.
+//
+// sequence::change_event_data_range() has a seq24 rule baked in: if any event
+// of the same status/CC is selected anywhere in the pattern, it edits ONLY
+// selected events.  So once a few notes were selected in the grid, the velocity
+// lane silently refused to touch anything else -- drag across the whole lane and
+// only the selected handful moved, with no indication why.  The view cannot
+// unmark or re-select individual events through the public API, so instead of
+// fighting the filter it aims it: the span under the pointer BECOMES the
+// selection, which makes the filter a no-op and shows on screen (the lane and
+// the grid both draw selected events highlighted).
+void PianoRoll::retarget_data_selection(long ts, long tf,
+                                       unsigned char status, unsigned char cc)
+{
+    if (!m_seq) return;
+    m_seq->unselect();
+    if (status == EVENT_NOTE_ON)
+        // note pairs, so both halves get selected -- select_events() would
+        // select the note-on alone and leave a half-selected note behind.
+        m_seq->select_note_events(ts, 127, tf, 0, sequence::e_select);
+    else
+        m_seq->select_events(ts, tf, status, cc, sequence::e_select);
+}
+
+// Grow a degenerate (click, not drag) tick span out to the drawn bar's width so
+// a plain click lands on the mark under the pointer.  m_zoom is ticks/pixel.
+void PianoRoll::widen_data_span(long& ts, long& tf) const
+{
+    const long pad = (long)(m_zoom > 0 ? m_zoom : 1) * 4;   // 4 px each side
+    if (tf - ts < 2 * pad) {
+        long mid = (ts + tf) / 2;
+        ts = mid - pad;
+        tf = mid + pad;
+    }
+    if (ts < 0) ts = 0;
+    if (tf < ts) tf = ts;
+}
+
 void PianoRoll::apply_data_drag(App& app)
 {
     (void)app;
@@ -1360,6 +1844,14 @@ void PianoRoll::apply_data_drag(App& app)
         int x0 = m_drop_x, y0 = m_drop_y, x1 = m_cur_x, y1 = m_cur_y;
         if (x1 < x0) { std::swap(x0, x1); std::swap(y0, y1); }
         long ts = x_to_tick(x0), tf = x_to_tick(x1);
+        //  A press with no movement is a real edit, but ts == tf here and
+        //  change_event_data_range() only touches events whose timestamp lands
+        //  exactly inside [ts,tf] -- a tick a note-on essentially never sits on.
+        //  So a single click on a velocity bar did nothing at all.  Give the hit
+        //  window the width of the bar draw_data() actually paints (3 px body,
+        //  5 px cap starting one pixel left) so clicking a bar sets that note.
+        widen_data_span(ts, tf);
+        retarget_data_selection(ts, tf, EVENT_NOTE_ON, 0);
         m_seq->change_event_data_range(ts, tf, EVENT_NOTE_ON, 0, val_of(y0), val_of(y1));
         m_seq->set_dirty();
         return;
@@ -1381,6 +1873,7 @@ void PianoRoll::apply_data_drag(App& app)
     }
 
     if (exists) {
+        retarget_data_selection(col, cf, L.status, L.cc);
         m_seq->change_event_data_range(col, cf, L.status, L.cc, val, val);
     } else {
         unsigned char b0, b1;
@@ -1398,6 +1891,9 @@ void PianoRoll::apply_data_drag(App& app)
 // ===========================================================================
 bool PianoRoll::on_wheel(App& app, int dx, int dy)
 {
+    // A popup is modal: scrolling or zooming the grid underneath it moved the
+    // content out from under a menu whose position was fixed when it opened.
+    if (m_popup_open) { app.request_redraw(); return true; }
     layout();
     SDL_Keymod mod = SDL_GetModState();
 
@@ -1526,6 +2022,79 @@ void PianoRoll::collect_selected(std::vector<NoteRec>& out) const
     }
 }
 
+// Snapshot every SELECTED event that is not half of a note pair -- CC,
+// pitch-bend, aftertouch, channel pressure, program change.
+//
+// The rebuild transforms below all do mark_selected() / remove_marked() /
+// add_notes().  mark_selected() marks EVERY selected event, but only notes are
+// ever re-added, so anything else in the selection was deleted and never came
+// back: press A (select all) then any transform and the pattern's entire
+// controller, bend and program-change data vanished, with nothing on screen
+// saying so.  (The engine hit the same bug in transpose_notes() and
+// quanize_events(); both now mark only what they put back.)  The view cannot
+// unmark events through the public API, so it carries them across instead.
+//
+// Two passes, because get_next_event() filters by status: first enumerate the
+// distinct (status, cc) kinds actually present, then walk each kind.  Every
+// event a sequence can hold is a 3-byte channel message -- no SysEx ever
+// reaches m_list_event -- so status/d0/d1 is a lossless snapshot.
+void PianoRoll::collect_selected_non_notes(std::vector<RawEvent>& out) const
+{
+    out.clear();
+    if (!m_seq) return;
+
+    std::vector<std::pair<unsigned char, unsigned char>> kinds;
+    unsigned char st = 0, cc = 0;
+    m_seq->reset_draw_marker();
+    while (m_seq->get_next_event(&st, &cc)) {
+        if (st == EVENT_NOTE_ON || st == EVENT_NOTE_OFF) continue;
+        unsigned char key = (st == EVENT_CONTROL_CHANGE) ? cc : 0;
+        bool seen = false;
+        for (const auto& k : kinds)
+            if (k.first == st && k.second == key) { seen = true; break; }
+        if (!seen) kinds.push_back({ st, key });
+    }
+
+    for (const auto& k : kinds) {
+        long tick = 0; unsigned char d0 = 0, d1 = 0; bool sel = false;
+        m_seq->reset_draw_marker();
+        while (m_seq->get_next_event(k.first, k.second, &tick, &d0, &d1, &sel))
+            if (sel) out.push_back(RawEvent{ tick, k.first, d0, d1 });
+    }
+    m_seq->reset_draw_marker();
+}
+
+// Put a snapshot back.  add_event() re-sorts, and the sort is stable, so events
+// keep their relative order at equal timestamps.
+void PianoRoll::readd_events(const std::vector<RawEvent>& evs, bool select)
+{
+    if (!m_seq || evs.empty()) return;
+    for (const RawEvent& r : evs) {
+        event e;
+        e.set_status((char)r.status);
+        e.set_data((char)r.d0, (char)r.d1);
+        e.set_timestamp(r.tick);
+        if (select) e.select();
+        m_seq->add_event(&e);
+    }
+    m_seq->set_dirty();
+}
+
+// The rebuild round-trip every transform shares: delete the selection, put the
+// transformed notes back, and restore everything in the selection that was not
+// a note.  Restore first so a transform that ends up adding no notes at all
+// (every pitch clamped out of range) still cannot eat the controller lanes.
+void PianoRoll::replace_selected_notes(const std::vector<NoteRec>& out)
+{
+    if (!m_seq) return;
+    std::vector<RawEvent> keep;
+    collect_selected_non_notes(keep);
+    m_seq->mark_selected();
+    m_seq->remove_marked();
+    readd_events(keep, true);
+    add_notes(out, true);
+}
+
 // Re-add note-on/off pairs with an explicit velocity.  add_note() hardcodes
 // velocity 100, so -- like move_selected_notes -- we build the events directly.
 // add_event(event*) does not relink, so verify_and_link() once at the end.
@@ -1585,9 +2154,7 @@ bool PianoRoll::move_selection(long dt, int dn)
         out.push_back(NoteRec{ n.ts + dt, n.tf + dt, n.note + dn, n.vel });
 
     m_seq->push_undo();
-    m_seq->mark_selected();
-    m_seq->remove_marked();
-    add_notes(out, true);
+    replace_selected_notes(out);
     return true;
 }
 
@@ -1626,9 +2193,7 @@ void PianoRoll::grow_selection(long delta, bool stretch)
     }
 
     m_seq->push_undo();
-    m_seq->mark_selected();
-    m_seq->remove_marked();
-    add_notes(out, true);
+    replace_selected_notes(out);
 }
 
 // Ctrl+D : clone the selection in place, shifted right by its own span.  Leaves
@@ -1675,9 +2240,7 @@ void PianoRoll::legato_selection()
     }
 
     m_seq->push_undo();
-    m_seq->mark_selected();
-    m_seq->remove_marked();
-    add_notes(out, true);
+    replace_selected_notes(out);
 }
 
 // H : deterministic velocity + small timing jitter.  A member counter seeds an
@@ -1703,9 +2266,7 @@ void PianoRoll::humanize_selection()
     }
 
     m_seq->push_undo();
-    m_seq->mark_selected();
-    m_seq->remove_marked();
-    add_notes(out, true);                          // clamps velocity 1..127, length >= 1
+    replace_selected_notes(out);                          // clamps velocity 1..127, length >= 1
 }
 
 // '=' : force every selected note to the current note-length (uniform).
@@ -1721,9 +2282,7 @@ void PianoRoll::set_uniform_length()
         out.push_back(NoteRec{ n.ts, n.ts + m_note_length, n.note, n.vel });
 
     m_seq->push_undo();
-    m_seq->mark_selected();
-    m_seq->remove_marked();
-    add_notes(out, true);
+    replace_selected_notes(out);
 }
 
 // '.' / ',' : shift selected velocities by +/- a step, clamped 1..127.  Rebuilt
@@ -1743,9 +2302,7 @@ void PianoRoll::change_velocity(int d)
     }
 
     m_seq->push_undo();
-    m_seq->mark_selected();
-    m_seq->remove_marked();
-    add_notes(out, true);
+    replace_selected_notes(out);
 }
 
 // R : reverse the selection in time -- mirror each note inside the selection's
@@ -1768,9 +2325,7 @@ void PianoRoll::reverse_selection()
     }
 
     m_seq->push_undo();
-    m_seq->mark_selected();
-    m_seq->remove_marked();
-    add_notes(out, true);
+    replace_selected_notes(out);
 }
 
 // I : melodic inversion -- reflect each pitch about the selection's average.
@@ -1793,9 +2348,7 @@ void PianoRoll::invert_selection()
     }
 
     m_seq->push_undo();
-    m_seq->mark_selected();
-    m_seq->remove_marked();
-    add_notes(out, true);
+    replace_selected_notes(out);
 }
 
 // N : normalize -- scale every selected velocity so the loudest hits 127.
@@ -1818,9 +2371,7 @@ void PianoRoll::normalize_velocities()
     }
 
     m_seq->push_undo();
-    m_seq->mark_selected();
-    m_seq->remove_marked();
-    add_notes(out, true);
+    replace_selected_notes(out);
 }
 
 // Ctrl+[ / Ctrl+] : resize -- scale each selected note's length by mul/div
@@ -1840,9 +2391,7 @@ void PianoRoll::resize_selection(int mul, int div)
     }
 
     m_seq->push_undo();
-    m_seq->mark_selected();
-    m_seq->remove_marked();
-    add_notes(out, true);
+    replace_selected_notes(out);
 }
 
 // { / } : rescale -- time-stretch the selection about its start tick, scaling
@@ -1867,9 +2416,7 @@ void PianoRoll::rescale_selection(int mul, int div)
     }
 
     m_seq->push_undo();
-    m_seq->mark_selected();
-    m_seq->remove_marked();
-    add_notes(out, true);
+    replace_selected_notes(out);
 }
 
 // K : re-snap every selected pitch onto the current scale.  Does NOT push undo
@@ -1889,9 +2436,7 @@ void PianoRoll::snap_selection_to_scale()
     }
     if (!changed) return;
 
-    m_seq->mark_selected();
-    m_seq->remove_marked();
-    add_notes(notes, true);
+    replace_selected_notes(notes);
 }
 
 // xorshift32 -- deterministic PRNG for humanize (never rand()).
@@ -1909,6 +2454,13 @@ unsigned PianoRoll::next_rand()
 // ===========================================================================
 bool PianoRoll::on_key(App& app, SDL_Keycode k)
 {
+    // Keys used to reach the grid straight through an open popup -- Delete
+    // erased notes, the tool keys switched tools -- and nothing dismissed it.
+    if (m_popup_open) {
+        if (k == SDLK_ESCAPE) m_popup_open = false;
+        app.request_redraw();
+        return true;
+    }
     if (!m_seq) return false;                      // guard: no model bound
     layout();                                      // keep m_grid / scroll current for paste
     const bool ctrl  = (SDL_GetModState() & KMOD_CTRL)  != 0;
@@ -1947,14 +2499,17 @@ bool PianoRoll::on_key(App& app, SDL_Keycode k)
         m_seq->pop_undo();
         handled = true;
         break;
-    case SDLK_z:                                   // Ctrl+Z : undo (engine has no redo)
-        if (ctrl) { m_seq->pop_undo(); handled = true; }
+    case SDLK_z:                                   // Ctrl+Z undo, Ctrl+Shift+Z redo
+        if (ctrl) { if (shift) m_seq->pop_redo(); else m_seq->pop_undo(); handled = true; }
+        break;
+    case SDLK_y:                                   // Ctrl+Y : redo
+        if (ctrl) { m_seq->pop_redo(); handled = true; }
         break;
 
     case SDLK_q:                                   // Q : quantize starts to snap (keep length)
         if (m_snap > 0 && m_seq->get_num_selected_notes() > 0) {
             m_seq->push_undo();
-            m_seq->quanize_events(EVENT_NOTE_ON, 0, m_snap, 1, true);
+            m_seq->quanize_events(EVENT_NOTE_ON, 0, m_snap, 1, true, false);
             m_seq->set_dirty();
         }
         handled = true;
@@ -2038,7 +2593,47 @@ bool PianoRoll::on_key(App& app, SDL_Keycode k)
         handled = true;
         break;
 
-    case SDLK_l:                                   // L : legato
+    case SDLK_l:
+        // Ctrl+Shift+L : clear the loop WINDOW -- put it back to spanning the
+        // whole pattern, which is the "no loop set" default (see
+        // sequence::m_loop_start).  There was no way to get rid of a window
+        // once one existed: a click in the ruler used to collapse it to a snap
+        // step rather than clear it (and that click is now a no-op, precisely
+        // because collapsing was never what anyone meant), and dragging a fresh
+        // region can only ever make another window.
+        if (m_seq && ctrl && shift) {
+            set_sequence_loop_range_ticks(0, m_seq->get_length());
+            handled = true;
+            break;
+        }
+        // Ctrl+L : loop the SELECTION -- the same gesture (and the same key) as
+        // TrackerView's "Loop Selection", so the two editors of one pattern do
+        // not need two different vocabularies for one window.
+        if (m_seq && ctrl) {
+            std::vector<NoteRec> sel;
+            collect_selected(sel);
+            if (!sel.empty()) {
+                long lo = sel[0].ts, hi = sel[0].tf;
+                for (const NoteRec& n : sel) {
+                    if (n.ts < lo) lo = n.ts;
+                    if (n.tf > hi) hi = n.tf;
+                }
+                set_sequence_loop_range_ticks(lo, hi);
+            }
+            handled = true;
+            break;
+        }
+        // Shift+L : loop on/off for THIS clip.  Off == one-shot: the data
+        // plays once and dragging the clip longer in Arrange just moves its
+        // end point instead of repeating the pattern.
+        if (m_seq && (SDL_GetModState() & KMOD_SHIFT)) {
+            m_seq->set_loop_enabled(!m_seq->get_loop_enabled());
+            m_dirty_flag = true;
+            if (on_loop_changed) on_loop_changed();
+            handled = true;
+            break;
+        }
+        // L : legato
         legato_selection();
         handled = true;
         break;

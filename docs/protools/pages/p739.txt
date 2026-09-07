@@ -1,0 +1,49 @@
+Fitting an Audio Clip to an Edit
+Selection                                                   Rating Clips
+Clips can be dragged from the Clips List to fit             You can rate different clips on a scale of 1 to 5,
+within an Edit selection. The dragged clip is com-          where 5 is the highest (or best) and 1 is the lowest
+pressed or expanded to fit within the selection. On         (or worst). Clip rating is useful for identifying
+audio tracks, fitting an audio clip to the Edit selec-      which takes (clips) you like the most when com-
+tion uses the TCE AudioSuite Plug-In selected in            positing playlists. You can display or hide the clip
+the Processing preferences (see “Processing Pref-           rating in clips to facilitate track compositing or
+erences” on page 137). On Elastic Audio-enabled             regular editing. You can also show or hide Playlist
+tracks, it uses the track’s selected Elastic Audio          lanes based on the ratings of clips in the playlist
+plug-in (see “Elastic Audio Plug-Ins” on                    (see “Filtering Lanes” on page 744).
+page 1019).
+                                                            To rate a clip:
+To fit an audio clip to an Edit selection:                  1   Select the clip.
+1   With the Selector tool, make an Edit selection in       2   Do one of the following:
+    an audio track.
+                                                            • Choose Clip > Rating, and select a ranking of
+2   Command-Option-drag (Mac) or Control-Alt-                 1 to 5.
+    drag (Windows) the clip from the Clips List to
+                                                            • Right-click the clip, choose Rate, and select a
+    the track with the selection. The start of the clip
+                                                              ranking of 1 to 5.
+    is positioned at the selection start, and the clip is
+    compressed or expanded to match the length of                 You can rate selected clips during playback
+    the selection.                                                by pressing Command+Option+Control
+                                                                  (Mac) or Control+Alt+Start (Windows) and
+Fit to Selection on Multiple                                      then typing the rating number (1–5) on the
+Tracks and Channels                                               numeric keypad.
+
+The Fit to Selection command supports dragging              To display ratings in clips:
+multiple clips from the Clips List to multiple
+                                                               Select View > Clip > Rating.
+tracks, or multichannel tracks.
+
+All dragged clips are compressed or expanded
+equally by the same percentage value, based on
+length of the clip last clicked before dragging.
+
+
+                                                            Clip with Rating shown
+
+                                                            To hide ratings in clips:
+
+                                                               Deselect View > Clip > Rating.
+
+
+
+
+                                                                              Chapter 31: Editing Clips and Selections   707

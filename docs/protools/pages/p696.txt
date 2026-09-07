@@ -1,0 +1,51 @@
+      The resolution for the Scrubber is dependent on the   To scrub in Shuttle mode (at several times normal
+      zoom factor for the scrubbed track.                   speed):
+
+                                                            1   Select the Scrubber tool.
+            You can temporarily switch the Selector tool
+            to the Scrubber tool by Control-clicking        2   While pressing Option (Mac) or Alt (Windows),
+            (Mac) or Start-clicking (Windows). For finer        drag within the track—left for reverse, right for
+            resolution, Command-Control-click (Mac) or          forward. The Fast Forward and Rewind buttons
+            Control-Start-click (Windows).                      in the Transport window engage.
+
+      To scrub multiple audio tracks, do one of the         The distance and speed dragged determine the
+      following:                                            speed for the scrubbed audio.
+         With the Scrubber selected, drag between two
+          adjacent tracks.                                  Shuttle Lock Mode
+                                                            Shuttle Lock mode lets you use the numeric key-
+                                                            pad to shuttle up to two tracks forward or back-
+                                                            wards at specific speeds: 5 is normal speed, num-
+                                                            bers from 6 up to 9 provide increasingly faster fast-
+                                                            forward speeds, and numbers from 4 down to 1
+                                                            provide progressively faster rewind speeds (4 is
+                                                            the slowest rewind Shuttle Lock speed, 1 is the
+                                                            fastest). If multiple tracks are selected, only the
+                                                            first two tracks are shuttled.
+      Scrubbing between two audio tracks
+                                                            To play one or two tracks with the shuttle lock:
+         Scrub within a selection that contains multiple
+                                                            1   With Pro Tools Ultimate, make sure the Opera-
+          tracks.
+                                                                tion preference for Numeric Keypad mode is
+      When scrubbing multiple tracks, only the first two        not set to Shuttle (see “Operation Preferences”
+      tracks are heard.                                         on page 118).
+                                                            2   With the Selector tool, click in the track where
+            The maximum number of channels scrubbed
+                                                                you want playback to begin. To shuttle on two
+            in Pro Tools is eight, which lets you scrub a
+                                                                tracks, Shift-click in a second track.
+            7.1 track, two stereo tracks (four channels),
+            but not two 5.1 surround tracks (12 chan-       3   Press the Control (Mac) or Start key (Windows)
+            nels).                                              and a number on the numeric keypad: 0–9 (9 is
+                                                                fastest, 5 is normal speed, and 0 stops shuttling).
+      Scrub/Shuttle Mode
+                                                            Once Shuttle Lock mode is initiated, Fast Forward
+      When scrubbing normally, you can scrub at nor-        and Rewind become highlighted in the Transport
+      mal playback speeds or slower. Scrub/Shuttle          window.
+      mode, however, lets you scrub at several times nor-
+      mal speed, which is helpful in playing through        4   Press additional keys to change the playback
+      large ranges and locating material.                       speed, or press Plus (+) or Minus (–) to switch
+                                                                the playback direction (plus for forward, minus
+                                                                for backward).
+
+664   Pro Tools Reference Guide

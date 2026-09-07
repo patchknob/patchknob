@@ -43,6 +43,7 @@ public:
         rms_.store(0.0f,  std::memory_order_relaxed);
         rmsState_ = 0.0f;
         peakState_ = 0.0f;
+        peakHoldFrames_ = 0;
     }
 
     //! Feed one block of `n` mono samples (audio thread). Updates peak + RMS
@@ -60,16 +61,26 @@ public:
         }
         const float blockRms = (n > 0) ? (float)std::sqrt(sumSq / (double)n) : 0.0f;
 
-        // Per-block release coefficient: coeff_ is per-sample, raise to n.
-        const float decay = std::pow(coeff_, (float)n);
-
-        // PEAK: instant attack, exponential release.
-        float p = peakState_ * decay;
-        if (blockPeak > p) p = blockPeak;       // attack: snap up
+        // Ardour-style digital peak meter: retain the true block peak for a
+        // short 21 ms integration window, then fall at a constant dB/second.
+        // Unlike amplitude multiplication in the UI this is independent of
+        // audio block size and display frame rate.
+        float p = peakState_;
+        if (blockPeak >= p) {
+            p = blockPeak;
+            peakHoldFrames_ = (int)(sampleRate_ * 0.021);
+        } else if (peakHoldFrames_ > 0) {
+            peakHoldFrames_ -= n;
+        } else if (p > 0.0000001f) {
+            const float fallDb = 24.0f * (float)n / (float)sampleRate_;
+            p *= std::pow(10.0f, -fallDb / 20.0f);
+            if (p < 0.0000001f) p = 0.0f;
+        }
         peakState_ = p;
         peak_.store(p, std::memory_order_relaxed);
 
-        // RMS: instant attack, exponential release.
+        // RMS remains available for analysis/fader backdrops.
+        const float decay = std::pow(coeff_, (float)n);
         float r = rmsState_ * decay;
         if (blockRms > r) r = blockRms;
         rmsState_ = r;
@@ -97,6 +108,7 @@ private:
     // Audio-thread-private smoothed state (not shared; no atomics needed).
     float peakState_ = 0.0f;
     float rmsState_  = 0.0f;
+    int   peakHoldFrames_ = 0;
 
     // Published values for the UI thread.
     std::atomic<float> peak_{0.0f};

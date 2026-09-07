@@ -18,14 +18,32 @@ Environment:
   PORTAUDIO_DIR   PortAudio source directory, default: ./vendor/portaudio
 
 Ubuntu/Debian packages:
-  sudo apt install build-essential cmake pkg-config libsdl2-dev libsdl2-ttf-dev \
-    libpng-dev librsvg2-dev libcairo2-dev libasound2-dev libjack-jackd2-dev \
-    libpulse-dev
+  sudo apt install build-essential cmake pkg-config python3 libsdl3-dev \
+    libsdl3-ttf-dev libpng-dev librsvg2-dev libcairo2-dev libfontconfig1-dev \
+    libasound2-dev libjack-jackd2-dev libpulse-dev
 
 Fedora packages:
-  sudo dnf install gcc-c++ cmake pkgconf-pkg-config SDL2-devel SDL2_ttf-devel \
-    libpng-devel librsvg2-devel cairo-devel alsa-lib-devel jack-audio-connection-kit-devel \
-    pulseaudio-libs-devel
+  sudo dnf install gcc-c++ cmake pkgconf-pkg-config python3 SDL3-devel \
+    SDL3_ttf-devel libpng-devel librsvg2-devel cairo-devel fontconfig-devel \
+    alsa-lib-devel jack-audio-connection-kit-devel pulseaudio-libs-devel
+
+Arch/Omarchy packages:
+  sudo pacman -S --needed base-devel cmake pkgconf python sdl3 sdl3_ttf \
+    libpng librsvg cairo fontconfig alsa-lib jack2 libpulse
+
+(python3 generates the Fundamental rack modules' DSP source on non-Windows;
+Csound and libsndfile build from vendored source automatically -- no extra
+packages needed for those. VST2/VST3 hosting needs nothing beyond the above:
+both load native Linux .so/.vst3 plugins the same way the Windows build
+loads .dll/.vst3 ones.)
+
+Pass -DPATCHKNOB_SDL3=OFF to cmake (or set PATCHKNOB_SDL3=OFF and pass it
+through CMAKE_ARGS) to build against SDL2/SDL2_ttf instead.
+
+Running under KMS/DRM (no X11/Wayland session) needs an SDL3 built with its
+kmsdrm backend (most distro packages already have it -- verify with
+SDL_VIDEODRIVER=kmsdrm ./build-linux/PatchKnob) and either 'video' group
+membership or a seatd/logind session; see the README for details.
 EOF
 }
 
@@ -53,7 +71,15 @@ if [[ ! -f "$PORTAUDIO_DIR/build/libportaudio.a" ]]; then
     -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
     -DBUILD_SHARED_LIBS=OFF \
     -DPA_BUILD_EXAMPLES=OFF \
-    -DPA_BUILD_TESTS=OFF
+    -DPA_BUILD_TESTS=OFF \
+    -DPA_USE_SNDIO=OFF
+  # PA_USE_SNDIO=OFF: PortAudio auto-enables its sndio backend whenever
+  # libsndio's headers happen to be installed (pulled in as some other
+  # package's dependency, not because anything here uses it), but its
+  # CMake never propagates the resulting -lsndio to static-lib consumers --
+  # so an opportunistic auto-detect turns into a link failure in THIS
+  # binary. ALSA/PulseAudio/JACK (the backends this app actually documents)
+  # are unaffected.
   cmake --build "$PORTAUDIO_DIR/build" --parallel "$JOBS"
 fi
 

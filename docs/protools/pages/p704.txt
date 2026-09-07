@@ -1,0 +1,51 @@
+      Selections in Multiple Tracks                             To select an entire track, do one of the following:
+
+      To make a selection in multiple tracks:
+                                                                   Click in the track with the Selector tool and then
+                                                                    choose Edit > Select All.
+         With the Selector tool, drag vertically to include
+          adjacent tracks in a selection (drag horizontally        Triple-click with the Selector tool in the track.
+          to define the time range).
+                                                                      Press Command+A (Mac) or Control+A
+                                                                      (Windows) for Select All.
+      Selecting Clips
+                                                                To select all clips in all tracks:
+      To select a portion of a clip:
+                                                                1   Select the “All” Edit Group in the Groups List
+         With the Selector tool, drag within a clip (left or       menu.
+          right) to select the material on a single track.
+                                                                2   Do one of the following:
+          (You can also use the Selector tool across mul-
+          tiple, adjacent tracks to make multitrack selec-      • Click in any track with the Selector tool and
+          tions.)                                                 choose Edit > Select All.
+                                                                • Triple-click with the Selector tool in any track.
+
+                                                                      Another way to select all clips in all tracks,
+                                                                      without having to select the “All” Edit
+                                                                      Group, is to press Return (Mac) or Enter
+                                                                      (Windows), then press Command+A (Mac)
+                                                                      or Control+A (Windows). The Link Timeline
+      Selecting a portion of a clip                                   and Edit Selection option must be enabled.
+      To select an entire clip, do one of the following:
+                                                                Clips List Selection Follows Edit
+         Click the clip with the Time Grabber tool.            Selection
+         Double-click the clip with the Selector tool.         When the Editing preference for Clips List Selec-
+                                                                tion Follows Edit Selection is enabled, selecting a
+      To select two clips and the time range between
+                                                                clip in a track also causes the clip to become se-
+      them:
+                                                                lected in the Clips List.
+      1   With the Time Grabber, click the first clip.
+                                                                Conversely, if the Editing preference for Edit
+      2   Shift-click the second clip. Both clips are se-
+                                                                Selection Follows Clips List Selection is enabled,
+          lected, along with the time range between them
+                                                                selecting a clip in the Clips List causes the initial
+          (including any other clips).
+                                                                occurrence of that clip to become selected within
+                                                                the track.
+
+
+
+
+672   Pro Tools Reference Guide

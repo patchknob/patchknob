@@ -17,6 +17,7 @@
 //  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //
 //-----------------------------------------------------------------------------
+#include <algorithm>
 #include <cassert>
 #include "perform.h"
 #include "midibus.h"
@@ -26,6 +27,15 @@
 #include <stdio.h>
 #include <time.h>
 #include <math.h>
+#include <vector>
+
+/*  SCHEDULER TRACE (diagnostics only; see sdlui PATCHKNOB_LOOPREPRO).
+    Records one row per output_func iteration so a loop misbehaviour can be
+    read back as data -- which branch ran, what the horizon was, and what the
+    engine's playhead said -- instead of being guessed at from the audio.
+    Written ONLY by the output thread; read only after it has stopped.        */
+bool                        g_loop_trace_on = false;
+std::vector<loop_trace_rec> g_loop_trace;
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN   /* keep rpcndr.h's 'byte' away from std::byte */
@@ -41,8 +51,16 @@ perform::perform()
 
 		m_seqs[i] = NULL;
         m_seqs_active[i] = false;
-		
-		
+
+        /*  The four "was active" flags were left UNINITIALISED.  is_dirty_main
+            and friends return them (and clear them) for every slot the UI asks
+            about, so a fresh perform reported random slots as having just been
+            deleted and the pattern grid redrew garbage cells on its first
+            frame. */
+        m_was_active_main[i]  = false;
+        m_was_active_edit[i]  = false;
+        m_was_active_perf[i]  = false;
+        m_was_active_names[i] = false;
     }
 
     m_scale_master_seq = -1;
@@ -51,13 +69,24 @@ perform::perform()
     m_looping = false;
     m_inputing = true;
     m_outputing = true;
-    m_tick = 0;
+    /* ctor: no other thread exists yet, but store through the atomic API
+       anyway so every access to these members goes one way. */
+    m_tick.store( 0, std::memory_order_relaxed );
+
+    /*  ALSO UNINITIALISED, and read before anything ever wrote it:
+        reset_sequences() branches on it ("if ( !m_playback_mode ) restore the
+        pattern's playing state"), and with the count-in enabled that runs
+        BEFORE the first start() -- i.e. before set_playback_mode() has been
+        called at all.  On an indeterminate value the count-in either kept or
+        silently dropped every pattern's playing state.  A fresh perform is in
+        LIVE (pattern) mode until told otherwise. */
+    m_playback_mode = false;
 
     thread_trigger_width_ms = c_thread_trigger_width_ms;
 
-    m_left_tick = 0;
-    m_right_tick = c_ppqn * 16;
-    m_starting_tick = 0;
+    m_left_tick.store( 0, std::memory_order_relaxed );
+    m_right_tick.store( c_ppqn * 16, std::memory_order_relaxed );
+    m_starting_tick.store( 0, std::memory_order_relaxed );
     
     midi_control zero = {false,false,0,0,0};
 
@@ -120,9 +149,6 @@ perform::perform()
     m_control_status = 0;
     m_screen_set = 0;
 
-    m_jack_running = false;
-    m_jack_master = false;
-
     m_out_thread_launched = false;
     m_in_thread_launched = false;
     
@@ -133,104 +159,6 @@ perform::init( void )
 {
     m_master_bus.init( );
 }
-
-void
-perform::init_jack( void )
-{
-
-#ifdef JACK_SUPPORT
-
-    if ( global_with_jack_transport  && !m_jack_running){
-
-        m_jack_running = true;
-        m_jack_master = true;
-
-        //printf ( "init_jack() m_jack_running[%d]\n", m_jack_running );
-        
-        do {
-
-            char client_name[100];
-            sprintf( client_name, "PatchKnob (%d)", getpid());
-            
-            /* become a new client of the JACK server */
-            if (( m_jack_client = jack_client_new(client_name)) == 0) {
-                printf( "JACK server is not running.\n[JACK sync disabled]\n");
-                m_jack_running = false;
-                break;
-            }
-            if (jack_activate(m_jack_client)) {
-                printf("Cannot register as JACK client\n");
-                m_jack_running = false;
-                break;
-            }
-            
-            jack_on_shutdown( m_jack_client, jack_shutdown,(void *) this );
-            jack_set_sync_callback(m_jack_client, jack_sync_callback, (void *) this );
-
-            
-            
-            bool cond = global_with_jack_master_cond; /* true if we want to fail if there is already a master */
-            if ( global_with_jack_master && 
-                 jack_set_timebase_callback(m_jack_client, cond, jack_timebase_callback, this) == 0){
-                
-                printf("[JACK transport master]\n");
-                m_jack_master = true;
-            }
-            else {
-                printf("[JACK transport slave]\n");
-                m_jack_master = false;
-             
-            }
-            
-        } while (0);
-        
-    } 
-
- 
-    
-#endif
-}
-
-
-
-
-
-
-
-
-void
-perform::deinit_jack( void )
-{
-
-#ifdef JACK_SUPPORT
-
-    if ( m_jack_running){
-
-         //printf ( "deinit_jack() m_jack_running[%d]\n", m_jack_running );
-        
-        m_jack_running = false;
-        m_jack_master = false;
-
-        if ( jack_release_timebase(m_jack_client)){
-            printf("Cannot release Timebase.\n");
-        }
-        
-        if (jack_client_close(m_jack_client)) {
-            printf("Cannot close JACK client.\n");
-        }
-            
-
-    }
-
-    if ( !m_jack_running ){
-        printf( "[JACK sync disabled]\n");
-    }
-    
-#endif
-}
-
-
-
 
 void
 perform::clear_all( void )
@@ -297,51 +225,87 @@ perform::~perform()
 void 
 perform::set_left_tick( long a_tick )
 {
-    m_left_tick = a_tick;
-    m_starting_tick = a_tick;
- 
-    if ( m_left_tick >= m_right_tick )
-	m_right_tick = m_left_tick + c_ppqn * 4;
-    
+    /*  The marker PAIR cannot be made atomic without a lock, and the
+        scheduler poll reads it lock-free, so decide the whole new geometry in
+        locals first and then publish the member that GROWS the window before
+        the one that shrinks it.  That way every intermediate the scheduler
+        can observe still satisfies left < right -- it never sees a degenerate
+        or inverted loop and never pushes one to the engine. */
+    /*  Same minimum-window rule as set_right_tick(): pushing the LEFT marker up
+        to (or past) the right one used to shove the right marker a whole BAR
+        further out, which silently widened a deliberately short loop.  Grow it
+        by the minimum window instead, so a short loop stays short. */
+    const long minWindow = c_ppqn / 4;          /* a sixteenth */
+    const long new_left  = a_tick < 0 ? 0 : a_tick;
+    const long cur_right = m_right_tick.load( std::memory_order_relaxed );
+    const long new_right = ( cur_right - new_left < minWindow )
+                         ? new_left + minWindow
+                         : cur_right;
+
+    if ( new_right != cur_right )
+        m_right_tick.store( new_right, std::memory_order_relaxed );
+
+    m_left_tick.store( new_left, std::memory_order_relaxed );
+    m_starting_tick.store( new_left, std::memory_order_relaxed );
 }
 
-long 
+long
 perform::get_left_tick( void )
-{ 
-    return m_left_tick; 
+{
+    return m_left_tick.load( std::memory_order_relaxed );
 }
 
 
-void 
+void
 perform::set_starting_tick( long a_tick )
 {
-    m_starting_tick = a_tick;
+    m_starting_tick.store( a_tick, std::memory_order_relaxed );
 }
 
-long 
+long
 perform::get_starting_tick( void )
-{ 
-    return m_starting_tick; 
-}
-
-void 
-perform::set_right_tick( long a_tick ) 
 {
-    if ( a_tick >= c_ppqn * 4 ){
-	
-	m_right_tick = a_tick; 
-	
-	if ( m_right_tick <= m_left_tick ){
-	    m_left_tick = m_right_tick - c_ppqn * 4;
-            m_starting_tick = m_left_tick;
-        }
-    }
+    return m_starting_tick.load( std::memory_order_relaxed );
 }
 
-long 
+void
+perform::set_right_tick( long a_tick )
+{
+    /*  seq24 wrote `if (a_tick >= c_ppqn*4)` here and did NOTHING otherwise, so
+        dragging the right loop brace anywhere inside the first bar was silently
+        ignored -- the brace snapped back with no feedback and no way to loop a
+        half bar from the top of the song.  That was a limit on the marker's
+        ABSOLUTE position, which was never the real constraint: the engine
+        handles short loops fine (the arrange harness audits a one-beat loop and
+        a loop shorter than the scheduler's own lookahead, both clean over 25
+        wraps).  What actually has to hold is a minimum WINDOW WIDTH, so the
+        scheduler never sees a degenerate or inverted loop.  Clamp to that
+        instead of refusing the edit. */
+    const long minWindow = c_ppqn / 4;          /* a sixteenth */
+
+    long new_right = a_tick;
+    if ( new_right < minWindow )
+        new_right = minWindow;                  /* a loop cannot end at/before 0 */
+
+    /* same publication order argument as set_left_tick(): move the marker that
+       shrinks the window LAST, so every intermediate the lock-free scheduler
+       can observe still satisfies left < right */
+    const long cur_left = m_left_tick.load( std::memory_order_relaxed );
+
+    if ( new_right - cur_left < minWindow ){
+        long new_left = new_right - minWindow;
+        if ( new_left < 0 ) new_left = 0;
+        m_left_tick.store( new_left, std::memory_order_relaxed );
+        m_starting_tick.store( new_left, std::memory_order_relaxed );
+    }
+
+    m_right_tick.store( new_right, std::memory_order_relaxed );
+}
+
+long
 perform::get_right_tick( void )
-{ 
-    return m_right_tick; 
+{
+    return m_right_tick.load( std::memory_order_relaxed );
 }
 
 
@@ -552,44 +516,69 @@ perform::is_running( void )
     return m_running;
 }
 
+/*  TEMPO HAS EXACTLY ONE HOME: the audio engine's kitchensink tempo map.
+
+    set_bpm is the single write path (UI, file load, hotkeys, MIDI control all
+    funnel here) and get_bpm reads that same map back.  There used to be a
+    second copy in mastermidibus::m_bpm which was WRITTEN here but READ by the
+    output thread's fallback pacing, JACK timebase and project save -- so any
+    tempo set through audio_app_set_tempo directly (and any clamp disagreement:
+    we clamp 20..500, the engine 20..999) left the two disagreeing about the
+    speed of the same song.  The mirror is gone; this is now the only truth. */
 void
 perform::set_bpm(double a_bpm)
 {
     if ( a_bpm < 20.0 )  a_bpm = 20.0;
     if ( a_bpm > 500.0 ) a_bpm = 500.0;
 
-    if ( ! (m_jack_running && m_running )){
-        m_master_bus.set_bpm( a_bpm );
-    }
-
-    /* the AUDIO ENGINE owns tempo: every bpm write (UI, file load, hotkeys,
-       midi control) funnels through here into the kitchensink tempo map, so
-       the sequencer pace, plugin VstTimeInfo and transport clock can never
-       disagree.  fractional BPM survives end-to-end. */
     PatchKnob::app::audio_app_set_tempo( a_bpm );
 }
 
 double
 perform::get_bpm( )
 {
-    return  m_master_bus.get_bpm( );
+    /* Reads the engine tempo map's derived cache -- a plain atomic load, valid
+       (120.0) even before audio_app_init(), so this is safe from the UI, the
+       output thread and the JACK timebase callback alike. */
+    return PatchKnob::app::audio_app_tempo( );
 }
 
 void
 perform::delete_sequence( int a_num )
 {
+    if ( a_num < 0 || a_num >= c_max_sequence )
+        return;
+
+    sequence *doomed = m_seqs[a_num];
+
+    /*  PUBLISH "gone", THEN drop the pointer.  Every reader (perform::play,
+        set_orig_ticks, off_sequences, reset_sequences, get_max_trigger, the
+        UI) grabs m_seqs[i] and tests is_active(i); clearing active first and
+        the slot second means a reader that saw active==true necessarily
+        loaded the pointer before it was cleared.  Readers now latch the
+        pointer and check it (see perform::play) instead of assert()ing it,
+        because assert compiles out in Release -- which is exactly where the
+        NULL deref happened. */
 	set_active(a_num, false);
+    m_seqs[a_num] = NULL;
 
-    if ( m_seqs[a_num] != NULL &&
-         !m_seqs[a_num]->get_editing() ){
+    if ( doomed != NULL ){
 
-		m_seqs[a_num]->set_playing( false );
+        doomed->set_playing( false );
+
 		/* RETIRE, don't free: the output thread / UI may still hold this
 		   pointer for an instant (use-after-free -> divide-by-zero crash in
-		   get_last_tick).  gc_graveyard() frees it a couple of UI frames later. */
-		m_seq_graveyard.push_back( m_seqs[a_num] );
+		   get_last_tick).  gc_graveyard() frees it a couple of UI frames later.
+
+		   This used to be skipped entirely when the pattern had its editor
+		   open -- but set_active(false) above ran anyway, so the slot was
+		   emptied while the sequence itself was never retired and never freed:
+		   it leaked for the rest of the session, and the open editor went on
+		   editing an orphan that no save would ever see.  Retire it either
+		   way; gc_graveyard() holds the free back for as long as something is
+		   still editing it. */
+		m_seq_graveyard.push_back( doomed );
 		m_seq_graveyard_age.push_back( 0 );
-		m_seqs[a_num] = NULL;
     }
 
 }
@@ -603,6 +592,15 @@ perform::gc_graveyard( void )
        that window, so freeing is safe -- and the graveyard stays bounded. */
     for ( size_t i = 0; i < m_seq_graveyard.size(); )
     {
+        /* something still has it OPEN in an editor: it is retired (out of the
+           slot, silent, not scheduled) but freeing it would pull the rug from
+           under that editor.  Hold the free until the editor lets go. */
+        if ( m_seq_graveyard[i] != NULL && m_seq_graveyard[i]->get_editing() )
+        {
+            ++i;
+            continue;
+        }
+
         if ( ++m_seq_graveyard_age[i] >= 2 )
         {
             delete m_seq_graveyard[i];
@@ -720,7 +718,7 @@ perform::play( long a_tick )
 
     //printf( "play [%d]\n", a_tick );
     
-    m_tick = a_tick;	
+    m_tick.store( a_tick, std::memory_order_relaxed );
     /* SCALE-MASTER / SCALE-FOLLOW: resolve the active master once per tick into
        plain scalars (each getter takes/releases the master's own mutex, no
        nested locking), then push the snapshot to each follower before its
@@ -728,34 +726,64 @@ perform::play( long a_tick )
     bool master_on = false;
     int  master_key = 0, master_scale = c_scale_off;
     int  scale_m = m_scale_master_seq;
-    if ( scale_m >= 0 && is_active(scale_m) && m_seqs[scale_m]->get_playing()
-         && m_seqs[scale_m]->get_scale_master() ){
-        master_on    = true;
-        master_key   = m_seqs[scale_m]->get_master_key();
-        master_scale = m_seqs[scale_m]->get_master_scale();
+    {
+        /*  LATCH THE POINTER, THEN TEST is_active().  delete_sequence() clears
+            active before it clears the slot, so a pointer read before an
+            is_active() that came back true cannot be the NULL it was about to
+            become -- and a retired sequence stays alive in the graveyard for a
+            couple of UI frames on top of that.  The old code tested is_active()
+            and then dereferenced m_seqs[] three times, guarded only by an
+            assert(): compiled out in Release, which is where the crash was. */
+        sequence *m = ( scale_m >= 0 && scale_m < c_max_sequence )
+                      ? m_seqs[scale_m] : NULL;
+
+        if ( m != NULL && is_active(scale_m) &&
+             m->get_playing() && m->get_scale_master() ){
+            master_on    = true;
+            master_key   = m->get_master_key();
+            master_scale = m->get_master_scale();
+        }
     }
 
     for (int i=0; i< c_max_sequence; i++ ){
-		
-		if ( is_active(i) ){
-			assert( m_seqs[i] );
+
+		sequence *s = m_seqs[i];
+
+		if ( s != NULL && is_active(i) ){
 
 				/* a follower snaps only if it is not the master itself and
 				   has its follow flag set */
 				bool follow = master_on && ( i != m_scale_master_seq )
-				              && m_seqs[i]->get_follows_master();
-				m_seqs[i]->set_master_scale_context( follow, master_key, master_scale );
-			
-			
-			if ( m_seqs[i]->get_queued() &&
-				 m_seqs[i]->get_queued_tick() <= a_tick ){
-				
-				m_seqs[i]->play( m_seqs[i]->get_queued_tick() - 1, m_playback_mode );
-				m_seqs[i]->toggle_playing();
+				              && s->get_follows_master();
+				s->set_master_scale_context( follow, master_key, master_scale );
+
+
+			if ( s->get_queued() &&
+				 s->get_queued_tick() <= a_tick ){
+
+				const long qt = s->get_queued_tick();
+
+				s->play( qt - 1, m_playback_mode );
+
+				/*  RELEASE AT THE QUEUED TICK, not at "now".
+
+				    a_tick here is the SCHEDULER HORIZON -- a lookahead
+				    (~15 ms) ahead of what the listener is hearing -- so a
+				    queued MUTE that went through the plain toggle_playing()
+				    handed off_playing_notes() the default tick of -1, i.e.
+				    "flush immediately".  The notes were cut up to a whole
+				    lookahead early, and because the note-offs jumped the
+				    ring ahead of the note-ons that were already queued for
+				    the same pattern, a voice could be left hanging.
+				    sequence::play_triggered() already releases at the exact
+				    boundary tick (cover->m_tick_end, the last tick it
+				    played); this is the same boundary -- the last tick the
+				    pattern sounded before the queue took effect. */
+				s->toggle_playing( qt - 1 );
 			}
-			
-			m_seqs[i]->play( a_tick, m_playback_mode );
-		} 
+
+			s->play( a_tick, m_playback_mode );
+		}
     }
 	
     /* flush the bus */
@@ -766,10 +794,12 @@ void
 perform::set_orig_ticks( long a_tick  )
 {
     for (int i=0; i< c_max_sequence; i++ ){
-	
-	if ( is_active(i) == true ){
-	    assert( m_seqs[i] );
-	    m_seqs[i]->set_orig_tick( a_tick );
+
+	/* latch, then test -- see perform::play() */
+	sequence *s = m_seqs[i];
+
+	if ( s != NULL && is_active(i) ){
+	    s->set_orig_tick( a_tick );
 	} 
     }
 }
@@ -786,16 +816,21 @@ perform::clear_sequence_triggers( int a_seq  )
 void
 perform::move_triggers( bool a_direction )
 {
-    if ( m_left_tick < m_right_tick ){
+    /* snapshot the marker pair ONCE: it used to be re-read three times, so a
+       concurrent drag could hand the loop below a mismatched L/R */
+    const long left  = get_left_tick();
+    const long right = get_right_tick();
 
-	long distance = m_right_tick - m_left_tick;
+    if ( left < right ){
+
+	long distance = right - left;
 
 	for (int i=0; i< c_max_sequence; i++ ){
 
 	    if ( is_active(i) == true ){
 		assert( m_seqs[i] );
-		m_seqs[i]->move_triggers( m_left_tick, distance, a_direction );
-	    } 
+		m_seqs[i]->move_triggers( left, distance, a_direction );
+	    }
 	}
     }
 }
@@ -825,127 +860,68 @@ perform::pop_trigger_undo( void )
 }
 
 
+void
+perform::pop_trigger_redo( void )
+{
+    for (int i=0; i< c_max_sequence; i++ ){
+
+        if ( is_active(i) == true ){
+            assert( m_seqs[i] );
+            m_seqs[i]->pop_trigger_redo( );
+        }
+    }
+}
+
+
 /* copies between L and R -> R */
 void
 perform::copy_triggers( )
 {
-    if ( m_left_tick < m_right_tick ){
+    /* snapshot the marker pair ONCE -- see move_triggers() */
+    const long left  = get_left_tick();
+    const long right = get_right_tick();
 
-	long distance = m_right_tick - m_left_tick;
+    if ( left < right ){
+
+	long distance = right - left;
 
 	for (int i=0; i< c_max_sequence; i++ ){
 
 	    if ( is_active(i) == true ){
 		assert( m_seqs[i] );
-		m_seqs[i]->copy_triggers( m_left_tick, distance );
-	    } 
+		m_seqs[i]->copy_triggers( left, distance );
+	    }
 	}
     }
 }
 
 
 
-void 
-perform::start_jack(  )
-{
-    //printf( "perform::start_jack()\n" );
-#ifdef JACK_SUPPORT
-    if ( m_jack_running)
-        jack_transport_start (m_jack_client );
-#endif
-}
+/*  JACK IS GONE.
 
+    seq24 could slave its transport to JACK, and the port carried the whole of
+    that machinery: init_jack/deinit_jack/start_jack/stop_jack/position_jack,
+    the sync/timebase/shutdown callbacks, and an m_jack_running flag that gated
+    a dozen branches across this file.  Every line of it lived inside
+    #ifdef JACK_SUPPORT, and NOTHING in this tree can define that symbol:
+    src/config.h ships it undefined, CMakeLists.txt -- the only build system
+    present, since the autotools leftovers have no configure script -- never
+    mentions JACK, and no JACK headers are vendored.  So the code could not
+    compile even if it were reached, m_jack_running was a constant false, and
+    every branch it guarded was unreachable in every build.
 
-void 
-perform::stop_jack(  )
-{
-    //printf( "perform::stop_jack()\n" );
-#ifdef JACK_SUPPORT
-    if( m_jack_running )
-        jack_transport_stop (m_jack_client);
-#endif
-}
-
-
-void
-perform::position_jack( bool a_state )
-{
-    
-    //printf( "perform::position_jack()\n" );
-
-    
-#ifdef JACK_SUPPORT
-    
-    if ( m_jack_running ){
-        jack_transport_locate( m_jack_client, 0 );
-    }
-    return;
-    
-  
-
-    
-
-    jack_nframes_t rate = jack_get_sample_rate( m_jack_client ) ;
-
-    long current_tick = 0;
-
-    if ( a_state ){
-        current_tick = m_left_tick;
-    }
-
-    jack_position_t pos;
-
-    pos.valid = JackPositionBBT;
-    pos.beats_per_bar = 4;
-    pos.beat_type = 4;
-    pos.ticks_per_beat = c_ppqn * 10;
-    pos.beats_per_minute =  m_master_bus.get_bpm();
-    
-    /* Compute BBT info from frame number.  This is relatively
-     * simple here, but would become complex if we supported tempo
-     * or time signature changes at specific locations in the
-     * transport timeline. */
-    
-    current_tick *= 10;
-    
-    pos.bar  = (int32_t) (current_tick / (long) pos.ticks_per_beat / pos.beats_per_bar);
-    pos.beat = (int32_t) ((current_tick / (long) pos.ticks_per_beat) % 4);
-    pos.tick = (int32_t) (current_tick % (c_ppqn * 10));
-
-    pos.bar_start_tick = pos.bar * pos.beats_per_bar * pos.ticks_per_beat;
-    pos.frame_rate = rate;
-    pos.frame = (jack_nframes_t) ( (current_tick * rate * 60.0)
-        / (pos.ticks_per_beat * pos.beats_per_minute) );
-
-    /*
-    ticks * 10 = jack ticks;
-    jack ticks / ticks per beat = num beats;
-    num beats / beats per minute = num minutes
-        num minutes * 60 = num seconds
-        num secords * frame_rate  = frame */
-
-    
-    pos.bar++;
-    pos.beat++;
-
-    //printf( "position bbb[%d:%d:%4d]\n", pos.bar, pos.beat, pos.tick );
-    
-    jack_transport_reposition( m_jack_client, &pos );
-
-    
-    
-#endif
-    
-}   
-
+    Removed rather than kept: 530-odd lines of a second, dead transport in the
+    file that hosts the live scheduler is a standing invitation to reason about
+    the wrong one.  perform::start() and stop() were pure pass-throughs behind
+    that always-false flag and now say so.  If JACK is ever wanted back it
+    belongs on the engine transport in src/audio_app.cpp, not on this legacy
+    layer, which no longer owns the clock.  The global_with_jack_* option
+    variables are deliberately left alone: optionsfile.cpp still reads and
+    writes them, so dropping them would change the on-disk options format for
+    no gain.  */
 void 
 perform::start( bool a_state )
 {
-
-    if(  m_jack_running ){
-        return;
-    }
-
     inner_start( a_state );
 }
 
@@ -954,10 +930,6 @@ perform::start( bool a_state )
 void 
 perform::stop( )
 {
-    if(  m_jack_running ){
-        return;
-    }
-
     inner_stop();
 }
 
@@ -980,7 +952,7 @@ perform::inner_start( bool a_state )
            the output thread paces off can never diverge from us. */
         if ( PatchKnob::app::audio_app_running() ){
 
-            long long start_tick = a_state ? (long long) m_starting_tick : 0;
+            long long start_tick = a_state ? (long long) get_starting_tick() : 0;
 
             PatchKnob::app::audio_app_transport_locate(
                     PatchKnob::app::audio_app_tick_to_sample( start_tick ) );
@@ -1019,11 +991,13 @@ void
 perform::off_sequences( void )
 {
     for (int i=0; i< c_max_sequence; i++ ){
-		
-		if ( is_active(i) == true ){
-			assert( m_seqs[i] );
-			m_seqs[i]->set_playing( false );
-			
+
+		/* latch, then test -- see perform::play() */
+		sequence *s = m_seqs[i];
+
+		if ( s != NULL && is_active(i) ){
+			s->set_playing( false );
+
 		} 
     }
 }
@@ -1032,21 +1006,24 @@ perform::off_sequences( void )
 
 
 void 
-perform::reset_sequences( void )
+perform::reset_sequences( long release_tick, bool loop_boundary )
 {
     for (int i=0; i< c_max_sequence; i++ ){
-		
-		if ( is_active(i) == true ){
-			assert( m_seqs[i] );
 
-                        bool state = m_seqs[i]->get_playing();
-                        
-			m_seqs[i]->off_playing_notes( );
-			m_seqs[i]->set_playing( false );
-			m_seqs[i]->zero_markers( );
+		/* latch, then test -- see perform::play() */
+		sequence *s = m_seqs[i];
+
+		if ( s != NULL && is_active(i) ){
+
+                        bool state = s->get_playing();
+
+			if(loop_boundary)s->queue_loop_note_offs();
+			else s->off_playing_notes( release_tick );
+			s->set_playing( false );
+			s->zero_markers( );
 
                         if( !m_playback_mode )
-                            m_seqs[i]->set_playing( state );
+                            s->set_playing( state );
 		} 
     }
     /* flush the bus */
@@ -1091,11 +1068,13 @@ perform::get_max_trigger( void )
     long ret = 0, t;
 
     for (int i=0; i< c_max_sequence; i++ ){
-	
-	if ( is_active(i) == true ){
-	    assert( m_seqs[i] );
-	    
-	    t = m_seqs[i]->get_max_trigger( );  
+
+	/* latch, then test -- see perform::play() */
+	sequence *s = m_seqs[i];
+
+	if ( s != NULL && is_active(i) ){
+
+	    t = s->get_max_trigger( );  
 	    if ( t > ret )
 		ret = t;
 	} 
@@ -1127,71 +1106,6 @@ output_thread_func(void *a_pef )
 
 
 
-#ifdef JACK_SUPPORT
-
-
-int jack_sync_callback(jack_transport_state_t state, 
-					   jack_position_t *pos, void *arg)
-{
-  //printf( "jack_sync_callback() " );
-
-  perform *p = (perform *) arg;
-
-  p->m_jack_frame_current = jack_get_current_transport_frame( p->m_jack_client );
-
-  p->m_jack_tick =
-      p->m_jack_frame_current *
-      p->m_jack_pos.ticks_per_beat *
-      p->m_jack_pos.beats_per_minute / (p->m_jack_pos.frame_rate * 60.0);
-  
-  p->m_jack_frame_last = p->m_jack_frame_current;
-
-  p->m_jack_transport_state_last =
-      p->m_jack_transport_state =
-      state;
-  
-  
-  
-  switch ( state ){
-      
-      case JackTransportStopped:
-          
-          
-          //printf( "[JackTransportStopped]\n" );
-          break;
-          
-          
-      case JackTransportRolling:
-          
-          //printf( "[JackTransportRolling]\n" );
-          break;
-          
-          
-          
-      case JackTransportStarting:
-
-          //printf( "[JackTransportStarting]\n" );
-          p->inner_start( global_jack_start_mode );
-          break;
-
-      case JackTransportLooping:
-
-          //printf( "[JackTransportLooping]" );
-          break;
-
-  }
-
-  //printf( "starting frame[%d] tick[%8.2f]\n", p->m_jack_frame_current, p->m_jack_tick );
-  
-  print_jack_pos( pos );
-
-  return true;
-
-}
-
-
-
-#endif
 
 
     void
@@ -1233,7 +1147,7 @@ perform::output_func(void)
 
          *******************************************************************/
 
-        if ( PatchKnob::app::audio_app_running() && !m_jack_running ){
+        if ( PatchKnob::app::audio_app_running() ){
 
             struct timespec pace;
             pace.tv_sec  = 0;
@@ -1245,8 +1159,11 @@ perform::output_func(void)
                about starting from the offset */
             if ( m_playback_mode ){
 
-                start_tick = m_starting_tick;
-                set_orig_ticks( m_starting_tick );
+                /* one load, used for both -- the UI can move the marker
+                   between two reads */
+                const long st = get_starting_tick();
+                start_tick = st;
+                set_orig_ticks( st );
             }
 
             /* inner_start already located the engine transport onto
@@ -1281,35 +1198,280 @@ perform::output_func(void)
                re-fire while the horizon still hangs past the loop end waiting
                for the engine's sample-exact wrap to move the playhead back */
             bool      tail_done = false;
+            unsigned long long observed_wrap_generation =
+                PatchKnob::app::audio_app_loop_wrap_generation();
+            /*  Same treatment for LOCATES -- see the handshake below.  Snapshot
+                it here so the locates that happened while the transport was
+                stopped (the user parking the playhead before pressing PLAY)
+                are not replayed as a discontinuity on the first poll: this
+                thread is starting AT that position already. */
+            unsigned long long observed_locate_generation =
+                PatchKnob::app::audio_app_locate_generation();
+            /*  Last transport SAMPLE this thread saw, so a LOCATE (the ruler
+                scrub, the rewind button, "return to start") can be noticed --
+                see the backward-seek handshake below.  -1 == nothing seen yet. */
+            long long prev_transport_sample = -1;
+            unsigned long long edit_revision[c_max_sequence] = {};
+            for(int i=0;i<c_max_sequence;++i)
+                if(is_active(i))edit_revision[i]=m_seqs[i]->edit_revision();
 
             while ( m_running ){
 
                 /* keep the engine's loop in sync with ours (cheap when idle) */
+                bool loop_config_changed=false;
                 {
                     const bool want = m_looping && m_playback_mode;
                     const long long ll = get_left_tick(), rr = get_right_tick();
                     if ( want != loop_sent || ( want && ( ll != loop_l || rr != loop_r ) ) ){
+                        loop_config_changed=true;
                         PatchKnob::app::audio_app_set_loop_ticks( ll, rr, want ? 1 : 0 );
                         loop_sent = want; loop_l = ll; loop_r = rr;
                     }
                 }
 
+                /*  Read the wrap counter on BOTH sides of the transport
+                    sample: if a loop wrap lands between the two reads, `s`
+                    belongs to a different side of the wrap than the counter
+                    does, and the backward-seek test below must not mistake
+                    that for a locate. */
+                const unsigned long long wrap_generation_pre =
+                    PatchKnob::app::audio_app_loop_wrap_generation();
                 const long long s = PatchKnob::app::audio_app_transport_sample();
+                if(loop_config_changed){
+                    // Old-loop tail/head messages and release masks have no
+                    // meaning under new marker geometry. Rebuild from the
+                    // audible tick instead of carrying the old latch/window.
+                    PatchKnob::app::audio_app_invalidate_future_schedule();
+                    const long long now=PatchKnob::app::audio_app_sample_to_tick(s);
+                    set_orig_ticks((long)now);last_scheduled=now-1;tail_done=false;
+                    observed_wrap_generation=
+                        PatchKnob::app::audio_app_loop_wrap_generation();
+                }
 
-                /* the UI playhead reads the SAME clock the audio renders */
-                m_tick = (long) PatchKnob::app::audio_app_sample_to_tick( s );
+                /* Polling `s < previous_s` can MISS a whole wrap when the audio
+                   callback wraps and advances again between scheduler polls.
+                   Once missed, tail_done remains true forever on short loops
+                   and every later clip pass is silent.  Consume the callback's
+                   monotonic generation instead: no wrap can be aliased away. */
+                const unsigned long long wrap_generation =
+                    PatchKnob::app::audio_app_loop_wrap_generation();
+                bool wrapped = ( wrap_generation != wrap_generation_pre );
+                if(wrap_generation!=observed_wrap_generation){
+                    observed_wrap_generation=wrap_generation;
+                    const bool tail_was_queued = tail_done;
+                    tail_done=false;
+                    wrapped=true;
 
-                /* two audio blocks + the configured margin of early feed */
-                const long long lookahead_samples =
+                    if( !tail_was_queued && m_looping && m_playback_mode ){
+                        /*  MISSED TAIL WINDOW.
+
+                            The tail branch below only runs while the horizon
+                            hangs past the loop end -- a window ONE LOOKAHEAD
+                            wide (~15-40 ms) at the end of each pass.  This
+                            thread contends on every sequence's recursive mutex
+                            with the GUI (drawing takes the same locks), so a
+                            stall covering that whole window is routine on a
+                            busy session.  The engine still wraps sample-exactly,
+                            but nothing here scheduled the ending pass's tail or
+                            the new pass's head: last_scheduled is stranded near
+                            the OLD pass's right edge, `horizon_tick >
+                            last_scheduled` stays false for almost the entire
+                            new pass, and the else-branch emits NOTHING -- one
+                            whole silent pass that self-heals just before its
+                            end.  Consecutive stalls give consecutive silent
+                            passes: the reported "silence for a few loops, then
+                            it comes back".  tail_done is true at a wrap exactly
+                            when the tail branch ran for the pass that just
+                            ended, so its absence is the precise trigger.
+
+                            Recover the way the locate handshake does: rebuild
+                            from the AUDIBLE tick.  Rebuilding from the loop's
+                            left edge would re-emit ticks the transport has
+                            already passed; the drain clamps those "late" only
+                            within its wrap margin -- beyond it (tiny loops,
+                            late detection) they are misread as NEXT-pass
+                            events and wedge the FIFO behind them -- so the
+                            audible tick is the only always-safe anchor.  The
+                            few ms the stall itself consumed are unrecoverable
+                            either way: their samples were rendered while this
+                            thread was blocked.
+
+                            Ordering: reset_sequences' queue_loop_note_offs
+                            must run BEFORE invalidate_future_schedule, whose
+                            clear_loop_boundary_offs() re-arms the audio
+                            thread's boundary release from the pending bits --
+                            the wrap's own release already fired, empty, while
+                            this thread was stalled, and without the re-arm the
+                            dying pass's notes would ring for a whole pass.
+                            And the transport sample is RE-READ: this
+                            iteration's `s` may predate the wrap (the
+                            generation above was read after `s`), and a rebuild
+                            anchored on a pre-wrap sample would strand
+                            last_scheduled all over again.  */
+                        reset_sequences( -1, true );
+                        PatchKnob::app::audio_app_invalidate_future_schedule();
+                        const long long now =
+                            PatchKnob::app::audio_app_sample_to_tick(
+                                PatchKnob::app::audio_app_transport_sample() );
+                        set_orig_ticks( (long) now );
+                        last_scheduled = now - 1;
+                        /* forget the pre-wrap sample: the backward-seek
+                           backstop must not misread this wrap as a locate */
+                        prev_transport_sample = -1;
+                        /*  This iteration's `s` and the horizon derived from it
+                            may still be pre-wrap; acting on them could fire the
+                            tail branch against the pass just rebuilt and
+                            double-schedule it.  Skip one poll and re-derive
+                            everything from fresh reads.  */
+                        nanosleep( &pace, NULL );
+                        continue;
+                    }
+                }
+
+                /*  LOCATE HANDSHAKE.
+
+                    Wraps stopped being INFERRED from a sample decrease because
+                    that inference aliases away whenever this thread stalls
+                    across the event.  Locates were left on the very same
+                    inference (below) and inherit that bug, plus two only they
+                    can hit: a FORWARD locate never decreases the sample at all,
+                    and a locate landing in the same poll as a wrap is dropped
+                    by the !wrapped guard -- while prev_transport_sample is
+                    updated regardless, so the decrease can never be seen again.
+                    Any of the three strands last_scheduled ahead of the horizon,
+                    and the else-branch below then schedules NOTHING for the rest
+                    of the session.  That is the "silent until Stop+Play" report;
+                    Stop+Play cures it only because re-entering this function
+                    re-initialises last_scheduled.
+
+                    Consume the published counter instead -- unconditionally,
+                    with no direction test and no wrap exclusion.
+
+                    The rebuild WAITS for the queued seek to be applied.
+                    audio_app_transport_locate() only queues it, and this thread
+                    polls far faster than a block: rebuilding against the
+                    pre-seek sample would rewind the cursors to the OLD position
+                    and then hand play() a window spanning the entire jump,
+                    dumping every event between the two positions into the ring
+                    in one call (sequence.cpp's "catch-up burst"). */
+                const unsigned long long locate_generation =
+                    PatchKnob::app::audio_app_locate_generation();
+                if( locate_generation != observed_locate_generation &&
+                    PatchKnob::app::audio_app_transport_pending_seek() < 0 ){
+
+                    observed_locate_generation = locate_generation;
+                    PatchKnob::app::audio_app_invalidate_future_schedule();
+                    /*  Re-read: `s` was sampled before the pending-seek test,
+                        so it may still be the pre-seek position. */
+                    const long long located =
+                        PatchKnob::app::audio_app_transport_sample();
+                    const long long now =
+                        PatchKnob::app::audio_app_sample_to_tick( located );
+                    set_orig_ticks( (long) now );
+                    last_scheduled = now - 1;
+                    tail_done = false;
+                    prev_transport_sample = located;
+                }
+
+                /*  BACKWARD SEEK BACKSTOP.
+
+                    Superseded by the locate handshake above, which is direction
+                    agnostic and cannot be aliased away; this is kept only to
+                    catch a backward jump that reached the transport without
+                    going through audio_app_transport_locate() (the count-in and
+                    the tempo-map relocate still seek the transport directly).
+                    It is safe to run redundantly: it only ever rewinds to the
+                    current audible position, which is what the handshake just
+                    did.  Do NOT rely on it for ordinary locates.
+
+                    last_scheduled only ever moves FORWARD here, so once the
+                    transport jumps backwards -- ruler scrub, rewind, "go to
+                    start", a marker jump, anything that calls
+                    audio_app_transport_locate() while rolling -- the horizon
+                    is behind it and `horizon_tick > last_scheduled` is false
+                    for as long as it takes the playhead to grind back to where
+                    it already was.  For that whole stretch the sequencer emits
+                    NOTHING: seek from bar 5 to bar 1 and four bars of music
+                    play silently.
+
+                    Nothing detected it.  The three other ways the schedule can
+                    be invalidated -- a loop-marker change, a live edit, the
+                    loop wrap -- all rewind last_scheduled and rebuild from the
+                    audible tick; a locate needs exactly the same treatment, and
+                    the transport going backwards is the observation that says
+                    one happened.  A loop WRAP also moves the playhead back, so
+                    it is excluded: it has already queued its own tail+head.
+
+                    Note that the transport sample is monotonic while rolling,
+                    so any decrease is a real reposition -- there is no jitter
+                    threshold to tune. */
+                if( !loop_config_changed && !wrapped &&
+                    prev_transport_sample >= 0 && s < prev_transport_sample ){
+
+                    PatchKnob::app::audio_app_invalidate_future_schedule();
+                    const long long now=PatchKnob::app::audio_app_sample_to_tick(s);
+                    set_orig_ticks((long)now);
+                    last_scheduled=now-1;
+                    tail_done=false;
+                }
+                prev_transport_sample = s;
+
+                /* the UI playhead reads the SAME clock the audio renders.
+                   Stored directly (not through set_tick) so the negative
+                   clamp in the setter cannot change what the scheduler
+                   publishes. */
+                m_tick.store( (long) PatchKnob::app::audio_app_sample_to_tick( s ),
+                              std::memory_order_relaxed );
+
+                /* two audio blocks + the configured margin of early feed,
+                   floored so a small buffer size can't shrink the total
+                   anti-jitter margin below the poll thread's real wake
+                   latency (see c_thread_trigger_lookahead_floor_ms). */
+                const long long sample_rate =
+                    (long long) PatchKnob::app::audio_app_sample_rate();
+                const long long lookahead_samples = std::max(
                     2 * (long long) PatchKnob::app::audio_app_buffer_size()
-                    + (long long)( 0.001 * c_thread_trigger_lookahead_ms
-                                   * PatchKnob::app::audio_app_sample_rate() );
+                        + (long long)( 0.001 * c_thread_trigger_lookahead_ms
+                                       * sample_rate ),
+                    (long long)( 0.001 * c_thread_trigger_lookahead_floor_ms
+                                 * sample_rate ) );
+
+                /*  The engine's drain needs this to tell a NEXT-PASS event
+                    from a merely late one: the tail branch below queues the
+                    next pass's head ONE LOOKAHEAD before the loop end, so on a
+                    loop shorter than about twice this value those head events
+                    sit less than half a loop behind the playhead and used to be
+                    misclassified as late -- drained into the pass still playing
+                    and then cut down by the boundary note-offs.  */
+                PatchKnob::app::audio_app_set_schedule_lookahead( lookahead_samples );
 
                 long long horizon_tick = PatchKnob::app::audio_app_sample_to_tick(
                         s + lookahead_samples );
 
+                /* Live edits must replace the already-queued lookahead.  Before
+                   this handshake, adding a note inside that window could not be
+                   seen until the next loop.  Invalidate only future ring data,
+                   rewind sequence cursors to the audible position, and rebuild
+                   the horizon; sounding notes are intentionally preserved. */
+                bool edited=false;
+                for(int i=0;i<c_max_sequence;++i)if(is_active(i)){
+                    const unsigned long long rev=m_seqs[i]->edit_revision();
+                    if(edit_revision[i]!=rev){edit_revision[i]=rev;edited=true;}
+                }
+                if(edited){
+                    PatchKnob::app::audio_app_invalidate_future_schedule();
+                    const long long now=PatchKnob::app::audio_app_sample_to_tick(s);
+                    set_orig_ticks((long)now);
+                    last_scheduled=now-1;
+                    tail_done=false;
+                }
+
+                int trace_branch = -1;
+
                 if ( m_looping && m_playback_mode &&
                      horizon_tick >= get_right_tick() ){
+
+                    trace_branch = tail_done ? 2 : 1;
 
                     if ( !tail_done ){
 
@@ -1319,7 +1481,11 @@ perform::output_func(void)
                             leftover_tick = 0;   /* degenerate/moved markers */
 
                         play( get_right_tick() - 1 );
-                        reset_sequences();
+                        // We are LOOKAHEAD ticks ahead of audible playback.
+                        // An untimed reset emits note-offs immediately and
+                        // chops the loop tail early.  Timestamp the release on
+                        // the last included tick (loop-right is exclusive).
+                        reset_sequences( -1, true );
                         set_orig_ticks( get_left_tick() );
 
                         /* ...then continue from the loop start.  The transport
@@ -1337,6 +1503,8 @@ perform::output_func(void)
 
                     tail_done = false;    /* horizon back inside the loop */
 
+                    trace_branch = ( horizon_tick > last_scheduled ) ? 0 : 3;
+
                     if ( horizon_tick > last_scheduled ){
 
                         play( (long) horizon_tick );
@@ -1345,8 +1513,24 @@ perform::output_func(void)
 
                         /* play() published the horizon; snap the display back
                            to the real transport position */
-                        m_tick = (long) PatchKnob::app::audio_app_sample_to_tick( s );
+                        m_tick.store( (long) PatchKnob::app::audio_app_sample_to_tick( s ),
+                                      std::memory_order_relaxed );
                     }
+                }
+
+                if ( g_loop_trace_on && g_loop_trace.size() < g_loop_trace.capacity() ){
+                    struct timespec tnow; clock_gettime( CLOCK_MONOTONIC, &tnow );
+                    loop_trace_rec r;
+                    r.ms             = (long long) tnow.tv_sec * 1000
+                                     + tnow.tv_nsec / 1000000;
+                    r.transport_tick = PatchKnob::app::audio_app_sample_to_tick( s );
+                    r.horizon        = horizon_tick;
+                    r.left           = get_left_tick();
+                    r.right          = get_right_tick();
+                    r.last_scheduled = last_scheduled;
+                    r.wrap_gen       = wrap_generation;
+                    r.branch         = trace_branch;
+                    g_loop_trace.push_back( r );
                 }
 
                 nanosleep( &pace, NULL );
@@ -1356,15 +1540,34 @@ perform::output_func(void)
             if ( loop_sent )
                 PatchKnob::app::audio_app_set_loop_ticks( 0, 0, 0 );
 
-            m_tick = 0;
+            m_tick.store( 0, std::memory_order_relaxed );
             m_master_bus.flush( );
             m_master_bus.stop();
 
             continue;
         }
 
-        /* ------- fallback: no audio engine (or JACK slave/master) -------
-           legacy wall-clock integration, paced off CLOCK_MONOTONIC */
+        /*  ------- FALLBACK SCHEDULER: no audio engine -------
+
+            Reached only when audio_app_running() is false, i.e. the audio
+            device could not be opened.  KEPT DELIBERATELY, and it is not
+            unreachable code: sdlui/main.cpp keeps the whole application running
+            when audio_app_init() returns false (it only guards the features
+            that need the engine), so the transport still starts and this is
+            then the ONLY thing advancing musical time.  With hardware MIDI out
+            enabled, mastermidibus::play sends straight through RtMidi and does
+            not touch the engine ring, so a PatchKnob with a busy or missing
+            sound card still drives external gear -- which is exactly the
+            machine seq24 was written for.  Deleting it would turn "no audio
+            device" into "no sequencer".
+
+            It is a wall-clock integrator paced off CLOCK_MONOTONIC: it
+            accumulates delta ticks from elapsed time instead of reading the
+            engine's sample position, so its timing is only as good as the
+            thread's wakeups.  That is why it is the fallback and not the
+            default.  It drives sequence::play() through exactly the same call,
+            so everything the clip/loop model does -- per-clip loop windows,
+            boundary note-offs -- behaves identically here.  */
 
         /* begning time */
         struct timespec last;
@@ -1395,14 +1598,9 @@ perform::output_func(void)
         long stats_all[100];
         long stats_clock[100];
 
-        bool jack_stopped = false;
         bool dumping = false;
 
         bool init_clock = true;
-
-        double jack_ticks_converted = 0.0;
-        double jack_ticks_converted_last = 0.0;
-        double jack_ticks_delta = 0.0;
 
         for( int i=0; i<100; i++ ){
             stats_all[i] = 0;
@@ -1411,11 +1609,13 @@ perform::output_func(void)
 
         /* if we are in the performance view, we care 
            about starting from the offset */
-        if ( m_playback_mode && !m_jack_running){
+        if ( m_playback_mode ){
 
-            current_tick = m_starting_tick;
-            clock_tick = m_starting_tick;
-            set_orig_ticks( m_starting_tick ); 
+            /* one load for all three -- see the engine-paced path above */
+            const long st = get_starting_tick();
+            current_tick = st;
+            clock_tick = st;
+            set_orig_ticks( st );
 
         }
 
@@ -1455,157 +1655,15 @@ perform::output_func(void)
 
 
             /* delta time to ticks */
-            /* bpm -- fractional, in DOUBLE precision end-to-end */
-            double bpm  = m_master_bus.get_bpm();
+            /* bpm -- fractional, in DOUBLE precision end-to-end, read from the
+               ONE tempo authority (the engine map) so this fallback pacing
+               cannot drift away from the tempo everything else uses */
+            double bpm  = get_bpm();
 
             /* get delta ticks, delta_ticks_f is in 1000th of a tick */
             double delta_tick   =  (double) (bpm * ppqn * (delta_us/60000000.0) );
 
             //printf ( "delta_tick[%ld.%03ld]\n", delta_tick, delta_tick_f  );
-#ifdef JACK_SUPPORT
-
-            // no init until we get a good lock
-            
-            if ( m_jack_running ){
-               
-                init_clock = false;
-
-                m_jack_transport_state = jack_transport_query( m_jack_client, &m_jack_pos );
-                m_jack_frame_current =  jack_get_current_transport_frame( m_jack_client );
- 
-                if ( m_jack_transport_state_last  ==  JackTransportStarting &&
-                     m_jack_transport_state       == JackTransportRolling ){
-
-                    m_jack_frame_last = m_jack_frame_current;
-
-
-                    printf ("[Start Playback]\n" );
-                    dumping = true;
-                    m_jack_tick =
-                        m_jack_pos.frame *
-                        m_jack_pos.ticks_per_beat *
-                        m_jack_pos.beats_per_minute / (m_jack_pos.frame_rate * 60.0);
-
-
-                    /* convert ticks */
-                    jack_ticks_converted =
-                        m_jack_tick * ((double) c_ppqn /
-                                (m_jack_pos.ticks_per_beat *
-                                 m_jack_pos.beat_type / 4.0  ));
-
-                    set_orig_ticks( (long) jack_ticks_converted );
-                    current_tick = clock_tick = total_tick = jack_ticks_converted_last = jack_ticks_converted;
-                    init_clock = true;
-
-                    if ( m_looping && m_playback_mode ){
-
-                        //printf( "left[%lf] right[%lf]\n", (double) get_left_tick(), (double) get_right_tick() );
-                        
-                        if ( current_tick >= get_right_tick() ){
-
-                            while ( current_tick >= get_right_tick() ){
-
-                                double size = get_right_tick() - get_left_tick();
-                                current_tick = current_tick - size;
-                                
-                                //printf( "> current_tick[%lf]\n", current_tick );
-                            }        
-                            reset_sequences();
-                            set_orig_ticks( (long)current_tick );
-                        }
-                    }
-                }
-
-                if ( m_jack_transport_state_last  ==  JackTransportRolling &&
-                        m_jack_transport_state  == JackTransportStopped ){
-
-                    m_jack_transport_state_last = JackTransportStopped;
-                    //printf ("[Stop Playback]\n" );
-                    jack_stopped = true;
-                }
-
-                //-----  Jack transport is Rolling Now ---------
-
-                /* transport is in a sane state if dumping == true */
-                if ( dumping )
-                {
-                    m_jack_frame_current =  jack_get_current_transport_frame( m_jack_client );
-
-                    //printf( " frame[%7d]", m_jack_pos.frame );
-                    //printf( " current_transport_frame[%7d]", m_jack_frame_current );
-
-                    // if we are moving ahead
-                    if ( (m_jack_frame_current > m_jack_frame_last)){
-
-
-                        m_jack_tick +=
-                            (m_jack_frame_current - m_jack_frame_last)  *
-                            m_jack_pos.ticks_per_beat *
-                            m_jack_pos.beats_per_minute / (m_jack_pos.frame_rate * 60.0);
-
-
-                        //printf ( "m_jack_tick += (m_jack_frame_current[%lf] - m_jack_frame_last[%lf]) *\n",
-                        //        (double) m_jack_frame_current, (double) m_jack_frame_last );
-                        //printf(  "m_jack_pos.ticks_per_beat[%lf] * m_jack_pos.beats_per_minute[%lf] / \n(m_jack_pos.frame_rate[%lf] * 60.0\n", (double) m_jack_pos.ticks_per_beat, (double) m_jack_pos.beats_per_minute, (double) m_jack_pos.frame_rate);
-           
-                        
-                        m_jack_frame_last = m_jack_frame_current;
-                    }
-
-                    /* convert ticks */
-                    jack_ticks_converted =
-                        m_jack_tick * ((double) c_ppqn /
-                                (m_jack_pos.ticks_per_beat * m_jack_pos.beat_type / 4.0  ));
-
-                    //printf ( "jack_ticks_conv[%lf] = \n",  jack_ticks_converted ); 
-                    //printf ( "    m_jack_tick[%lf] * ((double) c_ppqn[%lf] / \n", m_jack_tick, (double) c_ppqn );
-                    //printf ( "   (m_jack_pos.ticks_per_beat[%lf] * m_jack_pos.beat_type[%lf] / 4.0  )\n",
-                    //        m_jack_pos.ticks_per_beat, m_jack_pos.beat_type );
-                            
-                          
-
-          
-                    jack_ticks_delta = jack_ticks_converted - jack_ticks_converted_last;
-
-                    clock_tick     += jack_ticks_delta;
-                    current_tick   += jack_ticks_delta;
-                    total_tick     += jack_ticks_delta;
-
-                    m_jack_transport_state_last = m_jack_transport_state;
-                    jack_ticks_converted_last = jack_ticks_converted;
-
-                    /* printf( "current_tick[%lf] delta[%lf]\n", current_tick, jack_ticks_delta ); */
-
-
-                    long ptick, pbeat, pbar;
-
-                    pbar  = (long) ((long) m_jack_tick / (m_jack_pos.ticks_per_beat *  m_jack_pos.beats_per_bar ));
-
-                    pbeat = (long) ((long) m_jack_tick % (long) (m_jack_pos.ticks_per_beat *  m_jack_pos.beats_per_bar ));
-                    pbeat = pbeat / (long) m_jack_pos.ticks_per_beat;
-
-                    ptick = (long) m_jack_tick % (long) m_jack_pos.ticks_per_beat;
-
-
-                    //printf( " bbb [%2d:%2d:%4d]", pbar+1, pbeat+1, ptick );
-                    //printf( " bbb [%2d:%2d:%4d]", m_jack_pos.bar, m_jack_pos.beat, m_jack_pos.tick );
-
-                    /*double jack_tick = (m_jack_pos.bar-1) * (m_jack_pos.ticks_per_beat *  m_jack_pos.beats_per_bar ) +
-                        (m_jack_pos.beat-1) * m_jack_pos.ticks_per_beat + m_jack_pos.tick;*/
-
-                    //printf( " jtick[%8.3f]", m_jack_tick );
-                    //printf( " mtick[%8.3f]", jack_tick );
-
-                    //printf( " delta[%8.3f]", m_jack_tick - jack_tick );
-
-                    //printf( "\n");
-
-                } /* end if dumping / sane state */
-
-            } /* if jack running */
-            else 
-            {
-#endif
                 /* default if jack is not compiled in, or not running */
                 /* add delta to current ticks */
                 clock_tick     += delta_tick;
@@ -1613,9 +1671,6 @@ perform::output_func(void)
                 total_tick     += delta_tick;
                 dumping = true;
 
-#ifdef JACK_SUPPORT
-            }
-#endif
 
             /* init_clock will be true when we run for the first time, or
              * as soon as jack gets a good lock on playback */
@@ -1649,7 +1704,8 @@ perform::output_func(void)
 
                 /* publish the live transport position so the UI playhead
                    (perform::get_tick) tracks playback in real time. */
-                m_tick = (long) llround( current_tick );
+                m_tick.store( (long) llround( current_tick ),
+                              std::memory_order_relaxed );
 
                 /* midi clock */
                 m_master_bus.clock( (long) llround( clock_tick ) );
@@ -1768,8 +1824,6 @@ perform::output_func(void)
 
             }
 
-            if (jack_stopped )
-                inner_stop();
         }
 
 
@@ -1780,7 +1834,7 @@ perform::output_func(void)
                 printf( "[%3d][%8ld]\n", i * 100, stats_all[i] );
             }
             printf ( "\n\n-- clock width --\n" );
-            double bpm  = m_master_bus.get_bpm();
+            double bpm  = get_bpm();
 
             printf ( "optimal : [%d]us\n", (int)((c_ppqn / 24) * 60000000.0 / c_ppqn / bpm ));
 
@@ -1792,7 +1846,7 @@ perform::output_func(void)
 
         }
 
-        m_tick = 0;
+        m_tick.store( 0, std::memory_order_relaxed );
         m_master_bus.flush( );
         m_master_bus.stop();
 
@@ -1891,11 +1945,26 @@ perform::handle_midi_control( int a_control, bool a_state )
 }
 
 
-void 
+/*  LEGACY MIDI INPUT -- currently DORMANT, by construction, not by accident:
+
+      * no legacy input port is ever opened.  mastermidibus::init() only opens
+        one when m_init_input[bus] is set, and the sole writer of that is
+        set_input(), whose only callers are the config readers -- and nothing
+        constructs an optionsfile.  So poll_for_midi() always returns 0.
+      * even if an event did arrive, m_dumping_input is false (nothing calls
+        set_sequence_input) and every m_midi_cc_* entry is inactive (only the
+        config reader activates them), so both branches below are no-ops.
+
+    Live MIDI input reaches the app through the patcher's MidiIn nodes
+    (audio_app_patch_set_midi_input) instead.  This loop is kept because it is
+    the definition of the legacy MIDI-control feature, but it is NOT a second
+    input path -- do not "fix" a routing problem here.  It costs one thread
+    waking ~1 kHz (poll_for_midi throttles itself; see midibus.cpp). */
+void
 perform::input_func( void ){
 
     event ev;
-    
+
     while( m_inputing ){
         
         if ( m_master_bus.poll_for_midi() > 0 ){
@@ -1913,7 +1982,8 @@ perform::input_func( void ){
                         /* is there a sequence set ? */
                         if ( m_master_bus.is_dumping( )) {
                             
-                            ev.set_timestamp( m_tick );
+                            /* MIDI INPUT thread reading the scheduler's tick */
+                            ev.set_timestamp( get_tick() );
                             
                             
                             /* dump to it */
@@ -2069,7 +2139,13 @@ perform::sequence_playing_toggle( int a_sequence )
 		assert( m_seqs[a_sequence] );
 
 		if ( m_control_status & c_status_queue ){
-			m_seqs[a_sequence]->toggle_queued();
+			/*  m_tick is the AUDIBLE transport tick (output_func snaps it back
+			    to the engine position after each play()).  Without it
+			    toggle_queued() measured the launch boundary from the
+			    sequence's m_last_tick -- the scheduler HORIZON -- and any
+			    press inside the lookahead window landed a whole repetition
+			    late. */
+			m_seqs[a_sequence]->toggle_queued( get_tick() );
 		}
 		else {
 
@@ -2104,182 +2180,3 @@ perform::sequence_playing_off( int a_sequence )
     } 
 }
 
-#ifdef JACK_SUPPORT
-void jack_timebase_callback(jack_transport_state_t state, jack_nframes_t nframes, 
-	      jack_position_t *pos, int new_pos, void *arg)
-{
-
-    static double jack_tick;
-    static jack_nframes_t last_frame;
-    static jack_nframes_t current_frame;
-    static jack_transport_state_t state_current;
-    static jack_transport_state_t state_last;
-
-    state_current = state;
-
-    perform *p = (perform *) arg;
-    current_frame = jack_get_current_transport_frame( p->m_jack_client );
-
-    //printf( "jack_timebase_callback() [%d] [%d] [%d]", state, new_pos, current_frame);
-    
-    pos->valid = JackPositionBBT;
-    pos->beats_per_bar = 4;
-    pos->beat_type = 4;
-    pos->ticks_per_beat = c_ppqn * 10;    
-    pos->beats_per_minute = p->get_bpm();
-    
-    
-    /* Compute BBT info from frame number.  This is relatively
-     * simple here, but would become complex if we supported tempo
-     * or time signature changes at specific locations in the
-     * transport timeline. */
-
-    // if we are in a new position
-    if (  state_last    ==  JackTransportStarting &&
-          state_current ==  JackTransportRolling ){
-
-        //printf ( "Starting [%d] [%d]\n", last_frame, current_frame );
-        
-        jack_tick = 0.0;
-        last_frame = current_frame;
-    }
-
-    if ( current_frame > last_frame ){
-
-        double jack_delta_tick =
-            (current_frame - last_frame) *
-            pos->ticks_per_beat *
-            pos->beats_per_minute / (pos->frame_rate * 60.0);
-        
-        jack_tick += jack_delta_tick;
-
-        last_frame = current_frame;
-    }
-    
-    long ptick = 0, pbeat = 0, pbar = 0;
-    
-    pbar  = (long) ((long) jack_tick / (pos->ticks_per_beat *  pos->beats_per_bar ));
-    
-    pbeat = (long) ((long) jack_tick % (long) (pos->ticks_per_beat *  pos->beats_per_bar ));
-    pbeat = pbeat / (long) pos->ticks_per_beat;
-    
-    ptick = (long) jack_tick % (long) pos->ticks_per_beat;
-    
-    pos->bar = pbar + 1;
-    pos->beat = pbeat + 1;
-    pos->tick = ptick;;
-    pos->bar_start_tick = pos->bar * pos->beats_per_bar *
-        pos->ticks_per_beat;
-
-    //printf( " bbb [%2d:%2d:%4d]\n", pos->bar, pos->beat, pos->tick );
-
-    state_last = state_current;
- 
-}
-
-
-
-void jack_shutdown(void *arg)
-{
-    perform *p = (perform *) arg;
-    p->m_jack_running = false;
-    
-	printf("JACK shut down.\nJACK sync Disabled.\n");
-}
-
-
- 
-void print_jack_pos( jack_position_t* jack_pos ){
-
-    return;
-  printf( "print_jack_pos()\n" );
-  printf( "    bar  [%d]\n", jack_pos->bar  );
-  printf( "    beat [%d]\n", jack_pos->beat );		
-  printf( "    tick [%d]\n", jack_pos->tick );
-  printf( "    bar_start_tick   [%lf]\n", jack_pos->bar_start_tick );
-  printf( "    beats_per_bar    [%f]\n", jack_pos->beats_per_bar );
-  printf( "    beat_type        [%f]\n", jack_pos->beat_type );
-  printf( "    ticks_per_beat   [%lf]\n", jack_pos->ticks_per_beat );
-  printf( "    beats_per_minute [%lf]\n", jack_pos->beats_per_minute );
-  printf( "    frame_time       [%lf]\n", jack_pos->frame_time );
-  printf( "    next_time        [%lf]\n", jack_pos->next_time );
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-#if 0
-
-int main ( void )
-{
-
-  jack_client_t *client;
-
-  /* become a new client of the JACK server */
-  if ((client = jack_client_new("transport tester")) == 0) {
-	fprintf(stderr, "jack server not running?\n");
-	return 1;
-  }
-
-  jack_on_shutdown(client, jack_shutdown, 0);
-  jack_set_sync_callback(client, jack_sync_callback, NULL);
-
-  if (jack_activate(client)) {
-	fprintf(stderr, "cannot activate client");
-	return 1;
-  }
-
-  bool cond = false; /* true if we want to fail if there is already a master */
-  if (jack_set_timebase_callback(client, cond, timebase, NULL) != 0){
-	printf("Unable to take over timebase or there is already a master.\n");
-	exit(1);
-  }
-
-  jack_position_t pos;
-
-  pos.valid = JackPositionBBT;
-
-  pos.bar = 0;
-  pos.beat = 0;
-  pos.tick = 0;
-
-  pos.beats_per_bar = time_beats_per_bar;
-  pos.beat_type = time_beat_type;
-  pos.ticks_per_beat = time_ticks_per_beat;
-  pos.beats_per_minute = time_beats_per_minute;
-  pos.bar_start_tick = 0.0; 
-
-
-  //jack_transport_reposition( client, &pos );
-
-  jack_transport_start (client);
-
-  //void jack_transport_stop (jack_client_t *client);
-
-  int bob;
-  scanf ("%d", &bob);
-
- 
-  jack_transport_stop (client);
-  jack_release_timebase(client);
-  jack_client_close(client);
-
-  return 0;
-}
-
-#endif
-
-
-
-
-
-#endif 

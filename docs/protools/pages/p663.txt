@@ -1,0 +1,49 @@
+                                                       To enable or disable the display of clip data on all
+Displaying Clip Names, Clip                            channels:
+Times, and Other Data                                     Select or deselect View > Clip > Display on All
+Clip names and times can sometimes get in the              Channels.
+way of editing audio waveforms and MIDI data. In
+these instances, you may want to disable their dis-    Displaying Other Clip Information
+play. In other instances, such as arranging or spot-   You can also choose to display the following in
+ting Foley, displaying clip names and times is ex-     clips:
+tremely useful.
+                                                       Sync Points Can be displayed on clips in playlists.
+To enable or disable the display of clip names in      This is useful when visually spotting to timecode
+playlists:                                             or in arranging in Grid mode. For more informa-
+   Select or deselect View > Clip > Name.             tion, see “Sync Points” on page 947.
+
+                                                       Processing State For clips that are processed with
+To display clip times:
+                                                       Elastic Audio, displays a Warp indicator in play-
+   From View > Clip, select one of the following      lists and in the Clips List. See “Warped Clips” on
+    options:                                           page 1029.
+No Time Disables display of clip times.                Channel Name and Scene And Take
+                                                       Information Can be displayed in clips in playlists
+Current Time Displays start and end times for
+                                                       and in the Clips List. This is useful for working
+clips.
+                                                       with multichannel recordings and metadata made
+Original Time Stamp Displays the Original Time         by field recorders. For detailed information on
+Stamp for each clip. The Original Time Stamp is        workflows for field recorders, see Chapter 62,
+the original timecode location for the clip when it    “Working with Field Recorders in Pro Tools.”
+was first recorded or created.
+                                                       Rating Can be displayed on clips in playlists. This
+User Time Stamp Displays the User Time Stamp           is useful for arranging when working with multiple
+for each clip. The User Time Stamp, which de-          playlists and alternate takes. See “Rating Clips” on
+faults to the Original Time Stamp, can be redefined    page 707.
+with the Time Stamp command.
+                                                       Overlap Shadows When enabled, overlapping
+                                                       clips cast shadows over any partially overlapped
+                                                       clips. This is useful for arranging and when work-
+                                                       ing with tick-based audio tracks. See “Tempo
+                                                       Changes and Tick-Based Audio Tracks” on
+                                                       page 891.
+Display enabled for clip names, Overlap, and times
+                                                       Transparency When enabled, this option shows
+Displaying Clip Data on All Channels                   transparent clip overlays when moving clips on the
+For stereo and greater-than-stereo multichannel        timeline. This can be useful for visually aligning
+tracks, clip data can be shown on all channels.        clips over other clips when arranging. See “Ar-
+                                                       ranging with Transparent Clip Overlays” on
+                                                       page 937.
+
+                                                                                    Chapter 28: Editing Basics   631

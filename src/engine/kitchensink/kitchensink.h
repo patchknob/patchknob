@@ -41,10 +41,30 @@ namespace kitchensink {
  */
 typedef int64_t superclock_t;
 
-/* Smallest division of a beat. 1920 has many integer factors so 1/Nth beat
- * divisions land on integer tick counts. (Temporal::ticks_per_beat)
+/* Smallest division of a beat. Many integer factors, so 1/Nth beat divisions
+ * land on integer tick counts. (Temporal::ticks_per_beat)
+ *
+ * 3840 = 2^8 * 3 * 5, raised from Ardour's 1920 for two reasons:
+ *   * it keeps the sequencer<->Beats conversion EXACT.  c_ppqn is 768 and
+ *     3840 / 768 == 5, an integer ratio, so tick_to_sample/sample_to_tick stay
+ *     lossless integer muldiv (see TempoMap::tick_to_sample).  1920 could not
+ *     do this: 1920 / 768 == 2.5.
+ *   * the 2^8 factor is what makes LPB 256 representable at all.  1920 is
+ *     2^7 * 3 * 5, so no sequencer PPQN derived from it divides evenly by 256.
  */
-static const int32_t ticks_per_beat = 1920;
+static const int32_t ticks_per_beat = 3840;
+
+/* The SEQUENCER's tick resolution (what the app calls c_ppqn, and what every
+ * stored event timestamp is measured in).  It lives here, next to the Beats
+ * domain it has to stay commensurate with, so the two constants cannot drift
+ * apart in separate headers -- the engine must not include the app's globals.h,
+ * so globals.h asserts against THIS value instead.
+ *
+ * 768 = 2^8 * 3.  The 2^8 is what allows tracker LPB values up to 256 to divide
+ * it exactly (768/256 == 3 ticks per row); the 3 keeps triplet grids (LPB 3, 6,
+ * 12, 24, 48, 96, 384) exact as well.
+ */
+static const int32_t seq_ppqn = 768;
 
 /* Bar / Beat / Tick time. bars and beats are 1-based; the neutral value is
  * 1|1|0. ticks run 0..(ticks_per_beat*4/note_value - 1) within a beat.
@@ -253,6 +273,19 @@ class Transport {
 	 * never move the playhead mid-block under the renderer. */
 	void request_seek (int64_t sample) { _pendingSeek.store (sample < 0 ? 0 : sample, std::memory_order_release); }
 
+	/* Seek queued but not yet applied, or -1. */
+	int64_t pending_seek () const { return _pendingSeek.load (std::memory_order_acquire); }
+
+	/* Where the playhead is ABOUT to be: the queued seek if one is waiting,
+	 * otherwise the live position.  Anything that captures the position to
+	 * return to later must use this -- sample() alone reports the pre-seek
+	 * value until the audio thread runs a block, so a "locate, then act"
+	 * sequence from the UI would otherwise capture the stale position. */
+	int64_t effective_sample () const {
+		const int64_t seek = pending_seek ();
+		return seek >= 0 ? seek : sample ();
+	}
+
 	/* Swap the tempo map this transport reads (RCU: caller publishes the new
 	 * map and retires the old one after a grace period). */
 	void set_map (const TempoMap& map) { _map = &map; }
@@ -265,8 +298,48 @@ class Transport {
 	double  tempo () const;
 
 	/* advance the playhead by nframes samples while rolling (audio thread);
-	 * applies any pending seek at block start first */
+	 * applies any pending seek at block start first.
+	 *
+	 * NOTE: this is apply_pending_seek() followed by advance(nframes).  It is
+	 * only correct when the caller reads the block-start position AFTER calling
+	 * it.  A caller that reads sample() at the TOP of a block and calls
+	 * process() at the BOTTOM resumes at seekTarget + nframes -- the seek
+	 * target's own block is never rendered (bug R2).  Such callers must use the
+	 * split pair below instead. */
 	void process (int nframes);
+
+	/* --- split form of process(), for callers that read the block-start
+	 * position before rendering and advance afterwards (audio thread) --------
+	 *
+	 *   apply_pending_seek();                  // BEFORE reading sample()
+	 *   const int64_t blockStart = sample();   // == the seek target
+	 *   ... render [blockStart, blockStart+nframes) ...
+	 *   advance (nframes);                     // AFTER rendering
+	 *
+	 * so the window at the seek target is the very next one rendered. */
+
+	/* Consume any queued seek into the playhead.  Does NOT advance.  Idempotent:
+	 * a second call in the same block is a no-op because exchange() takes the
+	 * mailbox exactly once.  Returns the sample the playhead was moved to, or
+	 * -1 if no seek was pending.  Wait-free (single atomic exchange). */
+	int64_t apply_pending_seek ();
+
+	/* Advance the playhead by nframes while rolling.  Does NOT touch the
+	 * pending-seek mailbox.  Wait-free. */
+	void advance (int nframes);
+
+	/* AUDIO-THREAD ONLY immediate relocate: stores the playhead directly and
+	 * deliberately does NOT touch _pendingSeek.  This exists so audio-thread
+	 * repositioning (the loop wrap) stops competing with the UI thread for the
+	 * single-slot seek mailbox (bug R1): before this, a wrap's request_seek()
+	 * could clobber a user locate that had not been consumed yet, or a wrap
+	 * could consume the user's locate as if it were its own.
+	 *
+	 * Because the mailbox is untouched, a user locate that is still pending
+	 * survives the wrap and is applied by the next apply_pending_seek() -- the
+	 * user's intent correctly wins over the wrap.  Never call this from the UI
+	 * thread while the transport is rolling; use request_seek() there. */
+	void locate_now (int64_t sample);
 
   private:
 	const TempoMap*       _map;

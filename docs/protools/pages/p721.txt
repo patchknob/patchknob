@@ -1,0 +1,56 @@
+Zooming to the Entire Session                           3   Do one of the following:
+and to the Edit Selection                               • Press Control+E (Mac) or Start+E (Windows)
+To zoom your entire session into view:
+                                                          again to revert to the preview zoom state.
+
+1   Press Option+Control+A (Mac) or Alt+Start+A         • Press Option+Shift+E (Mac) or Alt+Shift+E
+    (Windows) to horizontally fit the beginning and       (Windows) to cancel Zoom Toggle without re-
+    end of the session to the length of the Edit win-     verting to the previous view.
+    dow.
+                                                        Creating Edit Selections with
+    Press Option+Control+Up Arrow (Mac) or
+2
+                                                        Tab to Transients
+    Alt+Start+Up Arrow (Windows) to fit all of the
+    tracks in the session to the height of the Edit     If you are editing audio with clear transients, you
+    window.                                             can use Tab to Transients to make Edit selections.
+
+To zoom to an Edit selection:                           To toggle Tab to Transients on and off:
+
+1   With the Selector or the Grabber tool, make an         Press Command+Option+Tab (Mac) or Con-
+    Edit selection.                                         trol+Alt+Tab (Windows).
+
+      Press F7 for the Selector tool or F8 for the      To navigate and extend selections forward with
+      Grabber tool.                                     Tab to Transients:
+
+                                                        1   With the Selector tool, place the Edit cursor be-
+2   Press Option+Control+F (Mac) or Alt+Start
+                                                            fore the first transient your want in your selec-
+    (Windows) to fit the length of the selection to
+                                                            tion.
+    the length of the Edit window.
+                                                        2   Press Tab to place the Edit cursor at the first
+3   Press Command+Control+Up Arrow (Mac) or
+                                                            transient.
+    Control+Start+Up Arrow (Windows) to zoom
+    the Track Height of the Edit selection to fit to    3   Press Shift+Tab to extend the selection to the
+    the height of the Edit window.                          next transient.
+
+To zoom to an Edit selection using Zoom Toggle:         To navigate and extend selections backward with
+                                                        Tab to Transients:
+1   With the Selector or the Grabber tool, make an
+    Edit selection.                                     • Press Option+Tab (Mac) or Control+Tab (Win-
+                                                          dows) to move the Edit cursor to the previous
+      Press F7 for the Selector tool or F8 for the        transient.
+      Grabber tool.
+                                                        • Press Option+Shift+Tab (Mac) or Con-
+2   Press Control+E (Mac) or Start+E (Windows)            trol+Shift+Tab (Windows) to extend the selec-
+    to enable Zoom Toggle.                                tion to the previous transient.
+
+      Set the Track Height option for Zoom Toggle
+      to Fit To Window in the Editing Preferences.
+
+
+
+
+                                                                                   Chapter 30: Making Selections   689

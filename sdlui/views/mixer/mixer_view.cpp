@@ -3,6 +3,8 @@
 //----------------------------------------------------------------------------
 #include "mixer_view.h"
 
+#include "meter.h"
+
 #include "engine/graph/mixer_graph.h"
 #include "engine/graph/track.h"
 #include "engine/graph/vu_meter.h"
@@ -12,12 +14,36 @@
 #include <cmath>
 #include <cstdio>
 #include <string>
+#include <unordered_map>
 
 using namespace ui;
 using PatchKnob::engine::MixerGraph;
 using PatchKnob::engine::Track;
 
 namespace mixer {
+
+// ---------------------------------------------------------------------------
+// meter ballistics state
+// ---------------------------------------------------------------------------
+// ui::meter (the Ardour port) keeps its dB / hold / clip state per meter, and a
+// strip draws two of them.  It lives here rather than in MixerView::Strip
+// because mixer_view.h is not part of this change; the per-strip peak-hold slot
+// draw_vu is already handed is one float per meter and stable for the life of
+// the strip, so its address is the key.
+namespace {
+std::unordered_map<const void*, ui::meter::State> g_meterState;
+double g_dtSec     = 0.0;      // real time since the previous draw()
+Uint64 g_lastTicks = 0;
+
+void begin_meter_frame() {
+    const Uint64 now = SDL_GetTicks();
+    g_dtSec = (g_lastTicks && now > g_lastTicks) ? double(now - g_lastTicks) / 1000.0 : 0.0;
+    g_lastTicks = now;
+    // Rebuilding the strips invalidates the keys; do not let stale entries grow
+    // without bound (there are only a couple per strip in use at any time).
+    if (g_meterState.size() > 256) g_meterState.clear();
+}
+} // namespace
 
 // ---------------------------------------------------------------------------
 // small helpers
@@ -181,7 +207,7 @@ void MixerView::layout(App& app) {
         int meterBot = panY - 4;
         int meterH   = std::max(20, meterBot - meterTop);
 
-        int vuW    = 18;
+        int vuW    = 38;                         // stereo bars + labeled dB scale
         int faderW = std::max(28, iw - vuW - 6);
 
         s.fader->rect = { ix + vuW + 6, meterTop, faderW, meterH };
@@ -204,42 +230,41 @@ void MixerView::layout(App& app) {
         int meterTop = y;
         int meterBot = bottom - readoutH - 4;
         int meterH = std::max(20, meterBot - meterTop);
-        int vuW = 24;                            // stereo master meter a touch wider
+        int vuW = 44;                            // stereo meter + labeled dB scale
         int faderW = std::max(28, iw - vuW - 8);
         masterFader_->rect = { ix + vuW + 8, meterTop, faderW, meterH };
     }
 }
 
 // ---- VU meter --------------------------------------------------------------
+// Ardour's meter, via ui::meter: log_meter()/IEC 60268-18 scaling, instant
+// attack + 20 dB/s falloff, a 4 s peak-hold bar and a latching clip indicator
+// (click the mixer background to clear it).
 void MixerView::draw_vu(App& app, const SDL_Rect& bar, float level, float& hold) {
+    ui::meter::State& st = g_meterState[(const void*) &hold];
+    ui::meter::update(st, level, g_dtSec);
+    // A meter repaints on every animation frame, so it has to declare itself as
+    // damage or a damage-clipped frame leaves it showing the previous level.
+    // Padded by the 1 px frame_rect border drawn just below.
+    app.add_damage(SDL_Rect{ bar.x - 1, bar.y - 1, bar.w + 2, bar.h + 2 });
+    ui::meter::draw(app.ren, bar, st, ui::meter::Peak, /*vertical=*/true);
+    frame_rect(app.ren, bar, theme().dim);
+    // keep the legacy per-strip slot meaningful (it is the hold, as amplitude)
+    hold = st.holdDb > -318.f ? std::pow(10.f, st.holdDb * 0.05f) : 0.f;
+}
+
+void MixerView::draw_vu_scale(App& app, const SDL_Rect& area) {
     const Theme& t = theme();
-    fill_rect(app.ren, bar, t.keybg);
-    frame_rect(app.ren, bar, t.dim);
-
-    float lc = clampf(level, 0.f, 1.f);
-    int inner = bar.h - 2;
-    int filled = int(lc * inner);
-    if (filled > 0) {
-        SDL_Rect f { bar.x + 1, bar.y + bar.h - 1 - filled, bar.w - 2, filled };
-        fill_rect(app.ren, f, t.accent);
-    }
-    // brighter cap near the top of the fill for a little life
-    if (filled > 2) {
-        SDL_Rect cap { bar.x + 1, bar.y + bar.h - 1 - filled, bar.w - 2, 2 };
-        fill_rect(app.ren, cap, t.hi);
-    }
-
-    // peak-hold marker
-    if (level > hold) hold = level; else hold *= 0.93f;
-    float hc = clampf(hold, 0.f, 1.f);
-    if (hc > 0.01f) {
-        int hy = bar.y + bar.h - 1 - int(hc * inner);
-        hline(app.ren, bar.x + 1, bar.x + bar.w - 2, hy, t.text);
-    }
-    // clip indicator: fill the very top when the level is at/over full scale
-    if (level >= 0.999f) {
-        SDL_Rect clip { bar.x + 1, bar.y + 1, bar.w - 2, 3 };
-        fill_rect(app.ren, clip, t.active);
+    // The bar tops out at +6 dBFS (log_meter's 115% endpoint), so the scale has
+    // to be read off the same curve or the ticks drift away from the levels.
+    static const int marks[] = { 6, 0, -6, -12, -18, -30, -40, -60 };
+    for (int db : marks) {
+        const float f = ui::meter::deflect(ui::meter::Peak, (float) db);
+        const int y = area.y + area.h - 1 - int(f * (area.h - 2));
+        hline(app.ren, area.x, area.x + 3, y, t.dim);
+        char text[8]; std::snprintf(text, sizeof(text), "%d", db);
+        app.mono.draw(app.ren, area.x + 5, y - app.mono.ch()/2, text,
+                      db >= 0 ? t.active : t.dim);
     }
 }
 
@@ -298,13 +323,14 @@ void MixerView::draw_strip(App& app, int i, const SDL_Rect& a) {
     // meter: stereo VU on the left, fader on the right (rects from layout())
     SDL_Rect fr = s.fader->rect;
     int vuX = ix, vuTop = fr.y, vuH = fr.h;
-    int barW = 8;
+    int barW = 7;
     SDL_Rect barL { vuX, vuTop, barW, vuH };
     SDL_Rect barR { vuX + barW + 2, vuTop, barW, vuH };
-    float pkL = tk ? tk->vuLeft().rms()  : 0.0f;
-    float pkR = tk ? tk->vuRight().rms() : 0.0f;
+    float pkL = tk ? tk->vuLeft().peak()  : 0.0f;
+    float pkR = tk ? tk->vuRight().peak() : 0.0f;
     draw_vu(app, barL, pkL, s.holdL);
     draw_vu(app, barR, pkR, s.holdR);
+    draw_vu_scale(app, SDL_Rect{vuX + barW * 2 + 4, vuTop, 20, vuH});
 
     // Sync every interactive widget to the live model before drawing so the
     // strip reflects external changes (project load / automation), not just its
@@ -353,10 +379,11 @@ void MixerView::draw_master(App& app, const SDL_Rect& a) {
     int barW = 10;
     SDL_Rect barL { ix, vuTop, barW, vuH };
     SDL_Rect barR { ix + barW + 3, vuTop, barW, vuH };
-    float pkL = graph_ ? graph_->masterVuLeft().rms()  : 0.0f;
-    float pkR = graph_ ? graph_->masterVuRight().rms() : 0.0f;
+    float pkL = graph_ ? graph_->masterVuLeft().peak()  : 0.0f;
+    float pkR = graph_ ? graph_->masterVuRight().peak() : 0.0f;
     draw_vu(app, barL, pkL, masterHoldL_);
     draw_vu(app, barR, pkR, masterHoldR_);
+    draw_vu_scale(app, SDL_Rect{ix + barW * 2 + 5, vuTop, 20, vuH});
 
     if (graph_ && !masterFader_->m_drag)
         masterFader_->value = gain_to_value(graph_->masterGain());
@@ -377,6 +404,7 @@ void MixerView::draw_master(App& app, const SDL_Rect& a) {
 // ---- draw ------------------------------------------------------------------
 void MixerView::draw(App& app) {
     if (!visible) return;
+    begin_meter_frame();                        // one dt for every meter drawn
     layout(app);                                // keep sub-rects in sync
 
     const Theme& t = theme();
@@ -407,6 +435,11 @@ bool MixerView::on_mouse(App& app, const MouseEv& e) {
                 if (c->visible && c->hit(e.x, e.y)) { capture_ = c; break; }
         }
         if (capture_) return capture_->on_mouse(app, e);
+        // A press on the strip background (which is where the meters live)
+        // clears the latched clip indicators, the way clicking an Ardour meter
+        // resets its peak display (LevelMeterBase::meter_button_release).
+        for (auto& kv : g_meterState) ui::meter::reset(kv.second);
+        app.request_redraw();
         return true;                            // swallow clicks inside the mixer
     }
     // release
@@ -420,7 +453,7 @@ bool MixerView::on_wheel(App& app, int dx, int dy) {
     // Nudge the fader under the cursor (App::on_wheel carries no coordinates, so
     // ask SDL for the pointer position).
     int mx = 0, my = 0;
-    SDL_GetMouseState(&mx, &my);
+    ui::mouse_logical(app, mx, my);   // logical, not window px
     const float step = 0.03f * float(dy);
     for (auto* c : children_) {
         Fader* f = dynamic_cast<Fader*>(c);

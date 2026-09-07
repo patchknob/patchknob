@@ -1,0 +1,49 @@
+      To zoom in horizontally for all tracks, do one of the   To zoom in vertically for all audio tracks, do one of
+      following:                                              the following:
+
+         Click the Horizontal Zoom In button.                   Click the Audio Zoom In button.
+         Drag on the Horizontal Zoom In button to zoom          Drag on the Audio Zoom In button to zoom
+          in continuously.                                        continuously.
+         Press Command+] (Mac) or Control+] (Win-               Press Command+Option+] (Mac) or Con-
+          dows).                                                  trol+Alt+] (Windows).
+
+      To zoom out horizontally for all tracks, do one of      To zoom out vertically for all audio tracks, do one
+      the following:                                          of the following:
+
+         Click the Horizontal Zoom Out button.                  Click the Audio Zoom Out button.
+         Drag on the Horizontal Zoom Out button to              Click the Audio Vertical Zoom buttons.
+          zoom out continuously.
+                                                                 Press Command+Option+[ or Command+Op-
+         Press Command+[ (Mac) or Control+[ (Win-                tion+] (Mac) or Control+Alt+[ or Con-
+          dows).                                                  trol+Alt+] (Windows).
+
+                                                              To zoom all audio vertically to show the default
+      Audio and MIDI Zoom In and Out                          waveform height:
+      Buttons
+                                                                 Press Command+Option+Control+[ (Mac) or
+      The Audio and MIDI Zoom buttons let you zoom                Control+Alt+Start+[ (Windows).
+      in and out vertically on audio and MIDI data
+      respectively.                                           To zoom in vertically for all MIDI and Instrument
+                                                              tracks, do one of the following:
+
+                                                                 Click the MIDI Zoom In button.
+                                                                 Press Command+Shift+] (Mac) or Con-
+                                                                  trol+Shift+] (Windows).
+
+                                                              To zoom out vertically for all MIDI and Instrument
+      Audio Vertical Zoom button                              tracks, do one of the following:
+
+                                                                 Click the MIDI Zoom Out button.
+                                                                 Press Command+Shift+[ (Mac) or Con-
+                                                                  trol+Shift+[ (Windows).
+
+                                                              To zoom MIDI vertically to show all notes (lowest to
+                                                              highest) in MIDI and Instrument tracks:
+
+      MIDI Vertical Zoom button                                  Press Command+Control+Shift+[ (Mac) or
+                                                                  Control+Start+Shift+[ (Windows).
+            MIDI Vertical Zoom only affects tracks in not
+            in Clips view.
+
+
+644   Pro Tools Reference Guide

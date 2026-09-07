@@ -1,0 +1,52 @@
+To zoom in or out vertically for a single MIDI or      Audio waveforms revert to the default vertical
+Instrument track:                                      zoom; on tracks set to Notes view, MIDI notes
+1   Make sure the Track View is not set to Clips.      zoom vertically to show all notes in the track (same
+                                                       as the vertical zoom in Clips view); and the Tempo
+2   Select the Zoomer tool.
+                                                       Editor zooms vertically to show all tempo events.
+3   Hold Control (Mac) or Start (Windows) and
+    drag upwards to zoom in, or downward to zoom       To zoom horizontally to show the entire session
+                                                       without affecting vertical zoom or scrolling, do
+    out.
+                                                       one of the following:
+
+                                                           Press Option+Control+A (Mac) or Alt+Start+A
+Additional Zoom Key Commands
+                                                       
+
+                                                           (Windows).
+To return to the previous zoom level, do one of the       Press Command+Control+[ (Mac) or Con-
+following:
+                                                           trol+Start+[ (Windows).
+   Option-click (Mac) or Alt-click (Windows) any
+    of the Horizontal, Audio, or MIDI Zoom but-        To set horizontal zoom to “overview scale” (256
+    tons.                                              samples per pixel):
+
+   Press Command+Option+E (Mac) or Con-                  Command-click (Mac) or Control-click (Win-
+    trol+Alt+E (Windows).                                  dows) the Zoomer tool.
+
+To zoom in horizontally on the Edit selection
+without affecting vertical zoom:                       Zoomer Tool
+   Press Option+F (Mac) or Alt+F (Windows).           Use the Zoomer tool to zoom in and out around a
+If the selection contains MIDI notes, the selected     particular area within a track.
+MIDI notes are vertically scrolled to show in tracks   The Zoomer tool offers two modes:
+as necessary.
+                                                       Normal Zoom The Zoomer tool remains selected
+To zoom in horizontally on a selection without         after zooming.
+affecting vertical zoom or scrolling, do one of the
+following:                                             Single Zoom The previously selected Edit tool is
+   Press Option+Control+F (Mac) Alt+Start+F           automatically reselected after zooming.
+    (Windows).                                               Press the F5 key to select the Zoomer tool
+   Press Command+Control+] (Mac) or Con-                    and toggle between Normal and Single Zoom
+    trol+Start+] (Windows).                                  modes.
+
+To zoom horizontally to show the entire session,
+do one of the following:
+
+   Double-click the Zoomer tool in the toolbar.
+   Press Option+A (Mac) or Alt+A (Windows).
+
+
+
+
+                                                                             Chapter 29: Edit Modes and Tools   645

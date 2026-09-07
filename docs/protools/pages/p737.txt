@@ -1,0 +1,50 @@
+When dragging clips to or from stereo or multi-         When consolidating, muted clips are treated as si-
+channel tracks, the following rules apply:              lence. Otherwise, whether or not a track is muted,
+                                                        or contains Mute automation, does not affect the
+  Provided the number of tracks and channels are
+                                                        Consolidate command.
+the same for the source and destination, you can
+drag clips between multichannel tracks and mono               Consolidating an audio track does not
+tracks.                                                       consolidate underlying automation data. To
+  The source and destination for dragged clips               create a single file with automation data ap-
+can be mixed. For example, you can drag clips                 plied to the audio, use Bounce Mix (see
+from a 5.0 track (containing five channels) to a ste-         “Bounce Mix” on page 1252).
+reo track and three mono audio tracks.
+                                                        To consolidate clips within a track:
+  When dragging multichannel clips to mono             1   Do one of the following:
+tracks, the destination tracks must be adjacent.
+                                                        • Using the Time Grabber or Selector tool, select
+  When dragging clips from mono tracks to a              the clips you want to consolidate.
+multichannel track, the source tracks need not be
+                                                        • To select all clips in a track, triple-click in its
+adjacent.
+                                                          playlist with the Selector tool.
+Multichannel clips can also be dragged from the         2   Choose Edit > Consolidate.
+Clips List, to multichannel tracks of the same for-
+mat, groups of mono audio tracks, or a combina-               Press Option+Shift+3 (Mac) or Alt+Shift+3
+tion of both.                                                 (Windows) to Consolidate.
+
+Conversely, a collection of single, mono clips can
+be dragged from the Clips List to multichannel          Compacting an Audio File
+tracks—provided the dragged number of clips
+matches the number of channels in the destination       The Compact command deletes unused portions of
+track.                                                  audio files to conserve disk space, and to prepare
+                                                        for cleaner hard drive back-ups. The Compact Se-
+                                                        lected command also deletes any audio files for
+Consolidating Clips                                     which there are no clips on tracks referencing those
+                                                        files.
+During the course of normal edit operations, any
+track can accumulate many clips. However, once a        Because it permanently deletes audio data, the
+track or track range (such as a verse or chorus)        Compact command should be used only after you
+reaches a satisfactory state, you may want to con-      have completely finished your editing and are sure
+solidate multiple clips into a single clip.             that you have no further use for the unused audio
+                                                        data.
+When consolidating an entire audio track or just an
+Edit selection, a new audio file is written that con-
+sists of the entire selection, including any blank
+space.
+
+
+
+
+                                                                          Chapter 31: Editing Clips and Selections   705

@@ -68,6 +68,7 @@ private:
     void draw_strip(ui::App& app, int i, const SDL_Rect& area);
     void draw_master(ui::App& app, const SDL_Rect& area);
     void draw_vu(ui::App& app, const SDL_Rect& bar, float level, float& hold);
+    void draw_vu_scale(ui::App& app, const SDL_Rect& area);
 
     PatchKnob::engine::MixerGraph* graph_ = nullptr;
     std::vector<Strip> strips_;               // one per track

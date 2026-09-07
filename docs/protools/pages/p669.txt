@@ -1,0 +1,47 @@
+                                                         Special Cut, Copy, Paste, and
+      Non-automated plug-in parameters need to           Clear Commands
+      be the same between different instances of a
+      plug-in, or the pasted automation can have         Use the four “special” Edit menu commands (Cut
+      unpredictable results.                             Special, Copy Special, Paste Special, and Clear
+                                                         Special) for cutting, copying, pasting, and clearing
+Clear Command                                            automation (volume, pan, mute, and plug-in auto-
+                                                         mation) on audio, Auxiliary Input, Master Fader,
+Use the Clear command to remove a selection from         VCA Master, and Instrument tracks. These com-
+a track without placing it on the Clipboard.             mands can also be used for MIDI controller data on
+                                                         MIDI and Instrument tracks. There are also Cut
+To clear a selection or clip:
+                                                         Special, Copy Special, and Clear Special com-
+1   If you want to constrain the selection to the cur-   mands for cutting, copying, and clearing clip gain
+    rent Grid value, enable Snap to Grid.                settings (see “Clip Gain” on page 985) and clip ef-
+                                                         fects settings (see “Clip Effects” on page 993).
+2   Set the Track View for the tracks you want to
+    edit.                                                     You cannot paste MIDI controller data to
+When displaying waveforms for audio tracks, or                automation data nor automation to MIDI.
+notes or clips for MIDI tracks, selections include
+underlying automation and controller data. If the             For more information, see “Cutting, Copying,
+track is displaying automation data, only the auto-           and Pasting Automation” on page 1221.
+mation data is affected by the edits.
+                                                         The Repeat to Fill Selection command lets you au-
+3   Make an Edit selection.
+                                                         tomatically fill a selection with audio or MIDI
+4   Choose Edit > Clear to remove the selection.         clips or data without requiring that you manually
+                                                         duplicate the clips. To use Repeat to Fill Selection,
+If the Layered Editing option is disabled (Options >     Cut or Copy a clip, then make a selection and use
+Layered Editing) and a portion of a clip was             the command to fill the selection. When pasting
+cleared, new clips are auto-created from the mate-       audio clips, you are prompted to specify a cross-
+rial residing outside of the selection. When Shuffle     fade to be used for the pasted clips.
+mode is enabled, any subsequent clips slide over to
+fill any empty space.                                    If you fill an area that is an exact multiple of the
+                                                         copied clip size (for example, filling 16 bars with a
+                                                         4-bar clip), the copied selection is pasted as many
+                                                         times as it takes to fill the selection. If you fill an
+                                                         area that is not an exact multiple of the copied clip
+                                                         size (for example, filling 15 seconds of a track with
+                                                         a 2-second clip of room noise), the remaining se-
+                                                         lection area is filled with an automatically trimmed
+                                                         version of the original selection.
+
+
+
+
+                                                                                       Chapter 28: Editing Basics   637

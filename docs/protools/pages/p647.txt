@@ -1,0 +1,56 @@
+6   Stop playback. When you are finished with the     Because Pro Tools can be networked, TrackPunch
+    record pass, track Record Enable status and       (and all other) audio files and whole sessions can
+    transport Record Arm status follow the current    be available for secure transfer to other systems for
+    Audio Track RecordLock and Transport Record-      review, editing, and archiving.
+    Lock preference settings.
+                                                      Film Dubbing and Mixing
+
+Example TrackPunch and                                Film dubbing and mixing features of TrackPunch
+DestructivePunch Workflows                            and DestructivePunch let you do the following:
+                                                      • Arm and punch Pro Tools audio tracks remotely
+TrackPunch and DestructivePunch let you use
+                                                        from a master synchronizer such as SoundMas-
+Pro Tools punch recording in many ways. For ex-
+                                                        ter through P2 commands, at any time, without
+ample, DestructivePunch lets Pro Tools be used as
+                                                        having to stop playback and while maintaining
+a digital dubber for film re-recording (dubbing)
+                                                        timecode lock (requires MachineControl).
+and mixing (see “Film Dubbing and Mixing” on
+page 615).                                            • Toggle Pro Tools audio tracks between input and
+                                                        disk monitoring.
+      If you are not already familiar with routing,
+      selecting, and grouping Pro Tools tracks,             Do not use any Native plug-ins on any tracks
+      see Chapter 13, “Tracks” and Chapter 50,              that are Record or TrackInput–enabled. You
+      “Basic Mixing.”                                       will hear an audible click as Native plug-ins
+                                                            on those tracks are automatically bypassed.
+Keyboard shortcuts and preference settings for re-
+cording and input monitoring provide flexibility      • Use Pro Tools as the timecode master (generat-
+that makes TrackPunch or DestructivePunch               ing) or when chasing external timecode.
+equally useful for the following workflows com-       • Punch non-destructively with TrackPunch, or
+monly performed in film, video, and music pro-          destructively with DestructivePunch.
+duction:
+                                                      A typical pre-dub session includes the following
+• Loading dailies (see “Loading Dailies Using Re-
+                                                      steps:
+  cordLock” on page 616)
+                                                      1   Configure synchronization between Pro Tools
+• Recording Foley (see “Foley Recording” on
+                                                          and other devices as appropriate.
+  page 617)
+                                                      2   Choose Setup > Preferences and click the
+• Tracking and overdubbing in music production
+                                                          Operation tab.
+  and any other recording situation (see “Tracking
+  and Overdubbing Music” on page 617)                 3   Select (enable) Transport RecordLock. This
+                                                          keeps the Transport Record armed after the
+      Throughout these examples, references to            transport stops.
+      TrackPunch can also be applied to Destruc-
+      tivePunch (just remember that TrackPunch is           In Remote mode, Transport RecordLock has
+      nondestructive, while DestructivePunch is a           no effect. The synchronizer determines the
+      destructive punch mode).                              behavior.
+
+
+
+
+                                                                          Chapter 27: Punch Recording Modes   615

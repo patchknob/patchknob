@@ -1,0 +1,39 @@
+3   Do one of the following:                             To Loop Trim a looped clip:
+
+• Click at the end of the clip, and drag left or right   1   Select the Loop Trim tool.
+  to the point you want the loop to stop.
+                                                         2   Move the cursor over the top half of the looped
+• Click at the beginning of the clip, and drag left or       clip (not over a Loop icon). The cursor indicates
+  right to the point you want the loop to start.             the Loop Trim tool.
+                                     Loop Trim tool
+
+
+
+
+                             Loop icon
+
+Looped clip                                              Loop Trim tool
+
+Trimming Looped Clips                                    3   Trim the looped clip.
+
+You can trim looped clips in two ways:
+• Loop Trim a looped clip to change how long the
+  clip is looped. For example, Loop Trim a looped
+  clip from 2 bars to four bars. With a 1 bar clip,
+  the number of loops changes from 2 to 4. Each
+  loop iteration remains the same length, but the        Loop trimming a looped clip
+  length of the entire looped clip changes.              The number of loops increases or decreases to fill
+• Trim the source clip (loop iteration) while keep-      the new length of the entire looped clip.
+  ing the overall loop length unchanged. The num-
+  ber of loop iterations within the looped clip                Hold the Start key (Windows), or the
+  changes accordingly. For example, trim a 2 bar               Control key (Mac) while trimming to trim
+  loop iteration of a 4 bar looped clip to 1 bar. The          in loop iteration increments.
+  4 bar looped clip remains constant, but the num-
+  ber of loop iterations changes from 2 to 4. Each             Trimming a looped clip does not trim any un-
+  loop iteration’s length changes, but how long the            derlying Fades.
+  clip is looped does not.
+
+
+
+
+                                                                                Chapter 29: Edit Modes and Tools   657

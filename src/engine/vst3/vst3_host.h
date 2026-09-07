@@ -55,7 +55,9 @@ public:
     void                 loadState(const std::vector<uint8_t>& data) override;
 
 private:
-    struct Impl;
+    class Impl;
+    // setActive() with the realtime gate already held closed by the caller.
+    void setActiveLocked(bool active);
     std::unique_ptr<Impl> d_;
 };
 

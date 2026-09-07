@@ -55,38 +55,78 @@ rackx::PanelElement panelStyled(int id, float x, float y, float radius,
     return element;
 }
 
+// A captioned decor frame.  The editor draws a Section CENTRED on x,y, so this
+// takes TOP-LEFT and converts -- otherwise every frame lands half its width off.
+rackx::PanelElement panelSection(float x, float y, float w, float h, const char* label)
+{
+    rackx::PanelElement v;
+    v.style = rackx::PanelControlStyle::Section;
+    v.x = x + w * 0.5f; v.y = y + h * 0.5f;
+    v.width = w; v.height = h;
+    v.label = label;
+    v.labelPlacement = rackx::PanelLabelPlacement::Above;
+    return v;
+}
+
 rackx::PanelSpec clockPanel()
 {
-    rackx::PanelSpec panel = rackx::PanelSpec::fromHp(10);
+    // Taller faceplate: the multiply and divide taps get a column each, and the
+    // live-tempo jacks (BAR / BPM / POS) get their own captioned section instead
+    // of being squeezed between the tap jacks and their lights.
+    rackx::PanelSpec panel = rackx::PanelSpec::fromHp(12);
+    panel.height = 540.f;
+    const float W = panel.width;                       // 12 HP == ~183
+    const float mid = W * 0.5f;
+
+    using P = rackx::PanelLabelPlacement;
+    panel.decor = {
+        panelSection( 12.f,  38.f, W - 24.f,  70.f, "IN" ),
+        panelSection( 12.f, 118.f, W - 24.f,  62.f, "CLOCK" ),
+        panelSection( 12.f, 190.f, W - 24.f, 196.f, "MULT / DIV" ),
+        panelSection( 12.f, 396.f, W - 24.f, 126.f, "TEMPO" )
+    };
+
     panel.inputs = {
-        panelElement(0, 26.f, 62.f, 8.f, "RST", rackx::PanelLabelPlacement::Above),
-        panelElement(1, 26.f, 100.f, 8.f, "GATE", rackx::PanelLabelPlacement::Above)
+        panelElement(0, mid - 38.f, 76.f, 8.f, "RST",  P::Above),
+        panelElement(1, mid + 38.f, 76.f, 8.f, "GATE", P::Above)
     };
+
+    const float mx = mid - 44.f, dx = mid + 44.f;      // multiply / divide columns
+    const float ml = mid - 18.f, dl = mid + 18.f;      // their lights
+    const float row0 = 224.f, rowDy = 36.f;
+    auto row = [&](int i) { return row0 + rowDy * (float)i; };
+
     panel.outputs = {
-        panelElement(0, 132.f, 62.f, 8.f, "CLK", rackx::PanelLabelPlacement::Above),
-        panelElement(1, 32.f, 126.f, 8.f, "*2", rackx::PanelLabelPlacement::Above),
-        panelElement(2, 32.f, 178.f, 8.f, "*4", rackx::PanelLabelPlacement::Above),
-        panelElement(3, 32.f, 230.f, 8.f, "*8", rackx::PanelLabelPlacement::Above),
-        panelElement(4, 32.f, 282.f, 8.f, "*16", rackx::PanelLabelPlacement::Above),
-        panelElement(5, 32.f, 334.f, 8.f, "*32", rackx::PanelLabelPlacement::Above),
-        panelElement(6, 120.f, 126.f, 8.f, "/2", rackx::PanelLabelPlacement::Above),
-        panelElement(7, 120.f, 178.f, 8.f, "/4", rackx::PanelLabelPlacement::Above),
-        panelElement(8, 120.f, 230.f, 8.f, "/8", rackx::PanelLabelPlacement::Above),
-        panelElement(9, 120.f, 282.f, 8.f, "/16", rackx::PanelLabelPlacement::Above),
-        panelElement(10, 120.f, 334.f, 8.f, "/32", rackx::PanelLabelPlacement::Above)
+        panelElement(0, mid, 154.f, 9.f, "CLK", P::Above),
+        panelElement(1, mx, row(0), 8.f, "*2",  P::Left),
+        panelElement(2, mx, row(1), 8.f, "*4",  P::Left),
+        panelElement(3, mx, row(2), 8.f, "*8",  P::Left),
+        panelElement(4, mx, row(3), 8.f, "*16", P::Left),
+        panelElement(5, mx, row(4), 8.f, "*32", P::Left),
+        panelElement(6, dx, row(0), 8.f, "/2",  P::Right),
+        panelElement(7, dx, row(1), 8.f, "/4",  P::Right),
+        panelElement(8, dx, row(2), 8.f, "/8",  P::Right),
+        panelElement(9, dx, row(3), 8.f, "/16", P::Right),
+        panelElement(10, dx, row(4), 8.f, "/32", P::Right),
+        // live tempo
+        panelElement(11, mid - 44.f, 434.f, 8.f, "BAR", P::Above),
+        panelElement(12, mid + 44.f, 434.f, 8.f, "BPM", P::Above),
+        panelElement(13, mid,        492.f, 8.f, "POS", P::Above)
     };
+
     panel.lights = {
-        panelElement(0, 110.f, 62.f, 5.f),
-        panelElement(1, 52.f, 126.f, 5.f),
-        panelElement(2, 52.f, 178.f, 5.f),
-        panelElement(3, 52.f, 230.f, 5.f),
-        panelElement(4, 52.f, 282.f, 5.f),
-        panelElement(5, 52.f, 334.f, 5.f),
-        panelElement(6, 100.f, 126.f, 5.f),
-        panelElement(7, 100.f, 178.f, 5.f),
-        panelElement(8, 100.f, 230.f, 5.f),
-        panelElement(9, 100.f, 282.f, 5.f),
-        panelElement(10, 100.f, 334.f, 5.f)
+        panelElement(0, mid + 26.f, 154.f, 5.f),
+        panelElement(1, ml, row(0), 5.f),
+        panelElement(2, ml, row(1), 5.f),
+        panelElement(3, ml, row(2), 5.f),
+        panelElement(4, ml, row(3), 5.f),
+        panelElement(5, ml, row(4), 5.f),
+        panelElement(6, dl, row(0), 5.f),
+        panelElement(7, dl, row(1), 5.f),
+        panelElement(8, dl, row(2), 5.f),
+        panelElement(9, dl, row(3), 5.f),
+        panelElement(10, dl, row(4), 5.f),
+        panelElement(11, mid - 18.f, 434.f, 5.f)       // BAR
     };
     return panel;
 }
@@ -163,7 +203,7 @@ rackx::PanelSpec seq8Panel()
                                           rackx::PanelControlStyle::Gate)));
             // Probability: a tiny numeric box (drag to edit), not a knob.
             rackx::PanelElement prob = panelStyled(probId, cx + 11.f, rowY + 50.f, 8.f,
-                                                   rackx::PanelControlStyle::NumberBox);
+                                                   rackx::PanelControlStyle::SegmentDisplay);
             prob.width = 22.f;
             prob.height = 15.f;
             panel.params.push_back(tabbed(prob));
@@ -203,14 +243,27 @@ static constexpr float kGateHigh = 2.0f;
 struct Clock : Module {
     enum ParamIds  { NUM_PARAMS };
     enum InputIds  { RESET_INPUT, GATE_INPUT, NUM_INPUTS };
+    // LIVE TEMPO (appended -- never reorder, saved patches store port indices):
+    //   BAR   a pulse at every bar line (4 beats), the musical anchor a synced
+    //         module phase-locks to.
+    //   TEMPO the host tempo as CV at BPM/100 (120 bpm -> 1.2 V), so a patch can
+    //         read and scale tempo instead of duplicating a BPM knob per module.
+    //   BEAT  a 0..10 V ramp across the current bar, i.e. continuous musical
+    //         position -- what a tempo-synced envelope needs to place itself.
     enum OutputIds { CLK_OUTPUT, M2_OUTPUT, M4_OUTPUT, M8_OUTPUT, M16_OUTPUT, M32_OUTPUT,
-                     D2_OUTPUT, D4_OUTPUT, D8_OUTPUT, D16_OUTPUT, D32_OUTPUT, NUM_OUTPUTS };
+                     D2_OUTPUT, D4_OUTPUT, D8_OUTPUT, D16_OUTPUT, D32_OUTPUT,
+                     BAR_OUTPUT, TEMPO_OUTPUT, BEAT_OUTPUT, NUM_OUTPUTS };
     enum LightIds  { CLK_LIGHT, M2_LIGHT, M4_LIGHT, M8_LIGHT, M16_LIGHT, M32_LIGHT,
-                     D2_LIGHT, D4_LIGHT, D8_LIGHT, D16_LIGHT, D32_LIGHT, NUM_LIGHTS };
+                     D2_LIGHT, D4_LIGHT, D8_LIGHT, D16_LIGHT, D32_LIGHT,
+                     BAR_LIGHT, NUM_LIGHTS };
 
-    float phase = 0.f;
+    static const int kBeatsPerBar = 4;
+
+    // Double precision keeps the per-sample clock accumulator stable over long
+    // sessions; float phase eventually moves clock edges by whole samples.
+    double phase = 0.0;
     int counter = 0;
-    rack::dsp::SchmittTrigger resetTrig, gateTrig;
+    rack::dsp::SchmittTrigger resetTrig;
 
     Clock() {
         config(NUM_PARAMS, NUM_INPUTS, NUM_OUTPUTS, NUM_LIGHTS);
@@ -227,6 +280,9 @@ struct Clock : Module {
         configOutput(D8_OUTPUT, "/8");
         configOutput(D16_OUTPUT, "/16");
         configOutput(D32_OUTPUT, "/32");
+        configOutput(BAR_OUTPUT, "Bar");
+        configOutput(TEMPO_OUTPUT, "Tempo");
+        configOutput(BEAT_OUTPUT, "Beat");
         configLight(CLK_LIGHT, "Clk");
         configLight(M2_LIGHT, "*2");
         configLight(M4_LIGHT, "*4");
@@ -238,6 +294,7 @@ struct Clock : Module {
         configLight(D8_LIGHT, "/8");
         configLight(D16_LIGHT, "/16");
         configLight(D32_LIGHT, "/32");
+        configLight(BAR_LIGHT, "Bar");
     }
 
     void setOutputsLow() {
@@ -250,14 +307,13 @@ struct Clock : Module {
     }
 
     void resetClock() {
-        phase = 0.f;
+        phase = 0.0;
         counter = 0;
     }
 
     void onReset() override {
         resetClock();
         resetTrig.reset();
-        gateTrig.reset();
         setOutputsLow();
     }
 
@@ -265,25 +321,32 @@ struct Clock : Module {
         if (resetTrig.process(inputs[RESET_INPUT].getVoltage(), kGateLow, kGateHigh))
             resetClock();
 
+        // GATE only mutes/unmutes outputs (via gateOpen below) -- it must NOT
+        // reset phase, or a performer using it to mute mid-song gets an
+        // unwanted snap back to bar 1 beat 1 on every re-open.  Only
+        // RESET_INPUT zeroes phase.
         const bool gateOpen = !inputs[GATE_INPUT].isConnected()
                            || inputs[GATE_INPUT].getVoltage() >= kGateHigh;
-        if (inputs[GATE_INPUT].isConnected() &&
-            gateTrig.process(inputs[GATE_INPUT].getVoltage(), kGateLow, kGateHigh))
-            resetClock();
 
+        // Tempo is INFORMATION, not a gate: publish it even while stopped so a
+        // synced module can size itself correctly before the transport rolls.
+        // (setOutputsLow() below would otherwise zero it and read as 0 bpm.)
+        const float bpm = rack::clamp(args.tempoBpm, 20.f, 999.f);
         if (!args.isPlaying || !gateOpen) {
             setOutputsLow();
+            outputs[TEMPO_OUTPUT].setVoltage(bpm * 0.01f);   // BPM/100
+            outputs[TEMPO_OUTPUT].channels = 1;
             return;
         }
 
-        float freq = rack::clamp(args.tempoBpm, 20.f, 999.f) / 60.f;
-        phase += freq * args.sampleTime;
-        if (phase >= 1.f) {
+        const double freq = (double)bpm / 60.0;
+        phase += freq * (double)args.sampleTime;
+        if (phase >= 1.0) {
             phase -= std::floor(phase);
             counter = (counter + 1) & 31;
         }
 
-        bool high = phase < 0.5f;
+        bool high = phase < 0.5;
         outputs[CLK_OUTPUT].setVoltage(high ? 10.f : 0.f);
         outputs[CLK_OUTPUT].channels = 1;
         lights[CLK_LIGHT].setBrightnessRGB(high ? 0.1f : 0.f, high ? 0.78f : 0.f, high ? 1.f : 0.f);
@@ -317,6 +380,24 @@ struct Clock : Module {
                 dividedHigh ? kDivColors[i][1] : 0.f,
                 dividedHigh ? kDivColors[i][2] : 0.f);
         }
+
+        // ---- live tempo / musical position ---------------------------------
+        const int   beatInBar = counter % kBeatsPerBar;
+        const float barPhase  = ((float)beatInBar + phase) / (float)kBeatsPerBar;
+
+        // Bar pulse: high for the first half-beat of each bar.
+        const bool barHigh = (beatInBar == 0) && (phase < 0.5f);
+        outputs[BAR_OUTPUT].setVoltage(barHigh ? 10.f : 0.f);
+        outputs[BAR_OUTPUT].channels = 1;
+        lights[BAR_LIGHT].setBrightnessRGB(barHigh ? 1.f : 0.f,
+                                           barHigh ? 0.85f : 0.f,
+                                           barHigh ? 0.15f : 0.f);
+
+        outputs[TEMPO_OUTPUT].setVoltage(bpm * 0.01f);      // BPM/100
+        outputs[TEMPO_OUTPUT].channels = 1;
+
+        outputs[BEAT_OUTPUT].setVoltage(barPhase * 10.f);   // 0..10 V across a bar
+        outputs[BEAT_OUTPUT].channels = 1;
     }
 };
 
@@ -327,16 +408,19 @@ struct Clock : Module {
 //============================================================================
 struct ClockDiv : Module {
     enum ParamIds  { NUM_PARAMS };
-    enum InputIds  { CLK_INPUT, NUM_INPUTS };
+    // RESET_INPUT is APPENDED after CLK_INPUT so CLK_INPUT keeps index 0 and
+    // existing saved patches referencing it are unaffected.
+    enum InputIds  { CLK_INPUT, RESET_INPUT, NUM_INPUTS };
     enum OutputIds { D2_OUTPUT, D4_OUTPUT, D8_OUTPUT, D16_OUTPUT, NUM_OUTPUTS };
     enum LightIds  { NUM_LIGHTS };
 
     int counter = 0;                            // wraps at 16 (LCM of divisors)
-    rack::dsp::SchmittTrigger clockTrig;
+    rack::dsp::SchmittTrigger clockTrig, resetTrig;
 
     ClockDiv() {
         config(NUM_PARAMS, NUM_INPUTS, NUM_OUTPUTS, NUM_LIGHTS);
         configInput(CLK_INPUT, "Clk");
+        configInput(RESET_INPUT, "Rst");
         configOutput(D2_OUTPUT,  "/2");
         configOutput(D4_OUTPUT,  "/4");
         configOutput(D8_OUTPUT,  "/8");
@@ -345,10 +429,22 @@ struct ClockDiv : Module {
 
     void onReset() override {
         counter = 0;
+        // Safe here: nothing is mid-edge at construction/module-reset time.
         clockTrig.reset();
+        resetTrig.reset();
     }
 
     void process(const ProcessArgs&) override {
+        // Do NOT clockTrig.reset() from here: this SchmittTrigger's idle state
+        // is "believes the input is already high" (see rack_dsp.h), so forcing
+        // it back to that state while CLK_INPUT happens to already be sitting
+        // high (very possible if RESET and CLK share one master Clock) would
+        // silently require a full low-then-high cycle before the next edge is
+        // recognized. Just zero counter; let resetTrig track its own edge
+        // naturally rather than forcing its state.
+        if (resetTrig.process(inputs[RESET_INPUT].getVoltage(), kGateLow, kGateHigh))
+            counter = 0;
+
         if (clockTrig.process(inputs[CLK_INPUT].getVoltage(), kGateLow, kGateHigh))
             counter = (counter + 1) & 15;       // 0..15
 
@@ -404,6 +500,7 @@ struct SEQ8 : Module {
 
     int index[TRACKS] = {};
     bool gateLatched[TRACKS] = {};          // did this step win its probability roll?
+    bool resetParked = false;               // hold physical step 1 until a real advance
     std::uint32_t rngState = 0x9e3779b9u;
     rack::dsp::SchmittTrigger clockTrig, resetTrig;
     rack::dsp::SequencerReset sequencerReset;
@@ -465,27 +562,56 @@ struct SEQ8 : Module {
 
     void onReset() override {
         for (int track = 0; track < TRACKS; ++track) {
-            int lo, hi; trackRange(track, lo, hi);
-            index[track] = lo;
-            latchGate(track, lo);
+            index[track] = 0;
+            gateLatched[track] = false;
         }
-        clockTrig.reset();
+        // clockTrig is deliberately NOT reset here: this SchmittTrigger's idle/
+        // reset state is "believes the input is already high" (see rack_dsp.h),
+        // so forcing it back to that state while CLOCK_INPUT happens to already
+        // be sitting high (the common case when RESET and CLOCK share one Clock
+        // module, since RESET's own rising edge is sample-coincident with
+        // CLOCK's) makes it require a full low-then-high cycle before it will
+        // recognize ANY edge -- silently eating the very pulse this reset is
+        // supposed to line up with.  Leaving it alone lets it keep tracking the
+        // physical clock line uninterrupted; sequencerReset.reset() below is
+        // what actually arms "swallow the next genuine edge."
         resetTrig.reset();
         sequencerReset.reset();
+        resetParked = true;
     }
 
     void process(const ProcessArgs&) override {
         if (resetTrig.process(inputs[RESET_INPUT].getVoltage(), kGateLow, kGateHigh)) {
             for (int track = 0; track < TRACKS; ++track) {
-                int lo, hi; trackRange(track, lo, hi);
-                index[track] = lo;
-                latchGate(track, lo);
+                // RESET is an absolute musical reset, not a loop-range seek:
+                // every lane returns to physical step 1 (index zero).
+                index[track] = 0;
+                // Position the playhead but do NOT latch the gate.  Latching here
+                // made the first step fire on the reset AND again on the first
+                // clock -- because that clock is deliberately swallowed below, so
+                // the playhead stayed put and the gate saw two clock-high phases.
+                // That is the "first step triggers twice" symptom.
+                gateLatched[track] = false;
             }
-            clockTrig.reset();
+            // Do NOT clockTrig.reset() here (see onReset()'s comment): RESET and
+            // CLOCK are typically driven from the SAME master Clock module and so
+            // arrive sample-coincident.  Forcing clockTrig back to its "already
+            // high" idle state right as CLOCK_INPUT is ALSO going/already high
+            // made it silently miss that very edge -- it would only recognize the
+            // FOLLOWING pulse instead, permanently dropping one step every single
+            // reset cycle regardless of clock rate (bar-relative pulse count).
+            // sequencerReset.reset() alone correctly arms "swallow the next
+            // genuine edge", which is all that's needed to keep the playhead and
+            // clock in phase.
             sequencerReset.reset();
+            resetParked = true;
         }
         const bool clock = clockTrig.process(inputs[CLOCK_INPUT].getVoltage(), kGateLow, kGateHigh);
         const bool advance = sequencerReset.processClock(clock);
+        // The clock swallowed right after a reset still PLAYS the current step;
+        // it just does not move the playhead.  Without this the first step is
+        // silent on its own clock and only sounds via the reset.
+        const bool playCurrent = clock && !advance;
         const bool clockHigh = clockTrig.isHigh();
 
         for (int track = 0; track < TRACKS; ++track) {
@@ -496,7 +622,11 @@ struct SEQ8 : Module {
                 position = (position < lo || position >= hi) ? lo : position + 1;
                 stepped = true;
             }
-            else if (position < lo || position > hi) {        // range moved live
+            else if (playCurrent) {                           // first clock after reset
+                stepped = true;                               // latch, do not move
+            }
+            else if (!resetParked && !sequencerReset.awaitingClock &&
+                     (position < lo || position > hi)) {       // range moved live
                 position = lo;
                 stepped = true;
             }
@@ -524,6 +654,7 @@ struct SEQ8 : Module {
                 }
             }
         }
+        if (advance) resetParked = false;
     }
 };
 
@@ -719,6 +850,15 @@ struct Delay : Module {
     static constexpr int kBufSize = 96000 + 4;    // per channel: 1s @ 96k +interp
     std::vector<float> buffer;                    // PORT_MAX_CHANNELS * kBufSize
     int writeIdx = 0;                             // shared: one sample/ch per call
+    // SLEWED read offset.  The TIME knob was read raw and used directly as the
+    // read distance, so one GUI frame of a drag jumped the read head by hundreds
+    // of samples between one output sample and the next -- a full-amplitude
+    // click per frame, measured at ~45x the signal's natural per-sample slew.
+    // Gliding the read pointer instead is what a tape/BBD delay does and what a
+    // TIME sweep is expected to sound like.  -1 means "not latched yet".
+    float curDelay  = -1.f;
+    float slewCoeff = 0.f;
+    float slewSr    = -1.f;
 
     Delay() {
         config(NUM_PARAMS, NUM_INPUTS, NUM_OUTPUTS, NUM_LIGHTS);
@@ -730,6 +870,8 @@ struct Delay : Module {
         buffer.resize((size_t)rack::engine::PORT_MAX_CHANNELS * kBufSize, 0.f);  // one-time alloc
     }
 
+    void onReset() override { curDelay = -1.f; }        // re-latch on the knob
+
     void process(const ProcessArgs& args) override {
         const int size = kBufSize;                // per-channel ring length
         int chans = std::max(1, inputs[IN_INPUT].getChannels());
@@ -739,6 +881,21 @@ struct Delay : Module {
         float delaySec = rack::rescale(rack::clamp(params[TIME_PARAM].getValue(), 0.f, 1.f),
                                        0.f, 1.f, 0.001f, 1.f);
         float delaySamples = rack::clamp(delaySec * args.sampleRate, 1.f, (float)(size - 2));
+
+        // ~40 ms one-pole glide toward the knob.  The coefficient only depends
+        // on the sample rate, so the exp() is paid once per rate change, never
+        // per sample.  A rate change re-latches (the same seconds is a wholly
+        // different sample count).
+        if (args.sampleRate != slewSr) {
+            slewSr = args.sampleRate;
+            slewCoeff = 1.f - std::exp(-1.f / (0.04f * args.sampleRate));
+            curDelay = -1.f;
+        }
+        if (curDelay < 0.f) curDelay = delaySamples;      // first sample: land on it
+        curDelay += (delaySamples - curDelay) * slewCoeff;
+        if (std::fabs(delaySamples - curDelay) < 1e-3f) curDelay = delaySamples;
+        delaySamples = curDelay;
+
         float fb  = rack::clamp(params[FB_PARAM].getValue(),  0.f, 0.99f);
         float mix = rack::clamp(params[MIX_PARAM].getValue(), 0.f, 1.f);
 

@@ -11,6 +11,16 @@
 //  Signal conventions (match VCV so modules interoperate):
 //    * audio  = +/-5V,  CV = +/-10V,  gate/trigger = 0/10V
 //    * pitch  = 1V/octave, 0V == middle C via rack::FREQ_C4
+//
+//  NOTE: VCO / VCF / VCA / ADSR / LFO / Mixer are NOT implemented here.  Full
+//  duplicate implementations of all six used to sit in this file, ~400 lines
+//  that nothing ever constructed: registerBuiltinModules() has always built
+//  those slugs from fundamental::makeVCO() and friends (the Fundamental
+//  bridge).  Dead copies of live DSP only drift from the real thing and give
+//  the next reader the wrong source to fix, so they are gone.  Only AudioOut,
+//  AudioIn, MidiToCV and Noise are implemented in this file; the panels for
+//  every slug still live here.
+//
 //----------------------------------------------------------------------------
 
 // rack_dsp.h references M_PI; MinGW/MSVC gate it behind _USE_MATH_DEFINES under
@@ -90,338 +100,6 @@ struct MidiToCV : Module {
 };
 
 //============================================================================
-//  VCO -- band-limited (polyBLEP) oscillator, four simultaneous waveforms.
-//============================================================================
-struct VCO : Module {
-    enum ParamIds  { FREQ_PARAM, FINE_PARAM, NUM_PARAMS };
-    enum InputIds  { PITCH_INPUT, FM_INPUT, NUM_INPUTS };
-    enum OutputIds { SIN_OUTPUT, SAW_OUTPUT, SQR_OUTPUT, TRI_OUTPUT, NUM_OUTPUTS };
-    enum LightIds  { NUM_LIGHTS };
-
-    rack::dsp::BlepOsc osc[rack::engine::PORT_MAX_CHANNELS];   // per-channel phase
-    // pitch -> freq memo: std::pow only runs when the summed pitch CV actually
-    // CHANGES (exact-equality key, so output is bit-identical to recomputing
-    // every sample).  A held note skips the transcendental entirely -- at 500
-    // modules the per-sample pow is what blows the realtime budget, not the
-    // oscillator itself.  NaN sentinel: NaN != x is always true -> first call
-    // (and a NaN pitch) always computes.
-    float lastPitchV[rack::engine::PORT_MAX_CHANNELS];
-    float freqMemo[rack::engine::PORT_MAX_CHANNELS] = {};
-
-    VCO() {
-        config(NUM_PARAMS, NUM_INPUTS, NUM_OUTPUTS, NUM_LIGHTS);
-        configParam(FREQ_PARAM, -54.f, 54.f, 0.f, "Freq", " semi");
-        configParam(FINE_PARAM, -1.f, 1.f, 0.f, "Fine");
-        configInput(PITCH_INPUT, "V/Oct");
-        configInput(FM_INPUT, "FM");
-        configOutput(SIN_OUTPUT, "Sin");
-        configOutput(SAW_OUTPUT, "Saw");
-        configOutput(SQR_OUTPUT, "Sqr");
-        configOutput(TRI_OUTPUT, "Tri");
-        for (int c = 0; c < rack::engine::PORT_MAX_CHANNELS; ++c)
-            lastPitchV[c] = std::numeric_limits<float>::quiet_NaN();
-    }
-
-    void process(const ProcessArgs& args) override {
-        // Polyphony follows the pitch input; the knob is a semitone offset
-        // (/12 -> volts), fine likewise.  FM is read per channel (a mono FM
-        // input broadcasts to all channels).
-        int chans = std::max(1, inputs[PITCH_INPUT].getChannels());
-        for (int c = 0; c < chans; ++c) {
-            float pitchV = inputs[PITCH_INPUT].getPolyVoltage(c)
-                         + params[FREQ_PARAM].getValue() / 12.f
-                         + params[FINE_PARAM].getValue() / 12.f
-                         + inputs[FM_INPUT].getPolyVoltage(c);
-            if (pitchV != lastPitchV[c]) {
-                lastPitchV[c] = pitchV;
-                freqMemo[c] = rack::clamp(rack::FREQ_C4 * std::pow(2.f, pitchV), 1.f, 20000.f);
-            }
-            float dt = freqMemo[c] * args.sampleTime;
-
-            osc[c].advance(dt);
-            outputs[SIN_OUTPUT].setVoltage(5.f * osc[c].sine(), c);
-            outputs[SAW_OUTPUT].setVoltage(5.f * osc[c].saw(dt), c);
-            outputs[SQR_OUTPUT].setVoltage(5.f * osc[c].square(dt), c);
-            outputs[TRI_OUTPUT].setVoltage(5.f * osc[c].triangle(), c);
-        }
-        outputs[SIN_OUTPUT].setChannels(chans);
-        outputs[SAW_OUTPUT].setChannels(chans);
-        outputs[SQR_OUTPUT].setChannels(chans);
-        outputs[TRI_OUTPUT].setChannels(chans);
-    }
-};
-
-//============================================================================
-//  VCF -- resonant state-variable filter (Cytomic/TPT, unconditionally
-//  stable), simultaneous lowpass + highpass outputs.
-//============================================================================
-struct VCF : Module {
-    enum ParamIds  { CUTOFF_PARAM, RES_PARAM, NUM_PARAMS };
-    enum InputIds  { IN_INPUT, CUTOFF_CV_INPUT, RES_CV_INPUT, NUM_INPUTS };
-    enum OutputIds { LPF_OUTPUT, HPF_OUTPUT, NUM_OUTPUTS };
-    enum LightIds  { NUM_LIGHTS };
-
-    // Trapezoidal SVF integrator state, per polyphony channel.
-    float ic1eq[rack::engine::PORT_MAX_CHANNELS] = {};
-    float ic2eq[rack::engine::PORT_MAX_CHANNELS] = {};
-    // Coefficient memo: pow+tan only run when cutoff/res (or the sample rate)
-    // actually CHANGE.  Exact-equality keys keep the output bit-identical to
-    // recomputing per sample; a static filter setting -- the common case --
-    // pays two float compares instead of two transcendentals per sample.
-    float lastCut[rack::engine::PORT_MAX_CHANNELS];
-    float lastRes[rack::engine::PORT_MAX_CHANNELS];
-    float kMemo[rack::engine::PORT_MAX_CHANNELS]  = {};
-    float a1Memo[rack::engine::PORT_MAX_CHANNELS] = {};
-    float a2Memo[rack::engine::PORT_MAX_CHANNELS] = {};
-    float a3Memo[rack::engine::PORT_MAX_CHANNELS] = {};
-    float lastSt = -1.f;                     // sample-time key (invalidates all)
-
-    VCF() {
-        config(NUM_PARAMS, NUM_INPUTS, NUM_OUTPUTS, NUM_LIGHTS);
-        configParam(CUTOFF_PARAM, 0.f, 1.f, 0.7f, "Cut");
-        configParam(RES_PARAM, 0.f, 1.f, 0.f, "Res");
-        configInput(IN_INPUT, "In");
-        configInput(CUTOFF_CV_INPUT, "Cut");
-        configInput(RES_CV_INPUT, "Res");
-        configOutput(LPF_OUTPUT, "LP");
-        configOutput(HPF_OUTPUT, "HP");
-        for (int c = 0; c < rack::engine::PORT_MAX_CHANNELS; ++c) {
-            lastCut[c] = std::numeric_limits<float>::quiet_NaN();
-            lastRes[c] = std::numeric_limits<float>::quiet_NaN();
-        }
-    }
-
-    void process(const ProcessArgs& args) override {
-        // Polyphony follows the audio input; cutoff/res CV are read per channel
-        // (a mono CV broadcasts to all channels), so coefficients are computed
-        // per channel too.
-        int chans = std::max(1, inputs[IN_INPUT].getChannels());
-        if (args.sampleTime != lastSt) {     // rate change invalidates the memo
-            lastSt = args.sampleTime;
-            for (int c = 0; c < rack::engine::PORT_MAX_CHANNELS; ++c)
-                lastCut[c] = std::numeric_limits<float>::quiet_NaN();
-        }
-        for (int c = 0; c < chans; ++c) {
-            // Exponential cutoff map: 20 Hz .. ~18 kHz.
-            float cutoff01 = rack::clamp(params[CUTOFF_PARAM].getValue()
-                                         + inputs[CUTOFF_CV_INPUT].getPolyVoltage(c) / 10.f, 0.f, 1.f);
-            float res01 = rack::clamp(params[RES_PARAM].getValue()
-                                      + inputs[RES_CV_INPUT].getPolyVoltage(c) / 10.f, 0.f, 1.f);
-
-            if (cutoff01 != lastCut[c] || res01 != lastRes[c]) {
-                lastCut[c] = cutoff01;
-                lastRes[c] = res01;
-                float fc = 20.f * std::pow(900.f, cutoff01);
-                fc = rack::clamp(fc, 20.f, args.sampleRate * 0.49f);
-                // TPT coefficients.  k = damping: 2 (no resonance) down to ~0.02.
-                float g = std::tan(kPi * fc * args.sampleTime);
-                kMemo[c]  = 2.f - 1.98f * res01;
-                a1Memo[c] = 1.f / (1.f + g * (g + kMemo[c]));
-                a2Memo[c] = g * a1Memo[c];
-                a3Memo[c] = g * a2Memo[c];
-            }
-            float k  = kMemo[c];
-            float a1 = a1Memo[c];
-            float a2 = a2Memo[c];
-            float a3 = a3Memo[c];
-
-            float v0 = inputs[IN_INPUT].getPolyVoltage(c);   // +/-5V audio
-            float v3 = v0 - ic2eq[c];
-            float v1 = a1 * ic1eq[c] + a2 * v3;
-            float v2 = ic2eq[c] + a2 * ic1eq[c] + a3 * v3;
-            ic1eq[c] = 2.f * v1 - ic1eq[c];
-            ic2eq[c] = 2.f * v2 - ic2eq[c];
-
-            // Kill any NaN/Inf so the filter never latches up.
-            ic1eq[c] = rack::math::normalizeZero(ic1eq[c]);
-            ic2eq[c] = rack::math::normalizeZero(ic2eq[c]);
-
-            float low  = v2;
-            float high = v0 - k * v1 - v2;
-
-            outputs[LPF_OUTPUT].setVoltage(rack::math::normalizeZero(low), c);
-            outputs[HPF_OUTPUT].setVoltage(rack::math::normalizeZero(high), c);
-        }
-        outputs[LPF_OUTPUT].setChannels(chans);
-        outputs[HPF_OUTPUT].setChannels(chans);
-    }
-};
-
-//============================================================================
-//  VCA -- voltage-controlled amplifier (linear).
-//============================================================================
-struct VCA : Module {
-    enum ParamIds  { LEVEL_PARAM, NUM_PARAMS };
-    enum InputIds  { IN_INPUT, CV_INPUT, NUM_INPUTS };
-    enum OutputIds { OUT_OUTPUT, NUM_OUTPUTS };
-    enum LightIds  { NUM_LIGHTS };
-
-    VCA() {
-        config(NUM_PARAMS, NUM_INPUTS, NUM_OUTPUTS, NUM_LIGHTS);
-        configParam(LEVEL_PARAM, 0.f, 1.f, 1.f, "Lvl");
-        configInput(IN_INPUT, "In");
-        configInput(CV_INPUT, "CV");
-        configOutput(OUT_OUTPUT, "Out");
-    }
-
-    void process(const ProcessArgs&) override {
-        // Polyphony follows the audio input; CV is read per channel (a mono CV
-        // broadcasts).  A disconnected CV means unity gain on every channel.
-        int chans = std::max(1, inputs[IN_INPUT].getChannels());
-        bool cvConnected = inputs[CV_INPUT].isConnected();
-        for (int c = 0; c < chans; ++c) {
-            float gain = params[LEVEL_PARAM].getValue()
-                       * (cvConnected
-                              ? rack::clamp(inputs[CV_INPUT].getPolyVoltage(c) / 10.f, 0.f, 1.f)
-                              : 1.f);
-            outputs[OUT_OUTPUT].setVoltage(inputs[IN_INPUT].getPolyVoltage(c) * gain, c);
-        }
-        outputs[OUT_OUTPUT].setChannels(chans);
-    }
-};
-
-//============================================================================
-//  ADSR -- classic four-stage envelope (exponential segments), 0..10V out.
-//============================================================================
-struct ADSR : Module {
-    enum ParamIds  { ATT_PARAM, DEC_PARAM, SUS_PARAM, REL_PARAM, NUM_PARAMS };
-    enum InputIds  { GATE_INPUT, RETRIG_INPUT, NUM_INPUTS };
-    enum OutputIds { ENV_OUTPUT, NUM_OUTPUTS };
-    enum LightIds  { ENV_LIGHT, NUM_LIGHTS };
-
-    enum Stage { STAGE_IDLE, STAGE_ATTACK, STAGE_DECAY, STAGE_RELEASE };
-
-    rack::dsp::SchmittTrigger gateTrig[rack::engine::PORT_MAX_CHANNELS];
-    rack::dsp::SchmittTrigger retrigTrig[rack::engine::PORT_MAX_CHANNELS];
-    float env[rack::engine::PORT_MAX_CHANNELS]   = {};   // normalized 0..1, per channel
-    int   stage[rack::engine::PORT_MAX_CHANNELS] = {};   // STAGE_IDLE == 0
-
-    ADSR() {
-        config(NUM_PARAMS, NUM_INPUTS, NUM_OUTPUTS, NUM_LIGHTS);
-        configParam(ATT_PARAM, 0.f, 1.f, 0.5f, "Att");
-        configParam(DEC_PARAM, 0.f, 1.f, 0.5f, "Dec");
-        configParam(SUS_PARAM, 0.f, 1.f, 0.5f, "Sus");
-        configParam(REL_PARAM, 0.f, 1.f, 0.5f, "Rel");
-        configInput(GATE_INPUT, "Gate");
-        configInput(RETRIG_INPUT, "Rtg");
-        configOutput(ENV_OUTPUT, "Env");
-        configLight(ENV_LIGHT, "Env");
-        for (int i = 0; i < NUM_PARAMS; ++i)
-            lambdaKnob[i] = std::numeric_limits<float>::quiet_NaN();
-    }
-
-    // Knob 0..1 -> exponential rate constant (1/tau) for a ~1ms..10s segment.
-    // Memoized per knob (one slot per A/D/R param): pow only runs when the
-    // knob actually moves, not per channel per sample.
-    float lambdaKnob[NUM_PARAMS];
-    float lambdaMemo[NUM_PARAMS] = {};
-    float lambdaOf(int paramId) {
-        float knob = params[paramId].getValue();
-        if (knob != lambdaKnob[paramId]) {
-            lambdaKnob[paramId] = knob;
-            const float minTime = 1e-3f;   // 1 ms
-            const float ratio   = 1e4f;    // maxTime / minTime = 10 s / 1 ms
-            lambdaMemo[paramId] = 1.f / (minTime * std::pow(ratio, knob));
-        }
-        return lambdaMemo[paramId];
-    }
-
-    void process(const ProcessArgs& args) override {
-        // Polyphony follows the gate input; every channel keeps its own stage,
-        // level and edge detectors.  RETRIG is read per channel.
-        int chans = std::max(1, inputs[GATE_INPUT].getChannels());
-        for (int c = 0; c < chans; ++c) {
-            bool gateRising = gateTrig[c].process(inputs[GATE_INPUT].getPolyVoltage(c), 0.1f, 2.f);
-            bool gateHigh   = gateTrig[c].isHigh();
-            bool retrig     = retrigTrig[c].process(inputs[RETRIG_INPUT].getPolyVoltage(c), 0.1f, 2.f);
-
-            if (gateRising || (retrig && gateHigh))
-                stage[c] = STAGE_ATTACK;
-            else if (!gateHigh && stage[c] != STAGE_IDLE)
-                stage[c] = STAGE_RELEASE;
-
-            if (stage[c] == STAGE_ATTACK) {
-                // Approach a target slightly above 1 so we cross 1.0 in finite time.
-                env[c] += lambdaOf(ATT_PARAM) * (1.2f - env[c]) * args.sampleTime;
-                if (env[c] >= 1.f) { env[c] = 1.f; stage[c] = STAGE_DECAY; }
-            }
-            else if (stage[c] == STAGE_DECAY) {
-                float sustain = rack::clamp(params[SUS_PARAM].getValue(), 0.f, 1.f);
-                env[c] += lambdaOf(DEC_PARAM) * (sustain - env[c]) * args.sampleTime;
-            }
-            else if (stage[c] == STAGE_RELEASE) {
-                env[c] += lambdaOf(REL_PARAM) * (0.f - env[c]) * args.sampleTime;
-                if (env[c] <= 1e-4f) { env[c] = 0.f; stage[c] = STAGE_IDLE; }
-            }
-            else {
-                env[c] = 0.f;
-            }
-
-            env[c] = rack::clamp(env[c], 0.f, 1.f);
-            outputs[ENV_OUTPUT].setVoltage(env[c] * 10.f, c);   // 0..10V
-        }
-        outputs[ENV_OUTPUT].setChannels(chans);
-        lights[ENV_LIGHT].setBrightness(env[0]);   // LED follows channel 0
-    }
-};
-
-//============================================================================
-//  LFO -- low-frequency oscillator, four bipolar waveforms + sync reset.
-//============================================================================
-struct LFO : Module {
-    enum ParamIds  { RATE_PARAM, NUM_PARAMS };
-    enum InputIds  { FM_INPUT, RESET_INPUT, NUM_INPUTS };
-    enum OutputIds { SIN_OUTPUT, TRI_OUTPUT, SAW_OUTPUT, SQR_OUTPUT, NUM_OUTPUTS };
-    enum LightIds  { SIN_LIGHT, NUM_LIGHTS };
-
-    rack::dsp::BlepOsc osc;
-    rack::dsp::SchmittTrigger resetTrig;
-    // rate -> freq memo (same pattern as VCO): pow only when rate/FM change.
-    float lastRate = std::numeric_limits<float>::quiet_NaN();
-    float lastSr   = -1.f;                   // the clamp depends on sampleRate
-    float freqMemo = 0.f;
-
-    LFO() {
-        config(NUM_PARAMS, NUM_INPUTS, NUM_OUTPUTS, NUM_LIGHTS);
-        configParam(RATE_PARAM, -8.f, 10.f, 1.f, "Rate");   // 2^rate Hz
-        configInput(FM_INPUT, "FM");
-        configInput(RESET_INPUT, "Rst");
-        configOutput(SIN_OUTPUT, "Sin");
-        configOutput(TRI_OUTPUT, "Tri");
-        configOutput(SAW_OUTPUT, "Saw");
-        configOutput(SQR_OUTPUT, "Sqr");
-        configLight(SIN_LIGHT, "Sin");
-    }
-
-    void process(const ProcessArgs& args) override {
-        // Exponential frequency; FM input adds octaves (1V/oct feel).
-        float rate = params[RATE_PARAM].getValue() + inputs[FM_INPUT].getVoltage();
-        if (rate != lastRate || args.sampleRate != lastSr) {
-            lastRate = rate;
-            lastSr   = args.sampleRate;
-            freqMemo = rack::clamp(std::pow(2.f, rate), 0.f, args.sampleRate * 0.49f);
-        }
-        float dt = freqMemo * args.sampleTime;
-
-        osc.advance(dt);
-        if (resetTrig.process(inputs[RESET_INPUT].getVoltage(), 0.1f, 2.f))
-            osc.phase = 0.f;
-
-        float s = osc.sine();
-        outputs[SIN_OUTPUT].setVoltage(5.f * s);
-        outputs[TRI_OUTPUT].setVoltage(5.f * osc.triangle());
-        outputs[SAW_OUTPUT].setVoltage(5.f * osc.saw(dt));
-        outputs[SQR_OUTPUT].setVoltage(5.f * osc.square(dt));
-        outputs[SIN_OUTPUT].channels = 1;
-        outputs[TRI_OUTPUT].channels = 1;
-        outputs[SAW_OUTPUT].channels = 1;
-        outputs[SQR_OUTPUT].channels = 1;
-
-        lights[SIN_LIGHT].setBrightness(0.5f + 0.5f * s);
-    }
-};
-
-//============================================================================
 //  Noise -- white (per-module xorshift32 RNG) + pink (Paul Kellet filter).
 //============================================================================
 struct Noise : Module {
@@ -469,45 +147,6 @@ struct Noise : Module {
         outputs[PINK_OUTPUT].setVoltage(rack::clamp(2.f * pink, -5.f, 5.f));
         outputs[WHITE_OUTPUT].channels = 1;
         outputs[PINK_OUTPUT].channels = 1;
-    }
-};
-
-//============================================================================
-//  Mixer -- 4-channel mixer with per-channel level + master.
-//============================================================================
-struct Mixer : Module {
-    enum ParamIds  { LVL1_PARAM, LVL2_PARAM, LVL3_PARAM, LVL4_PARAM, MASTER_PARAM, NUM_PARAMS };
-    enum InputIds  { IN1_INPUT, IN2_INPUT, IN3_INPUT, IN4_INPUT, NUM_INPUTS };
-    enum OutputIds { MIX_OUTPUT, NUM_OUTPUTS };
-    enum LightIds  { NUM_LIGHTS };
-
-    Mixer() {
-        config(NUM_PARAMS, NUM_INPUTS, NUM_OUTPUTS, NUM_LIGHTS);
-        configParam(LVL1_PARAM, 0.f, 1.f, 1.f, "1");
-        configParam(LVL2_PARAM, 0.f, 1.f, 1.f, "2");
-        configParam(LVL3_PARAM, 0.f, 1.f, 1.f, "3");
-        configParam(LVL4_PARAM, 0.f, 1.f, 1.f, "4");
-        configParam(MASTER_PARAM, 0.f, 1.f, 1.f, "Mst");
-        configInput(IN1_INPUT, "1");
-        configInput(IN2_INPUT, "2");
-        configInput(IN3_INPUT, "3");
-        configInput(IN4_INPUT, "4");
-        configOutput(MIX_OUTPUT, "Mix");
-    }
-
-    void process(const ProcessArgs&) override {
-        // Channel count is the max across the four inputs; sum per channel
-        // (a mono input broadcasts to every channel).
-        int chans = 1;
-        for (int i = 0; i < 4; ++i)
-            chans = std::max(chans, inputs[IN1_INPUT + i].getChannels());
-        for (int c = 0; c < chans; ++c) {
-            float sum = 0.f;
-            for (int i = 0; i < 4; ++i)
-                sum += inputs[IN1_INPUT + i].getPolyVoltage(c) * params[LVL1_PARAM + i].getValue();
-            outputs[MIX_OUTPUT].setVoltage(params[MASTER_PARAM].getValue() * sum, c);
-        }
-        outputs[MIX_OUTPUT].setChannels(chans);
     }
 };
 
@@ -1071,6 +710,19 @@ rackx::PanelSpec stable16Panel()
 //============================================================================
 namespace rackx {
 
+void registerVco4SseModule();
+void registerTb303FilterModule();
+void registerAcidSequencerModule();
+void registerAcidOscillatorModule();
+void registerHarmonicForgeModule();
+void registerCdpModules();
+void registerEnv8Module();
+void registerSamplerModule();
+void registerBufferRetrigModule();
+void registerZdfMultiModule();
+void registerZPlaneModule();
+void registerAcid303Module();
+
 void registerBuiltinModules() {
     // I/O (engine-wired) modules.
     addType("AudioOut", "Audio Out", "I/O", Role::AudioOut,
@@ -1083,6 +735,14 @@ void registerBuiltinModules() {
     // Normal DSP modules.
     addType("VCO", "VCO", "Oscillator", Role::Normal,
             [] { return fundamental::makeVCO(); }, vcoPanel());
+    registerVco4SseModule();
+    registerEnv8Module();
+    registerSamplerModule();
+    registerBufferRetrigModule();
+    registerZdfMultiModule();
+    registerZPlaneModule();
+    registerAcid303Module();
+    registerTb303FilterModule();
     addType("VCF", "VCF", "Filter", Role::Normal,
             [] { return fundamental::makeVCF(); }, vcfPanel());
     addType("VCA", "VCA", "Amplifier", Role::Normal,
@@ -1119,6 +779,10 @@ void registerBuiltinModules() {
             [] { return fundamental::makeRandom(); }, randomPanel());
     addType("SEQ3", "SEQ-3", "Sequencer", Role::Normal,
             [] { return fundamental::makeSEQ3(); }, seq3Panel());
+    registerAcidSequencerModule();
+    registerAcidOscillatorModule();
+    registerHarmonicForgeModule();
+    registerCdpModules();
     addType("SequentialSwitch1", "Sequential Switch 1→4", "Utility", Role::Normal,
             [] { return fundamental::makeSequentialSwitch1(); }, sequentialSwitch1Panel());
     addType("SequentialSwitch2", "Sequential Switch 4→1", "Utility", Role::Normal,

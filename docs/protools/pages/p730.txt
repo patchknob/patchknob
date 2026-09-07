@@ -1,0 +1,48 @@
+      Trim to Fill Selection Commands                          The end point of the clip in front of the gap is au-
+                                                               tomatically trimmed (expanded) to the next clip, or
+      The Trim to Fill Selection commands let you auto-
+                                                               as far as possible if there is not enough underlying
+      matically reveal underlying material in the gaps
+                                                               material to cover the gap.
+      between clips, or before and after individual clips,
+      as follow:
+
+      To trim from a start point to fill gaps:
+      1   With the Selector tool, select across at least one
+          gap between clips.
+      2   Choose Edit > Trim Clip > Start to Fill Selection.
+
+      The start point of the clip behind the gap is auto-
+      matically trimmed (expanded) to the previous clip,
+      or as far as possible if there is not enough underly-
+      ing material to cover the gap.                           Clip end trimmed to fill gap
+
+                                                               To trim from a clip’s start and end points to fill the
+                                                               Edit selection:
+                                                               1   With the Selector tool, make an Edit selection
+                                                                   that includes the clip you want to trim out.
+                                                               2   Choose Edit > Trim Clip > To Fill Selection.
+
+                                                               The start point of the clip is automatically trimmed
+                                                               (expanded) to the Edit selection start, or as far as
+                                                               possible if there is not enough underlying material
+                                                               to cover the selection, and the end point of the clip
+      Clip start trimmed to fill gap                           is automatically trimmed out (expanded) to the
+      To trim from an end point to fill gaps:
+                                                               Edit selection end, or as far as possible if there is
+                                                               not enough underlying material to cover the selec-
+      1   With the Selector tool, select across at least one   tion.
+          gap between clips.
+                                                               The Trim to Fill Selection command is the inverse
+      2   Choose Edit > Trim Clip > End To Fill
+                                                               of the Trim to Fit Selection command: where the
+          Selection.
+                                                               Trim to Fill Selection command trims a clip out to
+                                                               match the Edit selection, the Trim to Fit Selection
+                                                               command trims a clip in to match the Edit selec-
+                                                               tion.
+
+
+
+
+698   Pro Tools Reference Guide

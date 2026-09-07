@@ -31,8 +31,18 @@
 //      to silence (outputs zeroed, MIDI dropped) instead of unwinding into the
 //      audio callback or leaving the parallel wave barrier hanging.
 //
+//  MIDI PATCHBAY: a VirtualMidiPortsNode is a bank of MIDI endpoints whose
+//  input->output matrix lives in an atomic route table the UI rewrites live
+//  (setRoute). The node itself produces nothing; the GRAPH applies the table,
+//  re-read once per block in runStep, so a re-route takes effect on the very
+//  next block with NO recompile and no message-thread hook (see runStep).
+//
 //  Cycles are rejected at connect() time (Kahn check on the tentative edge);
-//  intentional feedback is expressed with an explicit one-block FeedbackNode.
+//  intentional feedback is expressed by marking the RETURN port on the
+//  consuming node as a FEEDBACK input (Node::portIsFeedback). Such an edge is
+//  invisible to the topo-sort, so it is not a cycle; the consumer reads the
+//  producer's buffer one block late. That is how an aux bus can be a real
+//  destination in the graph and still return into the mixer that feeds it.
 //  Fixed capacities (kMaxNodes, kMaxFanIn, ...) fail the EDIT — they never
 //  truncate audio at runtime. addNode()/connect() pre-flight the pool budgets
 //  so an edit that could never compile is rejected on the spot.
@@ -43,6 +53,7 @@
 #include <atomic>
 #include <condition_variable>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <thread>
@@ -85,6 +96,10 @@ struct PortDesc {
 struct PortRef    { NodeId node; PortId port; };
 struct Connection { PortRef from; PortRef to; };   // from.dir==Out, to.dir==In
 
+// The virtual-MIDI patchbay node (defined in patch_nodes.h). The compiled plan
+// caches a pointer to it per step and consults its atomic route table at render
+// time; forward-declared here so this header stays free of patch_nodes.h.
+
 // ---- realtime buffer views handed to a node for ONE block (pool-owned) -----
 struct AudioBus   { float* const* chans; int channels; };      // planar [ch][nframes]
 struct MidiBuffer { MidiEvent* ev; int count; int capacity; }; // out: node sets count
@@ -125,6 +140,27 @@ public:
     virtual void bindDeviceOut(float* const*, int, int) {}
     virtual void bindDeviceIn (const float* const*, int, int) {}
     virtual bool isDeviceSink() const { return false; }
+    virtual bool isDeviceSource() const { return false; }
+    // The compiled graph clears the hardware buffer once and may bind several
+    // sinks, so those sinks add. Direct users retain overwrite semantics.
+    virtual void setDeviceOutAdditive(bool) {}
+
+    //! FEEDBACK INPUT PORTS.  A connection landing on a port for which this
+    //! returns true is NOT a scheduling dependency: the compiler leaves the
+    //! edge out of the topo-sort/cycle check and out of the wave-level
+    //! calculation, and the port simply reads the producer's output buffer as
+    //! it stands when this node runs.  Because the producer is scheduled AFTER
+    //! the consumer (that is what made the loop a cycle in the first place),
+    //! what the consumer sees is the producer's PREVIOUS block -- a one-block
+    //! delay, which is the "explicit one-block feedback" this engine's header
+    //! has always specified for an intentional loop.
+    //!
+    //! This is what lets an aux bus be a real graph destination: the master
+    //! mixer sends to it and the bus RETURNS into the master mixer, which is a
+    //! cycle at node granularity and would otherwise be rejected by connect().
+    //! Only the return leg is marked, so everything else about the edge (fan-in
+    //! summing, pool budgeting, the patcher's view of the cable) is ordinary.
+    virtual bool portIsFeedback(PortId) const { return false; }
 
     void setBypass(bool b) { bypass_.store(b, std::memory_order_relaxed); }
     bool bypass() const    { return bypass_.load(std::memory_order_relaxed); }
@@ -160,6 +196,16 @@ public:
     //! Drop any connection whose endpoints no longer resolve to a live port
     //! (e.g. after a node's port count shrank).  Returns how many were removed.
     int    pruneDanglingConnections();
+    //! Rewrite every connection endpoint that lands on node `id`: port p becomes
+    //! newPort(p), and a connection whose endpoint maps to a negative id is
+    //! DROPPED.  Returns how many were dropped.
+    //!
+    //! Needed by any node whose port ids are POSITIONAL rather than stable --
+    //! MasterMixerNode's per-track inlets/outlets are (inlet == 2 + 2t), so
+    //! deleting a track renames the ids of every track above it while conns_
+    //! still holds the old ones.  pruneDanglingConnections() cannot help there:
+    //! the stale ids all still resolve, they just mean a different track now.
+    int    remapNodePorts(NodeId id, const std::function<int(PortId)>& newPort);
 
     // --- lifecycle (message thread) ---
     bool   prepare(double sampleRate, int maxBlock);   // sizes pools; compiles once
@@ -179,8 +225,15 @@ public:
 
     // --- optional multi-threaded processing (message thread) ---
     //! Enable/disable parallel (multi-core) node processing. Default OFF. While
-    //! off — and also whenever the live plan carries MIDI or is tiny — the exact
+    //! off — and also whenever the live plan is not parallelSafe (more than one
+    //! device sink) or is too small/too linear to be worth splitting — the exact
     //! single-threaded path runs unchanged. Safe to toggle at runtime.
+    //!
+    //! NOTE: a plan carrying MIDI ports used to be excluded here too, which made
+    //! this switch a no-op in the app: MasterMixerNode always declares a MIDI
+    //! clock out, so no plan was ever eligible. The MIDI slot pool is partitioned
+    //! per step exactly like the audio pool — see the invariant spelled out in
+    //! buildPlan — so the wave barrier covers it as well.
     void   setMultiThreaded(bool on) { multiThreaded_.store(on, std::memory_order_relaxed); }
     bool   multiThreaded() const { return multiThreaded_.load(std::memory_order_relaxed); }
 
@@ -215,6 +268,11 @@ private:
     struct Step {
         Node* node;
         int   level;       // dependency wave: 1 + max upstream level (sources == 0)
+        // Non-null exactly when `node` is a VirtualMidiPortsNode (resolved once,
+        // on the message thread, in buildPlan). runStep then reads that node's
+        // atomic route table ONCE PER BLOCK and copies midiIn[route(o)] into
+        // midiOut[o], which is what makes a live re-route audible on the next
+        // block without recompiling the graph.
         int   numAudioIn;  AudioInPortPlan  ain [kMaxPortsPerNode];
         int   numAudioOut; AudioOutPortPlan aout[kMaxPortsPerNode];
         int   numMidiIn;   MidiInPortPlan   min [kMaxPortsPerNode];
@@ -240,6 +298,12 @@ private:
     // ---- compile helpers (message thread) ----
     bool topoSort(std::vector<NodeId>& order) const;   // false on cycle
     bool wouldCycle(const Connection& c) const;         // Kahn on conns_ + c
+    //! True when `c` lands on a FEEDBACK input port (Node::portIsFeedback), so
+    //! the edge carries signal but imposes no ordering.  Every place that walks
+    //! conns_ to build dependencies -- topoSort, wouldCycle, buildPlan's wave
+    //! levels -- must skip these, and buildPlan resolves their sources in a
+    //! second pass once every output port has a buffer.
+    bool edgeIsFeedback(const Connection& c) const;
     bool buildPlan(RenderPlan* plan);                   // false: cap exceeded
     //! Pre-flight the pool/sum/merge budget for the current topology plus an
     //! optional tentative node/edge, WITHOUT writing a plan. addNode()/connect()

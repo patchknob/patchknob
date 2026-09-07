@@ -1,0 +1,48 @@
+                                                       The controls in the Fades dialog include:
+Fade Dialogs
+                                                       Audition
+Choose Edit > Fades > Create to apply the appro-
+priate fade to the Edit selection. Use the corre-
+sponding Fade dialog (Fade In, Fade Out, Cross-
+fade) to select, view, preview fades and crossfades,
+and edit fade curves.                                  Click this button to audition fades. Pro Tools sup-
+                                                       ports fade auditioning directly from your audio in-
+                                                       terface outputs.
+
+                                                       View First Track (Crossfades Only)
+
+
+
+
+                                                       If you are cross-fading between more than one
+                                                       track, this button allows you to view and preview
+                                                       the audio of the first in a pair of adjacent tracks.
+
+                                                       View Second Track (Crossfades Only)
+
+
+
+
+Fade Out dialog                                        If you are cross-fading between more than one
+                                                       track this button allows you to view and preview
+                                                       the audio of the second in a pair of adjacent tracks.
+
+                                                       View Both Tracks (Crossfades Only)
+
+
+
+
+                                                       Click this button to display the waveforms of the
+                                                       first two adjacent tracks in a multitrack crossfade.
+
+                                                       Fade Curves Only
+
+
+
+
+                                                       Click this button to display the specified fade
+                                                       curves without showing the actual audio wave-
+Crossfade dialog                                       forms. This is the default view when you open the
+                                                       Fades dialog.
+
+                                                                             Chapter 32: Fades and Crossfades   711

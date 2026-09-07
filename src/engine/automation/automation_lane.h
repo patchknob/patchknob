@@ -35,7 +35,9 @@
 #ifndef PATCHKNOB_ENGINE_AUTOMATION_AUTOMATION_LANE_H
 #define PATCHKNOB_ENGINE_AUTOMATION_AUTOMATION_LANE_H
 
+#include <algorithm>
 #include <cstdint>
+#include <cmath>
 #include <vector>
 
 namespace PatchKnob { namespace engine {
@@ -43,7 +45,9 @@ namespace PatchKnob { namespace engine {
 //! What kind of thing a lane drives.
 enum class LaneTargetKind {
     VstParam,   //!< a hosted instrument parameter, addressed by paramId.
-    MidiCC      //!< a MIDI control change, addressed by controller number 0..127.
+    MidiCC,     //!< a MIDI control change, addressed by controller number 0..127.
+    PatchParam, //!< a parameter on a patcher plugin node.
+    RackParam   //!< a parameter on one module inside a rack node.
 };
 
 //! Interpolation between breakpoints. See file header for exact semantics.
@@ -57,9 +61,13 @@ enum class Interpolation {
 struct LaneTarget {
     LaneTargetKind kind = LaneTargetKind::VstParam;
     unsigned int   id   = 0;   //!< paramId (VstParam) or controller 0..127 (MidiCC).
+    int            node = -1;  //!< patch node for PatchParam/RackParam.
+    int          module = -1;  //!< rack module id for RackParam.
+    float       minValue = 0.f;
+    float       maxValue = 1.f;
 
     bool operator==(const LaneTarget& o) const {
-        return kind == o.kind && id == o.id;
+        return kind == o.kind && id == o.id && node == o.node && module == o.module;
     }
 };
 
@@ -67,6 +75,7 @@ struct LaneTarget {
 struct Breakpoint {
     int64_t tick  = 0;      //!< timeline position (sequencer ticks / samples).
     float   value = 0.0f;   //!< normalized 0..1.
+    float   curve = 0.0f;   //!< shape of segment starting here (-1..1; 0 linear).
 };
 
 //! A single automated target and its ordered breakpoint curve.
@@ -122,7 +131,7 @@ public:
             bps_[(size_t)lo].value = value;    // replace at existing tick
             return lo;
         }
-        bps_.insert(bps_.begin() + lo, Breakpoint{ tick, value });
+        bps_.insert(bps_.begin() + lo, Breakpoint{ tick, value, 0.f });
         return lo;
     }
 
@@ -160,6 +169,39 @@ public:
     //! Remove every breakpoint (target/interpolation unchanged).
     void clear() { bps_.clear(); }
 
+    //! Bulk replacement, used by the range-process layer (autoops) which
+    //! rewrites a whole span of the curve at once and cannot afford an O(n)
+    //! insert per point. The class invariant is re-established here rather
+    //! than trusted from the caller: the list is sorted ascending by tick,
+    //! reduced to one breakpoint per tick (the LAST of an equal-tick group
+    //! wins, matching add()'s overwrite-at-existing-tick behaviour), and every
+    //! value/curve is clamped. So this door cannot be used to hand the player
+    //! an unsorted or duplicated lane.
+    void setBreakpoints(std::vector<Breakpoint> bps) {
+        bps_ = std::move(bps);
+        std::stable_sort(bps_.begin(), bps_.end(),
+                         [](const Breakpoint& a, const Breakpoint& b) {
+                             return a.tick < b.tick;
+                         });
+        size_t w = 0;
+        for (size_t i = 0; i < bps_.size(); ++i) {
+            if (w > 0 && bps_[w - 1].tick == bps_[i].tick) --w;  // last one wins
+            bps_[w++] = bps_[i];
+        }
+        bps_.resize(w);
+        for (auto& b : bps_) {
+            b.value = clamp01(b.value);
+            b.curve = b.curve < -1.f ? -1.f : (b.curve > 1.f ? 1.f : b.curve);
+        }
+    }
+
+    //! Bend the segment that starts at breakpoint `index`.
+    bool setCurveAfter(int index, float curve) {
+        if (index < 0 || index >= (int)bps_.size()) return false;
+        bps_[(size_t)index].curve = curve < -1.f ? -1.f : (curve > 1.f ? 1.f : curve);
+        return true;
+    }
+
     // --- evaluation (realtime-safe: O(log n), no allocation) -----------------
 
     //! Curve value at `tick`, honouring the interpolation mode. Empty lane -> 0.
@@ -183,7 +225,14 @@ public:
             default: {
                 const int64_t span = b.tick - a.tick;
                 if (span <= 0) return b.value;
-                const double f = (double)(tick - a.tick) / (double)span;
+                double f = (double)(tick - a.tick) / (double)span;
+                // A centre handle edits this exponent curve.  Negative values
+                // bow toward the end point, positive values toward the start;
+                // zero is exactly the old straight-line interpolation.
+                if (a.curve > 0.f)
+                    f = std::pow(f, 1.0 + (double)a.curve * 7.0);
+                else if (a.curve < 0.f)
+                    f = 1.0 - std::pow(1.0 - f, 1.0 + (double)(-a.curve) * 7.0);
                 return a.value + (float)f * (b.value - a.value);
             }
         }

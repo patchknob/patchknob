@@ -88,6 +88,19 @@ public:
             return tabs[active].view->on_key(app, k);
         return false;
     }
+    bool on_key_up(App& app, SDL_Keycode k) override {
+        if (active >= 0 && active < (int)tabs.size() && tabs[active].view)
+            return tabs[active].view->on_key_up(app, k);
+        return false;
+    }
+    // Docked views (e.g. the Sample Editor) implement their own local undo;
+    // without this forward gui.cpp's per-view Ctrl+Z route can never reach them
+    // and the global project undo fires instead.
+    bool on_undo(App& app, bool redo) override {
+        if (active >= 0 && active < (int)tabs.size() && tabs[active].view)
+            return tabs[active].view->on_undo(app, redo);
+        return false;
+    }
 };
 
 } // namespace ui

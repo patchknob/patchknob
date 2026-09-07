@@ -1,0 +1,56 @@
+Delay Compensation and                                  To apply Delay Compensation to all selected
+DestructivePunch Mode                                   tracks where Delay Compensation was
+                                                        suspended, do one of the following:
+When using DestructivePunch to punch in on an
+                                                           Shift-Right-click the Track Compensation indi-
+existing recording, make sure the Delay Compen-
+                                                            cator on the track and select Auto Low Latency
+sation settings are the same as when the original
+                                                            Off.
+file was recorded. If they differ, the punched-in au-
+dio will not be time-accurate to the original record-      Command-Control-Shift-click (Mac) or Con-
+ing.                                                        trol-Start-Shift-click (Windows) the Track
+                                                            Compensation indicator on the track.
+  If Delay Compensation was inactive when re-
+cording the original file, it should be deactivated           For more information, see “Delay
+while using DestructivePunch.                                 Compensation” on page 1136.
+  If Delay Compensation was active when record-
+ing the original file, it should be kept active while   Audio Files, Clips and Takes
+using DestructivePunch.
+                                                        QuickPunch and TrackPunch Modes
+To ensure that the Delay Compensation path on re-
+                                                        QuickPunch and TrackPunch are nondestructive
+cord tracks remains consistent while using De-
+                                                        recording modes. Instead of replacing audio while
+structivePunch, you need to prevent Pro Tools
+                                                        punching, QuickPunch and TrackPunch create
+from using the Low Latency monitoring path when
+                                                        new audio files for each pass (a pass is one cycle of
+record tracks switch to Input monitoring.
+                                                        starting and stopping the Transport).
+To apply Delay Compensation to a track where            Pro Tools begins recording a new audio file when
+Delay Compensation was suspended, do one of
+the following:
+                                                        playback begins, automatically generating clips in
+                                                        that file at each punch-in and punch-out point. Up
+   Right-click the Track Compensation indicator        to 200 of these “running punches” can be per-
+    on the track and select Auto Low Latency Off.       formed in a single pass. QuickPunch and Track-
+   Command-Control-click (Mac) or Control-             Punch provide instantaneous monitor switching on
+    Start-click (Windows) the Track Compensation        punch-out.
+    indicator on the track.
+                                                        After recording with QuickPunch or TrackPunch,
+                                                        the new audio clips appear in the Clips List. This
+                                                        includes the whole-file audio clip encompassing
+                                                        all punches from the record pass, along with the
+                                                        clips derived for each punch.
+
+                                                        Names for the punched clips are numbered consec-
+                                                        utively starting with “01.” For example, if Quick-
+                                                        Punch is used to punch in twice on a track called
+                                                        “Lead Gtr,” a clip for the parent audio file appears
+                                                        and is named “Lead Gtr_01,” and two clips for the
+                                                        punches are named “Lead Gtr_01-01” and “Lead
+                                                        Gtr_01-02.”
+
+
+                                                                            Chapter 27: Punch Recording Modes   603

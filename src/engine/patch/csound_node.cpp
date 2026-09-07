@@ -8,14 +8,108 @@
 #include "csound_node.h"
 
 #ifdef PATCHKNOB_HAVE_CSOUND
+#if __has_include(<csound/csound.h>)
 #include <csound/csound.h>
+#else
+#include <csound.h>
+#endif
 #endif
 
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
+#include <cctype>
+#include <sstream>
 
 namespace PatchKnob { namespace engine { namespace patch {
+
+namespace {
+// Infer the physical input width from the orchestra opcodes.  Csound does not
+// allocate spin (and csoundGetNchnlsInput reports zero) unless nchnls_i is set,
+// even when an instrument contains `in`/`inch`.  That made those perfectly
+// ordinary opcodes produce no patch-node jacks and receive silence.
+static int inferred_input_channels(const std::string& csd) {
+    int inferred = 0;
+    std::istringstream input(csd);
+    std::string line;
+    while (std::getline(input, line)) {
+        // Csound comments begin with ';'.  Ignore semicolons inside strings.
+        bool quoted = false;
+        for (size_t i = 0; i < line.size(); ++i) {
+            if (line[i] == '"' && (i == 0 || line[i-1] != '\\')) {
+                quoted = !quoted; line[i] = ' '; continue;
+            }
+            if (line[i] == ';' && !quoted) { line.resize(i); break; }
+            if (quoted) line[i] = ' '; // channel/string names are not opcodes
+        }
+        // Tokenize just enough to find the exact opcode token (never confuse
+        // `in` with instr/ init) and its surrounding operands.
+        for (size_t p = 0; p < line.size();) {
+            while (p < line.size() && !(std::isalnum((unsigned char)line[p]) || line[p]=='_')) ++p;
+            const size_t begin = p;
+            while (p < line.size() && (std::isalnum((unsigned char)line[p]) || line[p]=='_')) ++p;
+            if (begin == p) break;
+            const std::string tok = line.substr(begin, p-begin);
+            if (tok == "inch") {
+                size_t q = p;
+                while (q < line.size() && (std::isspace((unsigned char)line[q]) || line[q]=='(')) ++q;
+                int ch = 0;
+                while (q < line.size() && std::isdigit((unsigned char)line[q]))
+                    ch = ch * 10 + (line[q++] - '0');
+                // A dynamic i/k-rate selector cannot be resolved statically.
+                // Still expose a stereo host bus so `inch iInput` does not
+                // silently compile into a node with no inputs at all.
+                inferred = std::max(inferred, ch > 0 ? ch : 2); // inch is one-based
+            } else if (tok == "in" || tok == "ins") {
+                // Count audio-rate output variables on the left of the opcode.
+                // `aL, aR ins` is stereo; `ain in` is mono.
+                int outs = 0;
+                for (size_t q = 0; q < begin;) {
+                    while (q < begin && !(std::isalnum((unsigned char)line[q]) || line[q]=='_')) ++q;
+                    const size_t b = q;
+                    while (q < begin && (std::isalnum((unsigned char)line[q]) || line[q]=='_')) ++q;
+                    if (b < q && line[b] == 'a') ++outs;
+                }
+                if (tok == "ins") outs = std::max(outs, 2);
+                inferred = std::max(inferred, outs > 0 ? outs : 1);
+            }
+        }
+    }
+    return inferred;
+}
+
+static std::string with_inferred_nchnls_i(const std::string& csd, int inferred) {
+    if (inferred <= 0) return csd;
+    std::istringstream input(csd);
+    std::vector<std::string> lines;
+    std::string line;
+    bool found = false;
+    while (std::getline(input, line)) {
+        std::string compact;
+        for (char c : line) if (!std::isspace((unsigned char)c)) compact += c;
+        if (compact.rfind("nchnls_i=", 0) == 0) found = true;
+        lines.push_back(line);
+    }
+    std::ostringstream output;
+    bool inserted = false;
+    for (const std::string& original : lines) {
+        std::string compact;
+        for (char c : original) if (!std::isspace((unsigned char)c)) compact += c;
+        if (compact.rfind("nchnls_i=", 0) == 0) {
+            const size_t eq = compact.find('=');
+            const int declared = eq == std::string::npos ? 0 : std::atoi(compact.c_str()+eq+1);
+            output << "nchnls_i = " << std::max(declared, inferred) << '\n';
+        } else {
+            output << original << '\n';
+        }
+        if (!found && !inserted && original.find("<CsInstruments>") != std::string::npos) {
+            output << "nchnls_i = " << inferred << " ; host inferred from in/inch\n";
+            inserted = true;
+        }
+    }
+    return output.str();
+}
+} // namespace
 
 // Bytes carried by a raw MIDI status (so we feed Csound the right count).
 static int midi_len(unsigned char status) {
@@ -36,6 +130,18 @@ static int cs_midi_close(CSOUND*,   void*) { return 0; }
 static int cs_midi_read (CSOUND*, void* ud, unsigned char* buf, int nBytes) {
     CsoundNode* self = static_cast<CsoundNode*>(ud);
     return self ? self->drainMidi(buf, nBytes) : 0;
+}
+
+// ---- host-implemented MIDI output: Csound pushes `midiout` bytes to us -------
+// Called from inside csoundPerformKsmps(), i.e. on the audio thread within
+// process(), so it shares process()'s single-threaded context (same as read).
+static int cs_midi_out_open (CSOUND* cs, void** ud, const char*) {
+    *ud = csoundGetHostData(cs); return 0;
+}
+static int cs_midi_out_close(CSOUND*, void*) { return 0; }
+static int cs_midi_write(CSOUND*, void* ud, const unsigned char* buf, int nBytes) {
+    CsoundNode* self = static_cast<CsoundNode*>(ud);
+    return self ? self->writeMidi(buf, nBytes) : nBytes;
 }
 #endif
 
@@ -98,15 +204,23 @@ bool CsoundNode::compile(const std::string& csdText) {
     csoundSetExternalMidiInOpenCallback (ncs, &cs_midi_open);
     csoundSetExternalMidiReadCallback   (ncs, &cs_midi_read);
     csoundSetExternalMidiInCloseCallback(ncs, &cs_midi_close);
+    csoundSetExternalMidiOutOpenCallback (ncs, &cs_midi_out_open);
+    csoundSetExternalMidiWriteCallback   (ncs, &cs_midi_write);
+    csoundSetExternalMidiOutCloseCallback(ncs, &cs_midi_out_close);
 
     csoundSetOption(ncs, "-n");    // no audio device -- we pull spout ourselves
     csoundSetOption(ncs, "-d");    // no display windows
-    csoundSetOption(ncs, "-M0");   // realtime MIDI -> our callbacks
+    csoundSetOption(ncs, "-M0");   // realtime MIDI IN  -> our read callback
+    csoundSetOption(ncs, "-Q0");   // realtime MIDI OUT -> our write callback
+                                   // (without -Q the `midiout` opcode has no
+                                   //  device and Csound discards its bytes)
     char sropt[48];
     std::snprintf(sropt, sizeof(sropt), "--sample-rate=%d", (int)(sr_ + 0.5));
     csoundSetOption(ncs, sropt);   // force engine sample rate for correct pitch
 
-    int r = csoundCompileCsdText(ncs, csd_.c_str());
+    const int inferredInputs = inferred_input_channels(csd_);
+    const std::string compiledCsd = with_inferred_nchnls_i(csd_, inferredInputs);
+    int r = csoundCompileCsdText(ncs, compiledCsd.c_str());
     if (r != 0) { char b[64]; std::snprintf(b, sizeof(b), "CSD compile failed (%d)", r);
                   err_ = b; destroyInstance(ncs); return false; }
     r = csoundStart(ncs);
@@ -140,6 +254,10 @@ void CsoundNode::process(const NodeProcessContext& ctx) {
     for (int b = 0; b < ctx.numAudioOut; ++b)          // clear every out port
         for (int c = 0; c < ctx.audioOut[b].channels; ++c)
             std::memset(ctx.audioOut[b].chans[c], 0, sizeof(float) * (size_t)n);
+    // Clear the MIDI-out port up here, BEFORE the early returns below: a skipped
+    // block (compile in progress / no engine / score ended) must publish an empty
+    // buffer rather than leave last block's events to be re-sent.
+    for (int p = 0; p < ctx.numMidiOut; ++p) ctx.midiOut[p].count = 0;
 
     // Never block the audio thread on a compile: skip (silence) this block if a
     // recompile holds the lock, or if there's no compiled engine yet.
@@ -154,6 +272,11 @@ void CsoundNode::process(const NodeProcessContext& ctx) {
 
     // stage this block's MIDI bytes for the read callback (drained during perform).
     midiBytes_.clear(); midiPos_ = 0;
+    // Collect what the orchestra emits this block.  Anything left over from the
+    // previous block is a partial message; keep it so a message split across the
+    // ksmps/block boundary still completes (see the parse at the end).
+    midiOutAt_.resize(midiOutBytes_.size(), 0);
+    midiOutCursor_ = 0;
     if (ctx.numMidiIn > 0) {
         const MidiBuffer& mb = ctx.midiIn[0];
         const int filt = midiChannel_.load(std::memory_order_relaxed);
@@ -193,6 +316,9 @@ void CsoundNode::process(const NodeProcessContext& ctx) {
                     }
                 }
             }
+            // Tell writeMidi() where in the block we are, so `midiout` bytes
+            // land at their ksmps offset instead of all at the block edge.
+            midiOutCursor_ = produced;
             if (csoundPerformKsmps(cs) != 0) { finished_ = true; return; }  // score ended
             for (int j = 0; j < ksmps_; ++j)
                 for (int c = 0; c < outCh; ++c)
@@ -220,7 +346,49 @@ void CsoundNode::process(const NodeProcessContext& ctx) {
             for (int i = 0; i < n; ++i) dst[i] = blockOut_[(size_t)i * outCh + csCh];
         }
     }
+
+    // ---- publish what the orchestra emitted on the "midi out" port ----------
+    // The port is the LAST one (see port() in the header); a patch that has not
+    // wired it compiles to zero midi-out ports, so guard on numMidiOut.
+    if (ctx.numMidiOut > 0 && !midiOutBytes_.empty()) {
+        MidiBuffer& mo = ctx.midiOut[ctx.numMidiOut - 1];
+        size_t i = 0;
+        while (i < midiOutBytes_.size()) {
+            const unsigned char st = midiOutBytes_[i];
+            if (st < 0x80u) { ++i; continue; }         // stray data byte: resync
+            const size_t len = (size_t)midi_len(st);
+            if (i + len > midiOutBytes_.size()) break; // partial: finish next block
+            if (mo.count < mo.capacity) {
+                MidiEvent& e = mo.ev[mo.count++];
+                e.status = st;
+                e.data1  = len > 1 ? midiOutBytes_[i + 1] : 0;
+                e.data2  = len > 2 ? midiOutBytes_[i + 2] : 0;
+                int off = (i < midiOutAt_.size()) ? midiOutAt_[i] : 0;
+                if (off < 0)      off = 0;
+                if (off > n - 1)  off = n - 1;
+                e.sampleOffset = off;
+            }
+            i += len;
+        }
+        // Drop what we consumed; anything trailing is an incomplete message.
+        midiOutBytes_.erase(midiOutBytes_.begin(), midiOutBytes_.begin() + (long)i);
+        midiOutAt_.erase(midiOutAt_.begin(),
+                         midiOutAt_.begin() + (long)std::min(i, midiOutAt_.size()));
+    }
 #endif // PATCHKNOB_HAVE_CSOUND
+}
+
+int CsoundNode::writeMidi(const unsigned char* buf, int nBytes) {
+    if (!buf || nBytes <= 0) return 0;
+    // Bound the per-block collection: a runaway orchestra must not grow this
+    // without limit on the audio thread.  4 KB is ~1300 channel messages/block.
+    const size_t kMax = 4096;
+    size_t take = (size_t)nBytes;
+    if (midiOutBytes_.size() >= kMax) return nBytes;      // full: report consumed
+    if (midiOutBytes_.size() + take > kMax) take = kMax - midiOutBytes_.size();
+    midiOutBytes_.insert(midiOutBytes_.end(), buf, buf + take);
+    midiOutAt_.insert(midiOutAt_.end(), take, midiOutCursor_);
+    return nBytes;   // always claim the whole write; Csound has nowhere to requeue
 }
 
 int CsoundNode::drainMidi(unsigned char* buf, int nBytes) {

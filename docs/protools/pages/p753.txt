@@ -1,0 +1,45 @@
+Using automatic fade-ins/outs saves you the trou-        To apply crossfades between multiple clips:
+ble of editing to zero-crossings or creating numer-      1   With the Selector tool, click in the first clip in
+ous rendered fades in order to eliminate clicks or           which you want to create a crossfade. Make
+pops in playback. However, those clicks or pops              sure that the selection includes the entire clip.
+still exist in the underlying sound file. Conse-
+quently, those anomalies still appear if the Dupli-      2   Drag to extend the selection to include the last
+cate AudioSuite plug-in or the Export Clips As               clip you want to crossfade. Make sure that the
+Files command (from the Clips List) are used to              selection includes the entire clip.
+duplicate multiple clips as a continuous file. To
+render these real-time auto fades to disk, choose
+File > Bounce Mix.
+                                                         Selected clips for Batch Fades
+To set the length of automatic fade-ins/outs:
+                                                         3   Do one of the following:
+1   Choose Setup > Preferences and click the
+    Operation tab.                                       • Choose Edit > Fades > Create.
+
+2   Type a value between 0 and 10 ms for the Clip        • Press Command+F (Mac) or Control+F (Win-
+    Auto Fade In/Out Length. A value of zero (the          dows).
+    default) means that no auto-fading will occur.       4   In the Batch Fades dialog, select whether you
+3   Click OK. The AutoFade value is saved with the           want to Create New Fades, Adjust Existing
+    session, and is automatically applied to all free-       Shape & Slope, Adjust Existing Length, or a
+    standing clip boundaries until you change it.            combination of these options for fade ins, cross-
+                                                             fades and fade outs.
+
+                                                         If you choose to create new fades and new fade-ins
+Creating Fades and                                       and outs, new crossfades are created at each clip
+Crossfades in Batches                                    boundary that is bordered by another selected clip,
+                                                         a fade-in is created at the start of the first clip, and
+Using Batch Fades, you can create many fades at
+                                                         a fade-out is created at the end of the last clip.
+once. Select across several clips and use the Create
+Fades command to create crossfades for each clip
+transition. If your selection includes clips that al-
+ready have crossfades, you can modify them.
+
+
+
+
+                                                         Batch Fades dialog
+
+
+
+
+                                                                                Chapter 32: Fades and Crossfades    721

@@ -73,11 +73,13 @@ main ()
 		check (std::fabs (map.bbt_to_beats (BBT {2, 1, 0}) - 4.0) < 1e-9, "bbt_to_beats(2|1|0) == 4");
 		check (std::fabs (map.bbt_to_beats (BBT {1, 3, 0}) - 2.0) < 1e-9, "bbt_to_beats(1|3|0) == 2");
 
-		/* half beat -> 960 ticks (PPQN/2) */
+		/* half beat -> PPQN/2 ticks, in the Beats domain's OWN unit (not a
+		   literal: ticks_per_beat is what defines this, and it has changed) */
+		const int32_t halfTicks = ticks_per_beat / 2;
 		const BBT halfbeat = map.beats_to_bbt (0.5);
-		std::printf ("beats_to_bbt(0.5) = %d|%d|%d (expect 1|1|960)\n",
-		             halfbeat.bars, halfbeat.beats, halfbeat.ticks);
-		check (bbt_eq (halfbeat, 1, 1, 960), "beats_to_bbt(0.5) == 1|1|960");
+		std::printf ("beats_to_bbt(0.5) = %d|%d|%d (expect 1|1|%d)\n",
+		             halfbeat.bars, halfbeat.beats, halfbeat.ticks, (int) halfTicks);
+		check (bbt_eq (halfbeat, 1, 1, halfTicks), "beats_to_bbt(0.5) == 1|1|ticks_per_beat/2");
 
 		const double t = map.tempo_at_sample (96000);
 		std::printf ("tempo_at_sample(96000) = %.6f (expect 120)\n", t);
@@ -236,9 +238,11 @@ main ()
 		map.set_meter (4, 4);
 
 		check (map.tick_to_sample (0) == 0, "tickapi: tick 0 == sample 0");
-		/* one quarter = 192 ticks = 60/500 s = 5760 samples */
-		check (map.tick_to_sample (192) == 5760, "tickapi: tick 192 (1 beat @500) == sample 5760");
-		check (map.sample_to_tick (5760) == 192, "tickapi: sample 5760 == tick 192");
+		/* one quarter = seq_ppqn ticks = 60/500 s = 5760 samples.  Expressed in
+		   seq_ppqn, not a literal, so raising the sequencer PPQN does not turn
+		   this into a test of the wrong note value. */
+		check (map.tick_to_sample (seq_ppqn) == 5760, "tickapi: 1 beat @500 == sample 5760");
+		check (map.sample_to_tick (5760) == seq_ppqn, "tickapi: sample 5760 == 1 beat");
 
 		int bad = 0;
 		long long first_bad = -1;
@@ -271,8 +275,10 @@ main ()
 		int64_t min_d = INT64_MAX;
 		int64_t max_d = INT64_MIN;
 		int bad_ioi = 0;
+		/* a 32nd note is an eighth of a beat, whatever the PPQN */
+		const int64_t t32 = seq_ppqn / 8;
 		for (int n = 1; n <= 10000; ++n) {
-			const int64_t s = map.tick_to_sample ((int64_t) n * 24);
+			const int64_t s = map.tick_to_sample ((int64_t) n * t32);
 			const int64_t d = s - prev;
 			if (d < 720 || d > 721) {
 				++bad_ioi;
@@ -286,7 +292,7 @@ main ()
 		check (bad_ioi == 0, "32nd grid: every IOI is 720 or 721 samples over 10k notes");
 		check (max_d - min_d <= 1, "32nd grid: jitter never exceeds 1 sample");
 		check (min_d == 720 && max_d == 720, "32nd grid: EXACTLY 720 samples per 32nd at 48k (acceptance)");
-		check (map.tick_to_sample (24LL * 10000) == 7200000LL, "32nd grid: zero drift over 10k notes (tick 240000 == sample 7200000)");
+		check (map.tick_to_sample (t32 * 10000) == 7200000LL, "32nd grid: zero drift over 10k notes (== sample 7200000)");
 	}
 
 	/* ---------------------------------------------------------------- */
@@ -304,7 +310,7 @@ main ()
 		TempoMap* live = map.copy_with_tempo_at (100.0, 500.0);
 
 		bool same_before = true;
-		for (int64_t t = 0; t <= 192 * 100; t += 7) {   /* up to and including beat 100 */
+		for (int64_t t = 0; t <= (int64_t) seq_ppqn * 100; t += 7) {  /* up to beat 100 */
 			if (live->tick_to_sample (t) != map.tick_to_sample (t)) {
 				same_before = false;
 				break;
@@ -313,7 +319,7 @@ main ()
 		check (same_before, "copy: every tick position before/at beat 100 identical to original");
 		check (live->beats_to_sample (100.0) == 2400000, "copy: beat 100 boundary == sample 2400000 (unchanged)");
 		check (live->beats_to_sample (101.0) == 2400000 + 5760, "copy: beat 101 == +5760 samples (500 bpm)");
-		check (live->tick_to_sample (192 * 110) == 2400000 + 10 * 5760, "copy: beat 110 follows 500 bpm exactly");
+		check (live->tick_to_sample ((int64_t) seq_ppqn * 110) == 2400000 + 10 * 5760, "copy: beat 110 follows 500 bpm exactly");
 		check (std::fabs (live->tempo_at_sample (2400000 - 100) - 120.0) < 1e-9, "copy: tempo just before beat 100 == 120");
 		check (std::fabs (live->tempo_at_sample (2400000 + 100) - 500.0) < 1e-9, "copy: tempo after beat 100 == 500");
 		check (std::fabs (map.tempo_at_sample (7200000) - 120.0) < 1e-9, "copy: original map untouched (still 120)");

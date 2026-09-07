@@ -44,16 +44,38 @@ const int c_total_seqs = c_seqs_in_set * c_max_sets;
 const int c_max_sequence =  c_mainwnd_rows *  c_mainwnd_cols * c_max_sets;
 
 
-const int c_ppqn         = 192;  /* default - dosnt change */
+/* Sequencer tick resolution: the unit EVERY stored event timestamp is in.
+ *
+ * Raised 192 -> 768 so tracker LPB can reach 256 (768/256 == 3 ticks per row);
+ * 192 could only express LPB 192, and 192 = 2^6*3 has no 2^8 factor at all.
+ * 768 = 2^8*3 keeps every previously legal LPB exact and adds 96/128/192/256/
+ * 384/768.
+ *
+ * This MUST stay equal to PatchKnob::engine::kitchensink seq_ppqn, which the
+ * tempo map uses to convert ticks <-> samples against its 3840-PPQN Beats
+ * domain (3840/768 == 5, exact).  The engine cannot include this app header, so
+ * the equality is asserted on the app side -- see the static_assert in
+ * audio_app.cpp.  Project files written before this change store 192-PPQN ticks
+ * and are migrated on load (see PROJ_VERSION).
+ */
+const int c_ppqn         = 768;
 const int c_bpm          = 120;  /* default */
 const int c_maxBuses = 32;
 
 /* output-thread pacing: 1 ms polls (timeBeginPeriod(1) makes them real) and a
    5 ms scheduling lookahead -- events are enqueued AHEAD with exact ticks and
    the audio engine places them at exact sample offsets, so wake jitter only
-   affects how early the ring is fed, never audible timing. */
+   affects how early the ring is fed, never audible timing -- PROVIDED the
+   lookahead margin stays bigger than the poll thread's actual wake jitter.
+   That margin is 2 audio buffers + this constant; at small buffer sizes
+   (e.g. 64 frames) two buffers alone is under 3 ms, well below realistic
+   OS scheduler jitter for a 1 ms polling thread, so notes land in a gap
+   past the horizon and get missed.  c_thread_trigger_lookahead_floor_ms is
+   a buffer-size-independent floor on the total margin so shrinking the
+   buffer never shrinks the anti-jitter cushion below that floor. */
 const int c_thread_trigger_width_ms = 1;
 const int c_thread_trigger_lookahead_ms = 5;
+const int c_thread_trigger_lookahead_floor_ms = 15;
 
 /* for the seqarea class */
 const int c_text_x = 6;

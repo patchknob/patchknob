@@ -1,0 +1,46 @@
+4   Use the Time Grabber or Separation Grabber          2   Nudge the clip by pressing Plus (+) or
+    tool to select one of the contributing clips to a       Minus (–) on the numeric keypad.
+    crossfade.
+
+
+
+
+Selecting a clip with a crossfade
+                                                        Stretching the crossfade by nudging
+5   Drag the selected clip with the Grabber.
+
+                                                        Separating Clips that Include
+                                                        Fades or Crossfades
+                                                        You can create clips from track material that over-
+                                                        laps with fades or crossfades. If the Preserve
+Separating clips while removing fades
+                                                        Fades when Editing option is enabled in the Edit-
+                                                        ing Preferences page, the fades from the source
+Nudging Clips Adjacent to                               clip are adjusted to the new clip.
+Crossfades
+                                                        To separate a clip that overlaps with a fade or
+When you nudge either of the clips that contributes     crossfade:
+to a crossfade, the fade stretches to preserve the      1   With the Selector tool, drag to select the mate-
+relative position of the crossfade start and end            rial for the new clip.
+points. The amount of stretch depends on the
+amount of overlap between the contributing clips.       2   Choose Edit > Separate Clip > At Selection.
+
+If you nudge a clip beyond the boundary of avail-       Where your selection overlaps any fade-ins or
+able audio for the crossfade, the fade is removed.      fade-outs, the fade is trimmed to fit the selection.
+
+To nudge a clip and stretch its crossfade:
+1   Use the Time Grabber tool to select one of the
+    contributing clips to the crossfade.
+
+
+                                                        Selecting material that overlaps a fade-in
+
+
+
+
+Selecting a clip with a crossfade
+
+                                                        Result of Separate Clip command on fade-in
+
+
+                                                                              Chapter 32: Fades and Crossfades   727

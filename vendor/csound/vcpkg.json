@@ -1,0 +1,21 @@
+{
+    "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg/master/scripts/vcpkg.schema.json",
+    "name": "csound",
+    "version-string": "6.16.2",
+    "builtin-baseline": "97f26935db51139372ef252e67e308fe76933500",
+    "dependencies": [
+        "zlib",
+        "libsamplerate",
+        "portmidi",
+        "portaudio",
+        "liblo",
+        {
+            "name": "dirent",
+            "platform": "windows"
+        },
+        {
+            "name": "libsndfile",
+            "features": ["external-libs"]
+        }
+    ]
+}

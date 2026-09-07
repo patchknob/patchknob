@@ -1,0 +1,46 @@
+Do not over-edit or the results may be undesirable.    To lock (or unlock) the current Edit Tool modes:
+However, you can use the Undo command to undo          1   Select the Edit Tool modes you want (such as
+your previous edit.                                        the Standard Trim tool, Time Grabber tool, and
+                                                           the Free Hand Pencil tool).
+                                                       2   Select (or deselect) Options > Edit/Tool Mode
+                                                           Keyboard Lock.
+
+Repairing a “pop” with the Pencil tool
+
+The Pencil tool can independently edit different
+channels of a multichannel track.
+
+Try to limit editing to smoothing over a very small
+problem area, and keep the “fixes” in character
+with the shape of the surrounding waveform.
+
+
+
+Edit/Tool Mode Keyboard
+Lock
+Enable Options > Edit/Tool Mode Keyboard Lock
+to lock the currently selected Edit Tools (Zoom,
+Trim, Grabber, and Pencil only) in place and pre-
+vent them from being inadvertently changed when
+using keyboard shortcuts. For example, with
+Edit/Tool Mode Keyboard Lock enabled and the
+Trim tool is set to Standard, pressing F6 repeatedly
+will only select the Standard Trim tool and will not
+toggle through the other Trim tools (TCE, Scrub,
+and Loop). This way you can switch between Edit
+tools (such as switching from the Grabber to the
+Trim) using keyboard shortcuts without acciden-
+tally cycling through Edit tool types.
+
+     Even when Edit/Tool Mode Keyboard Lock is
+     enabled, Edit Tool types can still be changed
+     using the mouse or by using the Right-click
+     menu.
+
+When enabled, this option also locks the current
+Grid mode (Grid or Relative Grid) in place.
+
+
+
+
+                                                                             Chapter 29: Edit Modes and Tools   667

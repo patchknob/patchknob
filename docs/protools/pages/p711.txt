@@ -1,0 +1,49 @@
+Moving the Edit Selection                              To remove the top track from an Edit selection
+Across Tracks                                          spanning more than one track, do one of the
+                                                       following:
+To move the Edit selection to the next track above        Choose Edit > Selection > Remove Edit From
+the current selection:
+                                                           Top.
+   Press Control+P (Mac) or Start+P (Windows).
+                                                          Press Option+Control+P (Mac) or Alt+Start+P
+To move the Edit selection to the next track below         (Windows).
+the current selection:
+                                                       To remove the bottom track from an Edit selection
+   Press Control+; (Mac) or Start+; (Windows).        spanning more than one track, do one of the
+                                                       following:
+
+Extending (or Contracting) the                            Choose Edit > Selection > Remove Edit From
+Edit Selection Over Multiple                               Bottom.
+Tracks
+                                                          Press Option+Control+; (Mac) or Alt+Start+;
+To extend the Edit selection to the next track above       (Windows).
+the current selection, do one of the following:
+
+   Shift-click with the Selector tool (within the     Moving and Extending
+    same time as the current Edit selection) on the    Selections Between Tracks with
+    track just above the current Edit selection.       Commands Keyboard Focus
+   Choose Edit > Selection > Extend Edit Up.          With Commands Keyboard Focus enabled, Edit
+                                                       selections can be moved or extended to adjacent
+   Press Control+Shift+P (Mac) or Start+Shift+P
+                                                       tracks.
+    (Windows).
+                                                       To move a selection to an adjacent track:
+To extend the Edit selection to the next track below
+the current selection, do one of the following:        1   Enable Commands Keyboard Focus (see “Key-
+                                                           board Focus” on page 26).
+   Shift-click with the Selector tool (within the
+    same time as the current Edit selection) on the
+    track just below the current Edit selection.
+   Choose Edit > Selection > Extend Edit Down.
+   Press Control+Shift+; (Mac) or Start+Shift+;
+    (Windows).
+
+                                                       Commands Keyboard Focus button enabled
+
+                                                       2   With the Selector or Time Grabber tool, make a
+                                                           selection.
+
+
+
+
+                                                                                Chapter 30: Making Selections   679

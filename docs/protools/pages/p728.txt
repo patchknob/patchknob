@@ -1,0 +1,55 @@
+      2   From the Grabber tools pop-up menu, choose           3   While pressing Option (Mac) or Alt (Windows),
+          the Separation Grabber tool.                             drag the selection to the new location, or to an-
+                                                                   other track.
+
+
+
+
+      Separation Grabber tool
+
+      3   Drag the selection to the new location, or to an-
+          other track.
+
+
+
+
+                                                               Dragging to another track with the Separation Grabber
+                                                               tool
+
+                                                               New clips containing the previous selection are
+                                                               created and placed at the new location. The origi-
+                                                               nal selection and clips remain intact.
+
+
+
+                                                               Healing Separated Clips
+                                                               The Heal Separation command returns separated
+                                                               clips to their original state—provided the clips are
+      Dragging selection to later in track with Separation     still next to each other and their relative start and
+      Grabber tool                                             end points have not changed since the separation.
+      A new clip (or clips) containing the previous selec-
+                                                               If you have trimmed or otherwise changed the start
+      tion is created, separate from the original selection.
+                                                               or end points of the two clips, or moved them fur-
+      New clips are also created from the material out-
+                                                               ther away from each other, you will not be able to
+      side the original selection.
+                                                               repair them with the Heal Separation command. It
+                                                               is not possible to heal two clips created from dif-
+      To separate a selection without affecting the
+      original clips:                                          ferent audio files.
+
+      1   With the Selector tool, make an Edit selection.      To heal a separation between two clips:
+          The selection can reside within a single clip,
+                                                               1   With the Selector tool, make a selection that in-
+          across adjacent clips within the same track, or
+                                                                   cludes part of the first clip, the entire separation
+          across multiple tracks.
+                                                                   between the clips, and part of the second clip.
+      2   From the Grabber tools pop-up menu, choose
+                                                               2   Choose Edit > Heal Separation.
+          the Separation Grabber tool.
+                                                                     Press Command+H (Mac) or Control+H
+                                                                     (Windows) to Heal Separation.
+
+696   Pro Tools Reference Guide

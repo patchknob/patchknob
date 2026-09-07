@@ -26,6 +26,7 @@
 
 #include "rack.hpp"
 #include "rack_factory.h"
+#include "rack_script_module.h"
 #include "../plugin_api.h"       // PatchKnob::engine::MidiEvent
 
 namespace rackx {
@@ -39,6 +40,7 @@ struct RackModule {
     Role         role = Role::Normal;
     float        x = 0.f, y = 0.f;              // editor canvas position
     ModuleHandle mod;                           // the DSP
+    PanelSpec    panel;                         // per-instance layout (scripting modules)
 };
 
 // A patch cable: source module's output port -> dest module's input port.
@@ -88,6 +90,18 @@ public:
     float getParam(int moduleId, int paramId) const;
     //! Number of params on a module (for cloning its state).  0 if unknown.
     int  moduleParamCount(int moduleId) const;
+
+    // ---- scripting modules (Pd / Csound): per-instance panel + patch text -----
+    //! Mutable per-instance panel layout (for the panel editor); null if none.
+    PanelSpec*  modulePanel(int moduleId);
+    //! True if the module hosts a Pd/Csound patch (implements IScriptModule).
+    bool        isScriptModule(int moduleId) const;
+    std::string moduleScript(int moduleId) const;         // patch text ("" if none)
+    const char* moduleScriptKind(int moduleId) const;     // "pd" / "csound" / ""
+    std::string moduleScriptError(int moduleId) const;    // last compile messages ("" if none)
+    //! Replace the patch text: recompiles the engine, reconfigures jacks/knobs,
+    //! prunes now-invalid cables, and rebuilds the instance panel.  GUI thread.
+    bool        setModuleScript(int moduleId, const std::string& text);
     //! Reset one module's runtime state synchronously before its next sample.
     bool resetModule(int moduleId);
 
@@ -105,7 +119,8 @@ public:
                  const float* inL, const float* inR,
                  float* outL, float* outR,
                  const PatchKnob::engine::MidiEvent* midi, int numMidi,
-                 float hostTempoBpm = 120.f, bool hostPlaying = true);
+                 float hostTempoBpm = 120.f, bool hostPlaying = true,
+                 int64_t hostPlayPositionSamples = -1);
 
     // Per-module I/O variant: each AudioIn module gets its OWN stereo input
     // (insL[k]/insR[k]) and each AudioOut module writes its OWN stereo output
@@ -116,7 +131,8 @@ public:
                       const float* const* insL, const float* const* insR, int numIns,
                       float* const* outsL, float* const* outsR, int numOuts,
                       const PatchKnob::engine::MidiEvent* midi, int numMidi,
-                      float hostTempoBpm = 120.f, bool hostPlaying = true);
+                      float hostTempoBpm = 120.f, bool hostPlaying = true,
+                      int64_t hostPlayPositionSamples = -1);
 
     // ---- audio-I/O module counts (GUI thread; drive the host node's port count) -
     int  audioOutCount() const { return (int)audioOutMods_.size(); }
@@ -162,6 +178,26 @@ private:
     int  allocVoice();                           // pick a free/steal voice index
     void noteOn(int note, int vel);
     void noteOff(int note);
+
+    // Notes currently physically held (key down), oldest first.  allocVoice()
+    // steals a still-gated voice once polyphony is exceeded, which overwrites
+    // that voice's `note` field -- without tracking held notes separately, the
+    // stolen note's eventual noteOff() has no voice left whose `note` still
+    // matches it, so it is silently a no-op forever.  If the stolen note was
+    // the one actually sounding, nothing ever silences it (a stuck gate); if
+    // it wasn't, releasing its key does nothing (dropped note-off) and it
+    // never gets a chance to sound again even after a voice frees up.  This
+    // stack lets noteOff() correctly (a) no-op releasing a voiceless note and
+    // (b) hand a just-freed voice to the newest still-held note that lost its
+    // voice to stealing, giving standard last-note-priority behaviour instead
+    // of losing notes.
+    static constexpr int kMaxHeld = 128;
+    int  heldNote_[kMaxHeld];
+    int  heldVel_[kMaxHeld];
+    int  heldCount_ = 0;
+    void pushHeld(int note, int vel);
+    void popHeld(int note);
+    bool noteHasVoice(int note) const;
 
     mutable std::mutex      mtx_;                // structural edits vs. process()
 

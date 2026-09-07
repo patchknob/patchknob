@@ -1,0 +1,50 @@
+      Overwrite Indicator When Overwrite Indicator is             Clip Gain Info Shows the Clip Gain Fader icon at
+      enabled (View > Clip > Clip Overwrite Indicator),           the beginning of the clip, in the lower left corner. If
+      Pro Tools provides a visual indication that an off-         the clip uses static clip gain, the static Clip Gain
+      screen clip is being fully overlapped by a larger           value (–144 dB to +36.0 dB) for a clip is displayed
+      clip that you are moving. The clip you are moving           to the right of the Clip Gain Fader icon. For a clip
+      highlights red at the edge of the screen if a smaller       that has dynamic clip gain (using breakpoint gain
+      off-screen clip is being overwritten. If the Send           settings), the Clip Gain value is not shown. For
+      Fully Overlapped Clips to Available Playlist While          more information, see “Clip Effects Status View”
+      Editing preference is enabled (Setup > Preferences          on page 997.
+      > Editing), it highlights blue indicating that a
+                                                                  Clip Effects Status When Clip Effects Status is
+      smaller off-screen clip is being fully overlapped
+      and moved to an alternate playlist.                         enabled (View > Clip > Clip Effects Status), ø, EQ,
+                                                                  and DYN are displayed in the upper right corner of
+                                                                  the clip depending on which effects are being ap-
+                                                                  plied to the clip. ø is displayed when the phase is
+                                                                  inverted. EQ is displayed when EQ or Filtering is
+                                                                  applied to the clip. DYN is displayed when Dynam-
+                                                                  ics processing or Input Gain is set to any value
+                                                                  other than 0.0 dB. See “Clip Effects” on page 993.
+
+      Moving an audio clip so that it overwrites a smaller off-
+      screen clip highlights blue
+
+      Copy/Move Indicators When Copy/Move Indica-
+      tors is enabled (View > Clip > Copy/Move Indica-
+      tors), Pro Tools provides a visual indication of any
+                                                                  Clip Effects Status shown
+      clips being sent to an alternate playlist whether or
+      not the track is in Playlist view. The indicator ap-
+      pears as a blue animated down arrow.
+                                                                  Multiple Undo
+                                                                  Pro Tools can keep track of up to 32 of the last un-
+                                                                  doable operations, allowing you to return to a pre-
+                                                                  vious editing state.
+
+                                                                  The Undo operations in Pro Tools are stored in a
+                                                                  queue, in the order in which they were invoked.
+      Overlapped clip being sent to a new playlist                When choosing Edit > Undo, the most recent oper-
+                                                                  ation is undone. If you choose Undo again, the next
+      Clip Gain Line Shows the Clip Gain Line for all             operation in the queue is undone. You can also
+      clips in the Edit window. The Clip Gain Line lets           choose Edit > Redo to redo an operation, which
+      you edit the clip gain settings for any given clip us-      moves back through the Undo queue by one step.
+      ing breakpoint editing, much like with track-based
+      volume automation. See “Clip Gain Line” on
+      page 632.
+
+
+
+632   Pro Tools Reference Guide

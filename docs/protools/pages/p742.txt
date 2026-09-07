@@ -1,0 +1,49 @@
+      Pre Crossfade                                            Post Crossfade
+
+                          splice                                            splice
+                          point                                             point
+
+
+
+
+             clip 11
+             clip                  clip 22
+                                   clip                            clip 1             clip 2
+
+
+
+
+              crossfade selection                                           crossfade selection
+
+      Pre crossfade                                            Post crossfade
+
+      This type of selection creates a crossfade before        This type of selection creates a crossfade after the
+      the splice point. This lets you maintain the volume      splice point. It is useful if you want to maintain the
+      of the very beginning of clip 2 instead of fading        amplitude of clip 1 until its very end. When mak-
+      across it, which is useful if there is a strong attack   ing selections for crossfades that occur on the bor-
+      at the beginning of clip 2 that you want to preserve.    der of two clips, you can use the Tab key to move
+      When making selections for crossfades that occur         the cursor to the exact beginning or end of a clip.
+      on the border of two clips, you can use the Tab key
+      to move the cursor to the exact beginning or end of      This crossfade type requires that clip 1 contain au-
+      a clip.                                                  dio material beyond its end point.
+
+      This crossfade type requires that clip 2 contain au-
+                                                               Overlapping Crossfades View
+      dio material before its start point.
+                                                               Pro Tools lets you view overlapping waveforms in
+                                                               crossfades.
+
+
+
+
+                                                               Overlapping Crossfades view
+
+                                                               To show (or hide) overlapping crossfades:
+
+                                                                  Select (or deselect) View > Waveform > Over-
+                                                                   lapping Crossfades.
+
+
+
+
+710   Pro Tools Reference Guide

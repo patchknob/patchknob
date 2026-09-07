@@ -42,21 +42,42 @@ set(VST3SDK ${SPIKES}/vst3host/vst3sdk)
 # -----------------------------------------------------------------------------
 add_library(PatchKnob_pluginhost STATIC
     plugin_host.cpp
+    ../native/native_effects.cpp
 )
+if(DEFINED PATCHKNOB_ENABLE_VST AND NOT PATCHKNOB_ENABLE_VST)
+    # Keep the sampler/host inventory API, but satisfy the two factory symbols
+    # with inert stubs. Android never builds, scans, loads, or packages VSTs.
+    target_compile_definitions(PatchKnob_pluginhost PRIVATE PATCHKNOB_HOST_WEAK_STUBS)
+endif()
 target_include_directories(PatchKnob_pluginhost PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/..      # for plugin_api.h
 )
 
 # -----------------------------------------------------------------------------
-# 2. Probe helpers. They are currently Windows-only; non-Windows builds still
-#    get the built-in sampler through PluginHost.
+# 2. Probe helpers.
+#    probe_vst2 loads a plugin via the OS loader directly -- LoadLibrary for
+#    Windows .dll VST2 plugins, dlopen for Linux/macOS .so/.dylib ones.
+#    probe_vst3 uses the portable SDK hosting API (Module::create()), so it
+#    builds on every platform the vendored SDK has a module_<os>.cpp for.
 # -----------------------------------------------------------------------------
-if(WIN32)
 add_executable(probe_vst2 probe_vst2.cpp)
 target_compile_options(probe_vst2 PRIVATE -O2 -Wno-multichar)
+if(NOT WIN32)
+    target_link_libraries(probe_vst2 PRIVATE ${CMAKE_DL_LIBS})
+endif()
 
 if(EXISTS ${VST3SDK}/pluginterfaces/vst/ivstaudioprocessor.h)
+    if(WIN32)
+        set(PROBE_VST3_MODULE_SOURCE    ${VST3SDK}/public.sdk/source/vst/hosting/module_win32.cpp)
+        set(PROBE_VST3_THREADCHK_SOURCE ${VST3SDK}/public.sdk/source/common/threadchecker_win32.cpp)
+    elseif(APPLE)
+        set(PROBE_VST3_MODULE_SOURCE    ${VST3SDK}/public.sdk/source/vst/hosting/module_mac.mm)
+        set(PROBE_VST3_THREADCHK_SOURCE ${VST3SDK}/public.sdk/source/common/threadchecker_linux.cpp)
+    else()
+        set(PROBE_VST3_MODULE_SOURCE    ${VST3SDK}/public.sdk/source/vst/hosting/module_linux.cpp)
+        set(PROBE_VST3_THREADCHK_SOURCE ${VST3SDK}/public.sdk/source/common/threadchecker_linux.cpp)
+    endif()
     set(SDK_SOURCES
         ${VST3SDK}/pluginterfaces/base/funknown.cpp
         ${VST3SDK}/pluginterfaces/base/coreiids.cpp
@@ -76,10 +97,10 @@ if(EXISTS ${VST3SDK}/pluginterfaces/vst/ivstaudioprocessor.h)
         ${VST3SDK}/public.sdk/source/common/commonstringconvert.cpp
         ${VST3SDK}/public.sdk/source/common/memorystream.cpp
         ${VST3SDK}/public.sdk/source/common/pluginview.cpp
-        ${VST3SDK}/public.sdk/source/common/threadchecker_win32.cpp
+        ${PROBE_VST3_THREADCHK_SOURCE}
         ${VST3SDK}/public.sdk/source/vst/vstinitiids.cpp
         ${VST3SDK}/public.sdk/source/vst/hosting/module.cpp
-        ${VST3SDK}/public.sdk/source/vst/hosting/module_win32.cpp
+        ${PROBE_VST3_MODULE_SOURCE}
         ${VST3SDK}/public.sdk/source/vst/hosting/plugprovider.cpp
         ${VST3SDK}/public.sdk/source/vst/hosting/connectionproxy.cpp
         ${VST3SDK}/public.sdk/source/vst/hosting/hostclasses.cpp
@@ -88,15 +109,26 @@ if(EXISTS ${VST3SDK}/pluginterfaces/vst/ivstaudioprocessor.h)
     )
 
     add_executable(probe_vst3 probe_vst3.cpp ${SDK_SOURCES})
+    if(WIN32)
+        # Restart-safe filename: a crashed/hung out-of-process scanner can
+        # keep probe_vst3.exe file-locked on Windows, which otherwise blocks
+        # rebuilding the main application in place. Linux has no such lock.
+        set_target_properties(probe_vst3 PROPERTIES OUTPUT_NAME probe_vst3_next)
+    endif()
     target_include_directories(probe_vst3 PRIVATE ${VST3SDK})
-    target_compile_definitions(probe_vst3 PRIVATE
-        UNICODE _UNICODE _WIN32_WINNT=0x0601 RELEASE=1)
     target_compile_options(probe_vst3 PRIVATE -Wno-unknown-pragmas -Wno-multichar)
-    target_link_libraries(probe_vst3 PRIVATE ole32 uuid shlwapi)
+    if(WIN32)
+        target_compile_definitions(probe_vst3 PRIVATE
+            UNICODE _UNICODE _WIN32_WINNT=0x0601 RELEASE=1)
+        target_link_libraries(probe_vst3 PRIVATE ole32 uuid shlwapi)
+    else()
+        target_compile_definitions(probe_vst3 PRIVATE RELEASE=1)
+        find_package(Threads REQUIRED)
+        target_link_libraries(probe_vst3 PRIVATE Threads::Threads ${CMAKE_DL_LIBS})
+    endif()
 else()
     message(WARNING "VST3 SDK not found at ${VST3SDK}; probe_vst3 will not be built. "
                     "VST3 scanning will be unavailable at runtime.")
-endif()
 endif()
 
 # -----------------------------------------------------------------------------
@@ -108,6 +140,7 @@ add_executable(scan_test
     # gets weak createVst2/3Instance definitions. (Linking the static lib AND
     # the stub object would otherwise duplicate symbols.)
     plugin_host.cpp
+    ../native/native_effects.cpp
 )
 target_compile_definitions(scan_test PRIVATE PATCHKNOB_HOST_WEAK_STUBS)
 target_include_directories(scan_test PRIVATE

@@ -1,0 +1,48 @@
+Absolute and Relative Grid                               For example, in Shuffle mode, with Snap To Grid
+                                                         enabled, you can make a selection in a clip based
+Grid mode can be applied in Absolute or Relative
+                                                         on the Grid, cut the selection, and any clips to the
+mode:
+                                                         right of the edit shuffle to the left.
+  In Absolute Grid mode, moving any clip (or se-
+lected MIDI data) snaps the clip start to Grid
+boundaries. If a clip’s start point falls between
+beats, and the Grid is set to 1/4 notes, dragging the
+clip will snap its start time to the nearest 1/4 note
+(the current absolute Grid value).
+  In Relative Grid mode, clips (or selected MIDI
+                                                         Shuffle mode with Snap To Grid enabled
+data) can be moved by Grid (or Nudge) units. If a
+clip’s start point falls between beats and the Grid is   To enable Snap To Grid while in another Edit
+set to a 1/4 note (assuming the 1/4 note gets the        mode:
+beat), dragging the clip will be constrained to 1/4         Shift-click the Grid mode button.
+notes, preserving the clip’s relative position to the
+nearest beat. For more information on Relative                 Press Shift+F4 to enable Snap To Grid while
+Grid mode, see “Arranging Clips in Grid Mode”                  in another Edit mode.
+on page 943.
+                                                         To enable Shuffle, Slip, or Spot while in Grid mode:
+To select Absolute or Relative Grid mode:                   Shift-click the Shuffle, Slip, or Spot mode but-
+   Click the Grid mode selector and choose Abso-            ton.
+    lute or Relative.
+                                                               Press F1+F4 to enable Snap To Grid and
+      To temporarily suspend Grid mode and switch              Shuffle mode; press F2+F4 to enable Snap
+      to Slip mode while editing, Command-click                To Grid and Slip mode; and press F3+F4 to
+      (Mac) or Control-click (Windows) while mak-              enable Snap To Grid and Spot mode.
+      ing the edit.
+                                                         Configuring the Grid
+Snap To Grid                                             The actual Grid size, chosen from the Grid value
+Pro Tools lets you enable Snap To Grid while in          selector can be based on a time value using the
+Shuffle, Slip, or Spot mode. When in any of these        Main Time Scale; or, if the Follow Main Time
+modes with Snap To Grid also enabled, placing the        Scale option is deselected, another time format can
+Edit cursor and making Edit selections is con-           be used for the Grid size.
+strained by the Grid, but any clip editing is also af-
+                                                         The Grid Value indicator and selector are located
+fected by the other selected Edit mode.
+                                                         in the Edit window. Also, the Score Editor window
+                                                         and MIDI Editor windows each provide an inde-
+                                                         pendent Grid Value indicator and selector.
+
+
+
+
+                                                                                Chapter 29: Edit Modes and Tools   641

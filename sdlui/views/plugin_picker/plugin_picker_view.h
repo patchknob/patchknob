@@ -30,6 +30,9 @@ public:
 private:
     int m_scroll = 0;
     static std::string base_name(const std::string& p);
+    //! Right-hand "in>out" column; shows the BUS COUNT for multi-bus plugins so
+    //! a multi-out instrument is identifiable before it is instantiated.
+    static std::string io_summary(const PatchKnob::engine::PluginDescriptor& d);
     std::vector<int> visible_indices() const;   // indices into plugins[] that pass the filter
     int row_h(ui::App& app) const;
 };

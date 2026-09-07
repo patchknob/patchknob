@@ -1,0 +1,43 @@
+      To trim the source clip (loop iteration) of a looped
+      clip:                                                    Tandem Trimming
+      1   Select the Loop Trim tool.                           Tandem trimming lets you trim the start and end of
+                                                               two adjacent clips in tandem as long as one clip over-
+      2   Move the cursor over a Loop icon in the looped
+                                                               laps the other. Tandem trimming can be used in con-
+          clip, or anywhere along the bottom of the clip.      junction with Loop trimming and Scrub trimming.
+          The cursor indicates the Trim tool icon.             However, TCE and Elastic trim do not support tan-
+                                                               dem trimming.
+
+                                                               To use Tandem trimming:
+                                                               1   Select the Trim tool (or the Smart tool).
+                                                               2   Command-Control-trim (Mac) or Control-
+                                                                   Start-trim (Windows) between two adjacent
+                                                                   overlapping clips. The cursor updates to show
+                                                                   two brackets and an arrow to show the direction
+      Loop Trim tool                                               of the tandem trim.
+
+      3   Trim the start or end of the loop iteration.
+
+
+
+
+                                                               Tandem trimming
+      Trimming a looped clip
+                                                                     When in Slip mode, Grid mode can be tempo-
+      The number of trimmed loop iterations increases
+                                                                     rarily enabled by holding the Command key
+      or decreases to fill the original length of the entire
+                                                                     after releasing the Control key (Mac) or by
+      looped clip.
+                                                                     holding the Control key after releasing the
+                                                                     Start key.
+
+
+
+
+      Trimmed looped clip
+
+
+
+
+658   Pro Tools Reference Guide

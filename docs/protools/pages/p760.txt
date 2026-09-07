@@ -1,0 +1,35 @@
+      Where your selection overlaps a crossfade, the
+      crossfade is separated into a fade-out and fade-in at   Trimming Clips that Include
+      the selection boundary.                                 Fades or Crossfades
+                                                              You can trim clips that include fades or crossfades.
+
+
+                                                              Trimming a Clip to a Fade
+                                                              Boundary
+                                                              You can trim clips that are adjacent to fade and
+      Selecting material that overlaps a crossfade            crossfade boundaries.
+
+                                                              To trim a clip on a fade boundary:
+
+                                                                 With the Trim tool, click the clip boundary and
+                                                                  drag to trim the clip. The fade remains constant
+                                                                  and follows the new clip boundary.
+
+      Result of Separate Clip command on crossfade
+
+
+           If the Preserve Fades when Editing option is
+           not enabled in the Editing preferences, any
+           fades within the selection are deleted when
+                                                              Dragging a clip boundary with the Trim tool
+           editing.
+
+
+
+
+                                                              Result of trimming the clip
+
+
+
+
+728   Pro Tools Reference Guide

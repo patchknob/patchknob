@@ -1,0 +1,46 @@
+Audio Clips and Automation                              Clips View for MIDI and
+Data                                                    Instrument Tracks
+Automation data for audio resides in tracks and not     MIDI and Instrument tracks can be viewed as
+in the Clips List. This means that when you drag an     Clips, which is similar to Waveform view for au-
+audio clip from the Clips List to a new track, no au-   dio tracks. While a track’s notes are visible in Clips
+tomation data is placed in the track. However, if       view, individual note editing is not available in this
+you drag an audio clip from an existing track (that     view. Instead, all editing occurs across a time
+contains automation data) to another track, the au-     range encompassing all track data, including con-
+tomation from the source track is placed in the des-    tinuous controller events, program changes, and
+tination track.                                         System Exclusive events.
+
+You can edit automation data by switching track         Use Clips view to define clips that represent song
+views or by revealing the automation lanes under        sections and clips, or to rearrange or assemble
+the track.                                              track material.
+
+      For more information on automation, see           In Clips view, the vertical zoom is automatically
+      Chapter 53, “Automation.”                         scaled to fit the entire range of pitches of MIDI
+                                                        notes on a track.
+
+MIDI Clips and MIDI Data                                     You can double-click a MIDI clip to open it in
+                                                             the MIDI Editor window. See Chapter 36,
+The two most common Track Views you will use                 “MIDI Editors.”
+for MIDI and Instrument tracks are Notes and
+Clips:                                                  There are a few things to consider when selecting,
+                                                        copying and cutting, and trimming MIDI clips:
+   Use Clips view for arranging clips.
+                                                          When cutting or clearing a clip or clip group se-
+  Use Notes view for inserting and editing indi-
+                                                        lection that includes a note’s start point, the entire
+vidual MIDI notes, and for working with and af-
+                                                        note is removed. This is even the case when only a
+fecting groups of notes.
+                                                        portion of the note (that includes its start point) is
+      For more information on setting Track View,       selected.
+      see “Track Views” on page 260.                      When cutting or clearing a clip or clip group se-
+                                                        lection that includes a note’s end point (but not its
+      To toggle the Track View between Notes and        start point), the note remains and overlaps the edge
+      Clips, click in the track you want to toggle      of the clip.
+      and press Control+Minus (Mac) or
+      Start+Minus (Windows) on the alphanu-
+      meric keyboard.
+
+
+
+
+                                                                                      Chapter 28: Editing Basics   627

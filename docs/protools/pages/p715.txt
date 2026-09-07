@@ -1,0 +1,56 @@
+To make a Timeline selection with the Selector           To set the Timeline selection by typing into the
+tool:                                                    Transport window:
+
+1   If you want to constrain the selection to the cur-   1   If necessary, resize the Transport window to Ex-
+    rent Grid value, set the Edit mode to Grid.              panded view so the start and end times are dis-
+                                                             played (View > Transport > Expanded).
+2   Drag with the Selector tool in any Timebase
+    ruler.                                               2   Do one of the following:
+                                                         • In the Transport window, click in the start field.
+                                                         • Press Option+Forward Slash (/) (Mac) or
+                                                           Alt+Forward Slash (/) (Windows) on the nu-
+                                                           meric keypad to select the start field in the
+                                                           Transport window.
+Making a Timeline selection with the Selector tool
+                                                         3   Type in the new start location and press For-
+The Timeline selection is indicated in the Main              ward Slash (/) to enter the value and automati-
+Timebase ruler by the blue Timeline Selection                cally move to the end field.
+Markers (or if a track is record-enabled, the Time-
+                                                         4   Type in the new end location and press Enter to
+line Selection Markers are red). The start, end, and
+                                                             accept the value.
+length for the Timeline selection is displayed in the
+corresponding fields in the Transport window.                  Shortcuts for entering start and end values in
+                                                               the Transport window are listed in “Numeric
+      To select all tracks, including Conductor
+                                                               Entry Shortcuts for Selection Indicators” on
+      tracks, press Option (Mac) or Alt (Windows)
+                                                               page 677.
+      while dragging in a Timebase ruler with the
+      Selector tool.
+                                                         Sliding a Timeline Selection
+To set the Timeline selection by dragging the
+Timeline Selection Markers:
+                                                         Like Edit selections, Timeline selections can be
+                                                         slid in the Main Timebase ruler.
+1   If you want to constrain movement to the cur-
+    rent Grid value, set the Edit mode to Grid.          To move a Timeline selection in the Main Timebase
+                                                         ruler:
+2   With the Time Grabber, drag the first Timeline
+    Selection Marker (down arrow) to set the start       1   While pressing Option (Mac) or Alt (Windows),
+    point.                                                   move the cursor over either of the Timeline Se-
+                                                             lection Markers (the Time Grabber appears).
+3   Drag the other Timeline Selection Marker (up
+    arrow) to set the end point.                         2   Drag left or right to move the Timeline selection
+                                                             back or forward in time, while preserving its
+                                                             length.
+
+
+
+
+Dragging a Timeline Selection Marker
+
+
+
+
+                                                                                   Chapter 30: Making Selections   683

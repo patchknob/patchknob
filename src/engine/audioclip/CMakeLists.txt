@@ -19,6 +19,10 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
+# std::thread / std::this_thread are used by the record-buffer keep-alive
+# (message thread only) and by the self-test's teardown race.
+find_package(Threads REQUIRED)
+
 # Vendored MIT time-stretch (signalsmith-stretch, header-only, zero deps).
 set(SIGNALSMITH_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../../third_party/signalsmith)
 
@@ -26,6 +30,7 @@ set(SIGNALSMITH_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../../third_party/signalsmith
 add_library(PatchKnob_audioclip STATIC
     wav_loader.cpp
     audio_clip_player.cpp
+    consolidate.cpp
     warp_stretch.cpp
 )
 
@@ -37,6 +42,7 @@ target_include_directories(PatchKnob_audioclip PUBLIC
     ${SIGNALSMITH_DIR}
 )
 
+target_link_libraries(PatchKnob_audioclip PUBLIC Threads::Threads)
 target_compile_options(PatchKnob_audioclip PRIVATE -Wall -Wextra)
 # signalsmith is much slower unoptimised; keep the stretch TU optimised.
 set_source_files_properties(warp_stretch.cpp PROPERTIES COMPILE_OPTIONS "-O2")

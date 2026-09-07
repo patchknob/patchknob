@@ -1,0 +1,43 @@
+      To create a fade-in:                                     To create a fade-out:
+      1   Select the beginning of the clip that you want to    1   Select the end of the clip that you want to fade
+          fade in. The selection must extend to the exact          out. The selection must extend to the exact end
+          beginning of the clip or a blank area prior to the       of the clip or a blank area after the clip in the
+          clip in the track.                                       track.
+
+
+
+
+      Selecting the beginning of a clip for a fade-in          Selecting the end of a clip for a fade-out
+
+      2   Do one of the following:                             2   Do one of the following:
+      • Choose Edit > Fades > Create.                          • Choose Edit > Fades > Create.
+      • Press Command+F (Mac) or Control+F (Win-               • Press Command+F (Mac) or Control+F (Win-
+        dows).                                                   dows).
+
+            To apply a Fade In using the Default Fade                To apply the Fade Out using the Default
+            In setting (in the Editing Preferences page),            Fade Out setting (in the Editing Preferences
+            and without opening the Fades dialog,                    page), and without opening the Fades dia-
+            press Command+Control+F (Mac) or                         log, press Command+Control+F (Mac) or
+            Control+Start+F (Windows).                               Control+Start+F (Windows).
+
+      3   Select the fade-in curve and configure the other     3   Select the fade-out curve and configure the
+          Fade settings.                                           other Fade settings.
+      4   Click the Audition button to audition the fade.      4   Click the Audition button to audition the fade.
+      5   Adjust the curve by dragging it or by selecting a    5   Adjust the curve by dragging it or by selecting a
+          different shape from the In Shape pop-up menu.           different shape from the Out Shape pop-up
+                                                                   menu.
+      6   Click OK.
+                                                               6   Click OK.
+      The selected fade curve appears in the clip.
+                                                               Pro Tools calculates the fade and the selected fade
+                                                               curve appears in the clip.
+
+                                                                     Fade lengths can be resized with any of the
+                                                                     Trim tools, including Nudge Trim commands.
+                                                                     See “Using the Trim Tools” on page 652 and
+                                                                     “Trimming with Nudge” on page 699.
+
+
+
+
+718   Pro Tools Reference Guide

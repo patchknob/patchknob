@@ -75,6 +75,13 @@ class event
     /* size of sysex message */
     long m_size;
 
+    /* Tracker COLUMN this note belongs to, or c_no_column when untagged.
+       A tracker column is one VOICE: two notes in the same column can never
+       sound together, so the emit funnel releases the previous one before
+       striking the next.  Untagged events (imported MIDI, piano-roll edits)
+       keep the old per-pitch behaviour. */
+    unsigned char m_column;
+
     /* used in sorting */
     int get_rank( ) const;
 
@@ -82,6 +89,17 @@ class event
 
     event(); 
     ~event();
+
+    /* Rule of three.  m_sysex is an OWNED raw buffer that ~event deletes, and
+       events are copied by value all over the sequencer -- sequence::stream_event
+       does `event ev = *a_ev;` and then add_event(&ev), which put a THIRD alias
+       of one buffer into m_list_event.  With the compiler-generated shallow copy
+       that is a use-after-free plus a double free on the first sysex message
+       from any enabled MIDI input.  These deep-copy the buffer.  m_linked stays
+       a shallow copy: it is a back-reference into the owning sequence's list and
+       is fixed up by verify_and_link(), exactly as before. */
+    event( const event &a_ev );
+    event &operator=( const event &a_ev );
 
     void set_timestamp( const unsigned long time );
     long get_timestamp();
@@ -102,6 +120,13 @@ class event
     unsigned char *get_sysex( void );
 
     void set_note( char a_note );
+
+    /* tracker column / voice (see m_column) */
+    static const unsigned char c_no_column = 0xFF;
+    void set_column( int a_col )
+    { m_column = ( a_col < 0 || a_col > 254 ) ? c_no_column : (unsigned char) a_col; }
+    unsigned char get_column() const { return m_column; }
+    bool has_column() const { return m_column != c_no_column; }
 
     void set_size( long a_size );
     long get_size( void );
@@ -140,11 +165,11 @@ class event
 
     /* overloads */
  
-    bool operator> ( const event &rhsevent );
-    bool operator< ( const event &rhsevent );
+    bool operator> ( const event &rhsevent ) const;
+    bool operator< ( const event &rhsevent ) const;
 
-    bool operator<=( const unsigned long &rhslong );
-    bool operator> ( const unsigned long &rhslong );
+    bool operator<=( const unsigned long &rhslong ) const;
+    bool operator> ( const unsigned long &rhslong ) const;
 
     friend class sequence;
 };

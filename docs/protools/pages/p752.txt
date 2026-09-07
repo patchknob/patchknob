@@ -1,0 +1,54 @@
+      To trim a crossfade:                                     3   Extend the selection by doing one of the follow-
+      1   Select the crossfade with the Time Grabber tool,         ing:
+          or double-click it with the Selector tool.           • Shift-drag to adjust your selection, or press
+                                                                 Shift+Tab to extend the selection forward to the
+      2   With any of the Trim tools, trim either side of
+                                                                 next clip boundary.
+          the crossfade. The crossfade is recalculated to
+          reflect the newly trimmed length.                    • Press Option+Shift+Tab (Mac) or
+                                                                 Control+Shift+Tab (Windows) to extend the
+                                                                 selection back to the previous clip boundary.
+      Crossfades on Tick-Based Audio
+      Tracks                                                   4   Do one of the following:
+      Crossfades are re-rendered after changing tempo          • Choose Edit > Fades > Create.
+      in a tick-based audio track. The new crossfade is        • Press Command+F (Mac) or Control+F
+      the same duration as the crossfade prior to the            (Windows).
+      tempo change.
+                                                               5   Select a fade type and click OK.
+      If there is not enough audio material to complete
+      the crossfade, or if the new crossfade area falls out-
+      side of valid clip boundaries, the crossfade is re-
+                                                               Using AutoFades
+      moved.
+                                                               (Pro Tools Ultimate Software Only)
+
+      Pre and Post Crossfade                                   Pro Tools Ultimate can automatically apply real-
+      Selections                                               time fade-ins and fade-outs to all clip boundaries
+                                                               in the session on playback. Specify the duration (0
+      By making a selection that begins or ends precisely
+                                                               to 10 ms) for automatic real-time fades with the
+      on the border of two clips, you can create “pre” or
+                                                               Auto Clip Fade In/Out Length preference in the Op-
+      “post” crossfades. Use the Tab key to place the in-
+                                                               eration Preferences page). These fade-ins and
+      sertion point at the exact beginning or end of a clip.
+                                                               fade-outs are performed during playback and do
+      To create a pre- or post-crossfade:
+                                                               not appear in the Edit window.
+
+      1   With the Selector tool, click in the track that            AutoFades are not applied to AudioSuite
+          contains the clips you want to crossfade.                  processing.
+      2   Do one of the following:                             This feature is especially useful in post production
+      • Press Tab to move forward to the next                  situations such as dialogue tracking. For example,
+        clip boundary.                                         you can assign both a dialogue track and a “room
+      • Press Option+Tab (Mac) or Control+Tab (Win-            tone” track with matching background to the same
+        dows) to move back to the previous clip bound-         voice. You can then set the AutoFade option to a
+        ary.                                                   moderate length (4 ms or so) so that whenever a si-
+                                                               lence occurs in the dialog, playback switches
+                                                               smoothly to and from the background track with-
+                                                               out clicks or pops.
+
+
+
+
+720   Pro Tools Reference Guide

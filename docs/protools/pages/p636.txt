@@ -1,0 +1,63 @@
+      If you stop playback and record additional punches    QuickPunch/TrackPunch Crossfade Length
+      with QuickPunch (or TrackPunch), a new whole
+                                                            Pro Tools can automatically write a crossfade for
+      file clip is created (since one is created for each
+                                                            each punch point when using QuickPunch and
+      pass), and subsequent clips are named by incre-
+                                                            TrackPunch. The length for these crossfades is set
+      menting the first two digits in the name. For exam-
+                                                            with the QuickPunch/TrackPunch Crossfade
+      ple, on the second pass, the punched clips are
+                                                            Length option on the Editing Preferences page.
+      named “Lead Gtr_02-01,” “Lead Gtr_02-02,” and
+      so forth.                                             To set the QuickPunch/TrackPunch Crossfade
+                                                            Length:
+      DestructivePunch Mode
+                                                            1   Choose Setup > Preferences and click the
+      DestructivePunch is a destructive recording mode          Editing tab.
+      which permanently replaces pre-existing track ma-
+                                                            2   Enter a new value (in msec) for the Quick-
+      terial with newly recorded “punch” audio.
+                                                                Punch/TrackPunch CrossFade Length. A good
+      Pro Tools only records while tracks are punched
+                                                                general-purpose crossfade length for punches is
+      in, inserting new material and replacing audio in
+                                                                10 milliseconds. If you set the preference to
+      the track playlist.
+                                                                zero, Pro Tools will not create any crossfades at
+                                                                the punch-in/out points.
+      Preferences for Punch
+      Recording                                             3   Click OK.
+      (Crossfade, Transport, and Record Settings)
+                                                            If a value other than zero is specified for the Quick-
+      Pro Tools provides several punch-related prefer-      Punch/TrackPunch Crossfade Length, Pro Tools
+      ence settings that let you specify how crossfades,    writes a pre-crossfade at the punch-in point (the
+      monitoring and transport functions are to perform     fade occurs up to but not into the punched clip
+      during and after recording passes. These settings     boundary), and a post-crossfade at punch-out (after
+      optimize Pro Tools fades, transport and track be-     the punched clip).
+      havior for different types of tasks, including dub-
+                                                            Regardless of the current QuickPunch/TrackPunch
+      bing, mixing, and overdubbing.
+                                                            Crossfade Length setting, Pro Tools always exe-
+      Crossfades while Punch Recording
+                                                            cutes a 4 millisecond “monitor only” crossfade
+                                                            (which is not written to disk) to avoid distracting
+      Pro Tools places crossfades at each in and out        pops or clicks that might occur as you enter and
+      point, for smooth transitions between punch clips.    exit record mode.
+      You can specify the crossfade length for Quick-
+      Punch and TrackPunch modes (DestructivePunch          DestructivePunch and Crossfades
+      uses a fixed crossfade length which cannot be
+                                                            DestructivePunch uses a fixed 10-millisecond lin-
+      changed). After punch recording is completed, all
+                                                            ear crossfade at each in and out point. After punch
+      crossfades can be edited in the same manner as
+                                                            recording is completed, crossfades can be edited in
+      standard crossfades (see Chapter 32, “Fades and
+                                                            the same manner as standard crossfades (see
+      Crossfades”).
+                                                            Chapter 32, “Fades and Crossfades”).
+
+
+
+
+604   Pro Tools Reference Guide

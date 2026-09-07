@@ -1,0 +1,50 @@
+      3   Do one of the following:                             3   Do one of the following:
+      • Press P on your computer keyboard to move the          • Press Tab to move the cursor to the next clip or
+        selection to the previous track.                         clip group start, end, or sync point.
+      • Press semicolon (;) to move the selection to the       • Press Option+Tab (Mac) or Control+Tab (Win-
+        next track.                                              dows) to move the cursor to the previous clip or
+                                                                 clip group start, end, or sync point.
+      In either instance, the original Edit selection be-
+      comes deselected.                                        To make a selection with the Scrubber:
+
+      To extend a selection to an adjacent track:
+                                                               1   Choose Setup > Preferences and click the
+                                                                   Operation tab.
+      1   Enable Commands Keyboard Focus (see “Key-
+          board Focus” on page 26).                            2   Select the option for “Edit Insertion Follows
+                                                                   Scrub/Shuttle,” then click OK.
+      2   With the Selector or Time Grabber tool, make a
+          selection.                                           3   Scrub with the Scrubber to find an appropriate
+                                                                   start point for the selection, then release.
+      3   Do one of the following:
+                                                               4   While pressing Shift, scrub to an appropriate
+      • Press Shift+P to extend the selection to the pre-
+                                                                   end point for the selection, then release. The
+        vious track.
+                                                                   range between the initial and final scrub be-
+      • Press Shift+Semicolon (;) to extend the selection          comes selected.
+        to the next track.
+                                                               To move a selection to an adjacent clip on the
+      In either instance, the original Edit selection re-      same track:
+      mains selected.
+                                                               1   Select a clip with the Time Grabber.
+
+      Other Useful Selection                                   2   Do one of the following:
+      Techniques                                               • Press Control+Tab (Mac) or Start+Tab (Win-
+                                                                 dows) to move the selection to the next clip.
+      Following are some additional useful selection ed-
+      iting techniques.                                        • Press Option+Control+Tab (Mac) or Con-
+                                                                 trol+Start+Tab (Windows) to move the selection
+      To position the edit cursor precisely at a clip start,     to the previous clip.
+      end, or sync point:
+                                                               In either instance, the original clip becomes dese-
+      1   Make sure the Tab to Transients button is not
+                                                               lected.
+          enabled. (See “Tabbing to Transients” on
+          page 681.)
+      2   Click with the Selector tool in the track.
+
+
+
+
+680   Pro Tools Reference Guide

@@ -48,7 +48,26 @@ static AutomationPlayer::EmitParam gEP =
 static AutomationPlayer::EmitCC gEC =
     [](int t, int cc, int v) { gCCs.push_back({ t, cc, v }); };
 
-static void resetCapture() { gParams.clear(); gCCs.clear(); }
+/*  Clip-region emits: the region paths hand back the lane TARGET (not just a
+    param id) and, on the scheduled path, the absolute tick the value is due at. */
+struct TargetEmit   { int track; unsigned id; float value; };
+struct TargetAtEmit { int track; unsigned id; float value; long long tick; };
+
+static std::vector<TargetEmit>   gTargets;
+static std::vector<TargetAtEmit> gTargetsAt;
+
+static AutomationPlayer::EmitTarget gET =
+    [](int t, const LaneTarget& tg, float v) { gTargets.push_back({ t, tg.id, v }); };
+static AutomationPlayer::EmitTargetAt gETA =
+    [](int t, const LaneTarget& tg, float v, int64_t tick) {
+        gTargetsAt.push_back({ t, tg.id, v, (long long) tick });
+    };
+static AutomationPlayer::EmitCCAt gECA =
+    [](int t, int cc, int v, int64_t) { gCCs.push_back({ t, cc, v }); };
+
+static void resetCapture() {
+    gParams.clear(); gCCs.clear(); gTargets.clear(); gTargetsAt.clear();
+}
 
 int main() {
     std::printf("=== PatchKnob automation_test ===\n\n");
@@ -347,6 +366,112 @@ int main() {
             m.track(2).laneForTarget(LaneTarget{ LaneTargetKind::VstParam, 20 });
         CHECK(m.track(2).laneCount() == 2 && again.target().id == 20,
               "laneForTarget returns existing lane (no duplicate)");
+    }
+
+    // =====================================================================
+    // [6] REGION LOOP WINDOW.  A clip-owned automation region repeats
+    //     [loopStart, loopLength), the same window sequence::m_loop_start /
+    //     m_loop_end give the NOTES in that clip.  Only the end used to exist,
+    //     so a window that starts later than tick 0 wrapped at the right tick
+    //     and then replayed the curve from tick 0 -- the automation slid
+    //     against the notes inside every repetition.
+    {
+        std::printf("\n[6] region loop window\n");
+
+        //  A ramp that is UNIQUE per tick, so the emitted value names the
+        //  clip-local position it was taken from: value == tick / 1000.
+        auto build = [](AutomationPlayer& p, int64_t loopStart, int64_t loopEnd) {
+            AutomationPlayer::Region& r = p.ensureRegion(7);
+            r.destinationTrack = 1;
+            r.position   = 0;
+            r.length     = 4000;
+            r.loopStart  = loopStart;
+            r.loopLength = loopEnd;
+            r.source     = 0;
+            r.automation.addLane(LaneTarget{ LaneTargetKind::VstParam, 5 },
+                                 Interpolation::Linear);
+            r.automation.lane(0).add(0,    0.0f);
+            r.automation.lane(0).add(1000, 1.0f);
+        };
+
+        //  Window [500,1000): a tick 600 into the arrangement is 100 ticks into
+        //  the SECOND repetition, i.e. clip-local 600 -- and one period later,
+        //  at 1100, it must be clip-local 600 again, NOT 100.
+        AutomationPlayer p(4);
+        build(p, 500, 1000);
+
+        resetCapture();
+        p.advanceRegions(599, 600, gET, gEC);
+        const float first = gTargets.empty() ? -1.f : gTargets.back().value;
+
+        resetCapture();
+        p.advanceRegions(1099, 1100, gET, gEC);
+        const float second = gTargets.empty() ? -1.f : gTargets.back().value;
+
+        CHECK(approx(first, 0.6f) && approx(second, 0.6f),
+              "offset loop window repeats from loopStart, not from tick 0");
+
+        //  Regression: a window that starts at 0 folds exactly as before.
+        AutomationPlayer q(4);
+        build(q, 0, 1000);
+        resetCapture();
+        q.advanceRegions(1499, 1500, gET, gEC);
+        CHECK(!gTargets.empty() && approx(gTargets.back().value, 0.5f),
+              "window starting at 0 is unchanged");
+
+        //  Scheduled (lookahead) path folds the same way: every emitted tick
+        //  must carry a value from inside the window.
+        resetCapture();
+        p.advanceRegionsScheduled(0, 2000, gETA, gECA);
+        bool all_in_window = !gTargetsAt.empty();
+        for (size_t i = 0; i < gTargetsAt.size(); ++i)
+            if (gTargetsAt[i].value < 0.5f - 1e-4f || gTargetsAt[i].value > 1.0f + 1e-4f)
+                all_in_window = false;
+        CHECK(all_in_window,
+              "scheduled path never emits a value from outside the window");
+    }
+
+    // [7] TRACK lanes carry a full LaneTarget, exactly like region lanes.
+    //     advanceScheduled() used to emit every non-CC lane as
+    //     emitParam(trackIndex, target.id) -- discarding target.node -- so a
+    //     lane added in the automation editor against a PATCH-GRAPH node was
+    //     aimed at a mixer-track instrument instead.  In a patch-graph project
+    //     no such instrument exists, so the lane drew, saved and reloaded
+    //     correctly and controlled absolutely nothing.
+    {
+        std::printf("\n[7] track lanes route by target, not by track index\n");
+        int patch = 0, rack = 0, trackParam = 0;
+
+        AutomationPlayer p(4);
+        LaneTarget pp; pp.kind = LaneTargetKind::PatchParam; pp.id = 3; pp.node = 11;
+        p.track(0).addLane(pp, Interpolation::Linear);
+        p.track(0).lane(0).add(0, 0.0f); p.track(0).lane(0).add(700, 1.0f);
+        LaneTarget rp; rp.kind = LaneTargetKind::RackParam;
+        rp.id = 2; rp.node = 12; rp.module = 4;
+        p.track(0).addLane(rp, Interpolation::Linear);
+        p.track(0).lane(1).add(0, 0.0f); p.track(0).lane(1).add(700, 1.0f);
+        LaneTarget vp; vp.kind = LaneTargetKind::VstParam; vp.id = 9;
+        p.track(1).addLane(vp, Interpolation::Linear);
+        p.track(1).lane(0).add(0, 0.0f); p.track(1).lane(0).add(700, 1.0f);
+
+        p.advanceScheduled(0, 400,
+            [&](int,unsigned,float,int64_t){ ++trackParam; },
+            [ ](int,int,int,int64_t){},
+            [&](int,const LaneTarget& t,float,int64_t){
+                if (t.kind == LaneTargetKind::PatchParam) ++patch;
+                else if (t.kind == LaneTargetKind::RackParam) ++rack; });
+
+        CHECK(patch > 0, "a PatchParam track lane reaches its patch node");
+        CHECK(rack  > 0, "a RackParam track lane reaches its rack module");
+        CHECK(trackParam > 0, "a real VstParam track lane still goes to its track");
+
+        //  And with no router supplied, the historical behaviour is unchanged.
+        patch = rack = trackParam = 0;
+        p.advanceScheduled(0, 400,
+            [&](int,unsigned,float,int64_t){ ++trackParam; },
+            [ ](int,int,int,int64_t){});
+        CHECK(patch == 0 && rack == 0 && trackParam > 0,
+              "omitting the router preserves the old (track,id) behaviour");
     }
 
     // =====================================================================

@@ -21,30 +21,46 @@
 #include "mutex.h"
 #include "config.h"
 
-const pthread_mutex_t PatchKnobMutex::recmutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER;
-const pthread_cond_t condition_var::cond  = PTHREAD_COND_INITIALIZER;
-
 PatchKnobMutex::PatchKnobMutex( )
 {
-    m_mutex_lock = recmutex;
+    pthread_mutexattr_t attr;
+    pthread_mutexattr_init(&attr);
+    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+    pthread_mutex_init(&m_mutex_lock, &attr);
+    pthread_mutexattr_destroy(&attr);
 }
 
-void 
+PatchKnobMutex::~PatchKnobMutex()
+{
+    pthread_mutex_destroy(&m_mutex_lock);
+}
+
+// RECURSIVE (see the constructor).  That is deliberate -- the sequence methods
+// nest -- but it also means an unbalanced lock() is silent for the thread that
+// leaked it and fatal for every other thread.  sequence::play() did exactly that
+// and froze the GUI; if a hang like that ever recurs, temporarily have lock()
+// trylock, and on failure print the owning thread id recorded at lock time.
+void
 PatchKnobMutex::lock( )
 {
     pthread_mutex_lock( &m_mutex_lock );
 }
 
 
-void 
+void
 PatchKnobMutex::unlock( )
-{      
+{
     pthread_mutex_unlock( &m_mutex_lock );
 }
 
 condition_var::condition_var( )
 {
-    m_cond = cond;
+    pthread_cond_init(&m_cond, nullptr);
+}
+
+condition_var::~condition_var()
+{
+    pthread_cond_destroy(&m_cond);
 }
 
 
@@ -59,5 +75,4 @@ condition_var::wait( )
 {
     pthread_cond_wait( &m_cond, &m_mutex_lock );
 }
-
 

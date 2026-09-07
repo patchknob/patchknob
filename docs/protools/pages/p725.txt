@@ -1,0 +1,38 @@
+Chapter 31: Editing Clips and Selections
+
+
+Clips are the basic building blocks for arranging      Capture Clip Command
+audio and MIDI in Pro Tools. Understanding how
+                                                       The Capture Clip command defines a selection as a
+clips are created, edited, and arranged is essential
+                                                       new clip and adds it to the Clips List. From there,
+to taking full advantage of the editing capabilities
+                                                       the new clip can be dragged to any existing tracks.
+of Pro Tools.
+
+This chapter covers basic editing functions as they    To capture a new clip:
+apply to clips and clip groups, and selections,        1   With the Selector tool, drag in an existing clip to
+which for the most part apply to both MIDI and au-         select the material for the new clip.
+dio data. For editing procedures more specific to
+MIDI, see Chapter 35, “MIDI Editing.” For edit-
+ing procedures specific to video, see “Video Clips”
+on page 1449.
+
+
+
+Creating New Clips
+                                                       Selecting a portion of a clip
+Pro Tools provides several commands for creating
+clips and clip groups, each of them having a           2   Choose Clip > Capture.
+slightly different effect on the selection. When you         Press Command+R (Mac) or Control+R
+create a new clip or clip group, it appears in the           (Windows) for Capture Clip.
+Clips List and in the track’s playlist. When creat-
+ing a new clip from an existing clip, the original     3   Type a name for the new clip and click OK.
+clip remains in the Clips List. New clips are named
+automatically (see “Auto-Naming Options” on            The new clip appears in the Clips List. The original
+page 338).                                             clip remains intact and unchanged.
+
+
+
+
+                                                                         Chapter 31: Editing Clips and Selections   693

@@ -1,0 +1,47 @@
+To slide an Edit selection in the Main Timebase        To apply a command to an object while keeping the
+ruler:                                                 current selection:
+
+1   With the Selector or Time Grabber tool, make a        Command-Right-click (Mac) or Control-Right-
+    selection.                                             click (Windows) the object and choose a com-
+                                                           mand from the pop-up menu.
+2   While pressing Option (Mac) or Alt (Windows),
+    move the cursor over either of the Timeline Se-
+    lection Markers in the ruler (the Time Grabber     Tabbing to Transients
+    appears).
+                                                       With the Tab to Transients button enabled, you can
+                                                       automatically navigate to transients in audio wave-
+                                                       forms in Waveform view, placing the cursor just
+                                                       before the detected transient peak. This lets you
+                                                       define selections and play ranges, as well as start
+                                                       and end points for new clips, without having to
+                                                       zoom in on the waveform.
+Sliding an Edit selection in the Main Timebase ruler
+
+3   Drag left or right to move the Edit selection
+    back or forward in time while preserving its
+    length.
+
+If Link Timeline and Edit Selection is disabled
+(Options > Link Timeline and Edit Selection), Op-      Tab to Transients button enabled
+tion-drag (Mac) or Alt-drag (Windows) the Edit
+Markers instead.                                             To toggle Tab to Transients on and off,
+                                                             press Command+Option+Tab (Mac) or
+Right-Click Commands and                                     Control+Alt+Tab (Windows).
+Selection Preservation
+                                                       In Warp view, Tab to Transients tabs to all Event
+You can use Right-click commands with key com-         and Warp markers in a clip. Normal Tab tabs to
+binations to perform operations on objects while       clip boundaries and all Warp markers. In Analysis
+maintaining selections in the Edit and Mix win-        view, pressing Tab always tabs to Event markers,
+dows. For example, you can maintain selections in      regardless of whether or not Tab to Transients is
+the following areas while carrying out certain com-    enabled.
+mands:
+• Clip selections in the Timeline                      With MIDI and Instrument tracks when Tab to
+                                                       Transients is disabled, pressing Tab moves the in-
+• Clip name selections in the Clips List               sertion point to the next MIDI clip boundary re-
+• Track selections                                     gardless of the track view (just like with audio
+                                                       clips).
+
+
+
+
+                                                                                Chapter 30: Making Selections   681

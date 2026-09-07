@@ -1,0 +1,34 @@
+      3   When encoding an LTRT, also route your stem         8   Disable Auto Low Latency for all Record-en-
+          source tracks to a 5.1 Auxiliary Input track with       abled and InputMonitoring-enabled audio
+          an AAX DSP LTRT encoder plug-in; or, use a              tracks (blue mode) by doing one of the follow-
+          pre-fader send from the print master track for          ing:
+          LTRT encoding. Note that only AAX DSP                   • Right-click the Track Compensation indica-
+          LTRT encoders are supported with this work-               tor on the track and select Auto Low Latency
+          flow.                                                     Off.
+      4   Route the output of the LTRT encoded track to a         • Command-Control-click (Mac) or Control-
+          stereo Auxiliary Input track for monitoring (ste-         Start-click (Windows) the Track Compensa-
+          reo).                                                     tion indicator on the track.
+      5   Route the LTRT Auxiliary Input track to a ste-      9   Ensure that all plug-ins on tracks that are Re-
+          reo audio track for recording.                          cord-enabled or InputMonitoring-enabled are
+                                                                  AAX DSP plug-ins. Using AAX Native plug-
+      6   Route the output of your LTRT-encoded stereo
+                                                                  ins will result in audible artifacts as they will be
+          audio track to an Auxiliary Input track to moni-
+                                                                  bypassed and unbypassed as you punch in and
+          tor LTRT decoding (stereo to 5.1). Note that
+                                                                  out.
+          only AAX DSP LTRT decoders are supported
+          with this workflow.                                 10 Prepare your punch tracks and begin your
+                                                                  punch-in and punch-out record pass.
+      7   Cascade as many tracks as you want for punch
+          recording.
+
+
+
+
+      Figure 1. In-the-box punch recording workflow example with cascading tracks
+
+
+
+
+618   Pro Tools Reference Guide

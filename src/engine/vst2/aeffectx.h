@@ -124,6 +124,39 @@ constexpr int effGetChunk = 23;
 constexpr int effSetChunk = 24;
 constexpr int effProcessEvents = 25;
 constexpr int effGetProgramNameIndexed = 29;
+// --- pin (channel) introspection, VST 2.4 -----------------------------------
+// The clean-room header never declared these, so the host had no way to learn a
+// plugin's BUS grouping and every multi-out plugin looked like one flat channel
+// list.  Opcode numbers and the VstPinProperties layout are the published VST
+// 2.4 ones (aeffectx.h in Steinberg's SDK): the struct is exactly 128 bytes,
+// and a plugin returns non-zero from the dispatcher when it filled it in.
+constexpr int effGetInputProperties  = 33;
+constexpr int effGetOutputProperties = 34;
+
+constexpr int kVstMaxLabelLen      = 64;
+constexpr int kVstMaxShortLabelLen = 8;
+
+constexpr int kVstPinIsActive   = 1 << 0;
+constexpr int kVstPinIsStereo   = 1 << 1;   // this pin + the next form a pair
+constexpr int kVstPinUseSpeaker = 1 << 2;   // arrangementType below is valid
+
+// VstSpeakerArrangementType, the subset a stereo host needs.
+constexpr int kSpeakerArrUserDefined = -2;
+constexpr int kSpeakerArrEmpty       = -1;
+constexpr int kSpeakerArrMono        = 0;
+constexpr int kSpeakerArrStereo      = 1;
+
+struct VstPinProperties
+{
+    char    label[kVstMaxLabelLen];             // 0x00  pin/bus name
+    int32_t flags;                              // 0x40  kVstPin*
+    int32_t arrangementType;                    // 0x44  valid iff kVstPinUseSpeaker
+    char    shortLabel[kVstMaxShortLabelLen];   // 0x48
+    char    future[48];                         // 0x50
+};                                              // 0x80 == 128 bytes
+static_assert(sizeof(VstPinProperties) == 128,
+              "VstPinProperties must match the VST 2.4 ABI byte-for-byte");
+
 constexpr int effGetEffectName = 45;
 constexpr int effGetVendorString = 47;
 constexpr int effGetProductString = 48;

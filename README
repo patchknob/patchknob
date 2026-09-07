@@ -10,6 +10,89 @@ PatchKnob is a multi-platform SDL DAW and modular synthesis environment built ar
 - Pure Data and Csound patch nodes
 - project save/load for sequences, patch graphs, rack state, instruments, and embedded audio
 
+## Building on Linux
+
+PatchKnob builds from source on any reasonably current Linux distribution.
+Two commands:
+
+```sh
+./scripts/install-deps.sh     # system packages for your distro
+./scripts/build.sh            # fetch vendored sources, configure, build
+```
+
+The binary lands at `build-linux/PatchKnob`.
+
+### What the scripts do
+
+`scripts/install-deps.sh` detects your distribution from `/etc/os-release` and
+installs the system packages PatchKnob needs. It knows Debian/Ubuntu, Fedora/
+RHEL, Arch, openSUSE and Alpine. On anything else it prints the dependency list
+in generic terms so you can translate it, rather than failing silently. Pass
+`--dry-run` to see the command without running it.
+
+`scripts/bootstrap-vendor.sh` fetches the third-party sources PatchKnob
+compiles into the binary, each **pinned to an exact commit** so a moving
+upstream cannot break a build that worked yesterday. `build.sh` runs it for
+you; run it directly with `--force` to re-fetch. Some of these trees are large
+(Cardinal alone is ~1.8 GB), which is why they are fetched rather than
+committed — the repository itself stays small enough to clone quickly.
+
+`scripts/build.sh` configures and builds. Useful flags:
+
+| Flag | Effect |
+|---|---|
+| `--debug` | debug build instead of release |
+| `--clean` | wipe the build directory first |
+| `--jobs N` | limit parallelism |
+| `--tests` | also build and run the test suites |
+| `--dir D` | build into `D` instead of `build-linux` |
+
+It caps the job count against available RAM by default: a parallel build of
+this size is memory-bound rather than CPU-bound, and a machine with many cores
+and modest RAM will otherwise swap or get compiler processes OOM-killed. Use
+`--jobs` to override.
+
+### Requirements
+
+- CMake 3.16+ and a C++17 compiler (GCC 9+ or Clang 10+)
+- ALSA (required). JACK and PulseAudio are optional and detected if present.
+- SDL2 (or SDL3) with SDL_ttf, X11, OpenGL
+- libcurl — used only by the in-editor assistant, which is off unless you
+  enable it
+- bison and flex — Csound generates its parser at build time
+
+Everything else is vendored and built for you.
+
+### Running the tests
+
+```sh
+./scripts/build.sh --tests
+```
+
+Or individually, for example the arrange-view suite:
+
+```sh
+cmake -S sdlui/views/arrange -B build-arrange
+cmake --build build-arrange -j"$(nproc)"
+SDL_VIDEODRIVER=dummy ./build-arrange/arrange_view_test --selftest
+```
+
+### Troubleshooting
+
+**The build is killed partway through.** It ran out of memory. Use
+`./scripts/build.sh --jobs 2`.
+
+**`Could NOT find SDL2` / `No package 'sdl2' found`.** Run
+`./scripts/install-deps.sh`. If your distro splits headers into a separate
+package, you need the `-dev` / `-devel` variant.
+
+**No sound, or the app reports no audio device.** PatchKnob needs ALSA. Check
+that your user is in the `audio` group and that another application is not
+holding the device exclusively.
+
+**A vendored tree is on the wrong revision.** `./scripts/bootstrap-vendor.sh`
+re-pins it; `--force` re-clones from scratch.
+
 ## Links
 
 - Website: https://patchknob.com
@@ -21,25 +104,100 @@ The Patreon link is for project support, custom builds, and binary downloads.
 
 ## Linux Build
 
-Install SDL2, SDL2_ttf, libpng, librsvg/cairo, PortAudio backend dependencies,
-then run:
+Install SDL3, SDL3_ttf, libpng, librsvg/cairo, fontconfig, and PortAudio
+backend dependencies, then run:
 
 ```sh
 ./tools/build_linux.sh
 ./build-linux/PatchKnob
 ```
 
-On Ubuntu/Debian, the basic dependency set is:
+On Ubuntu/Debian (24.04+ for SDL3 packages):
 
 ```sh
-sudo apt install build-essential cmake pkg-config libsdl2-dev libsdl2-ttf-dev \
-  libpng-dev librsvg2-dev libcairo2-dev libasound2-dev libjack-jackd2-dev \
-  libpulse-dev
+sudo apt install build-essential cmake pkg-config python3 libsdl3-dev \
+  libsdl3-ttf-dev libpng-dev librsvg2-dev libcairo2-dev libfontconfig1-dev \
+  libasound2-dev libjack-jackd2-dev libpulse-dev
 ```
 
-VST hosting is currently implemented for Windows; Linux builds include the
-built-in sampler and the SDL sequencing/modular shell while the Linux plugin
-host path is filled in.
+On Arch/Omarchy:
+
+```sh
+sudo pacman -S --needed base-devel cmake pkgconf python sdl3 sdl3_ttf libpng \
+  librsvg cairo fontconfig alsa-lib jack2 libpulse
+```
+
+(`python3` generates the Fundamental rack modules' DSP source; Csound and its
+`libsndfile` dependency build from the vendored source automatically, no
+extra packages needed for those.)
+
+If your distro's SDL3 package predates SDL3_ttf, or you need to stay on
+SDL2, configure with `-DPATCHKNOB_SDL3=OFF` and install `libsdl2-dev`/
+`libsdl2-ttf-dev` (or `sdl2`/`sdl2_ttf`) instead.
+
+Fonts: the shell asks `fontconfig` for the system's "monospace" family at
+startup, so any distro with a normal font setup works out of the box. Only
+if fontconfig itself is unavailable does it fall back to a short list of
+hardcoded Debian-style paths (`/usr/share/fonts/truetype/...`), which will
+not resolve on Arch/Fedora/NixOS -- so keep `libfontconfig1-dev`/`fontconfig`
+installed at build time.
+
+VST2/VST3 hosting, the Fundamental rack modules, and Csound all work the same
+way on Linux as on Windows:
+
+- **VST2** loads Linux `.so` plugins (not Windows `.dll`s -- those still only
+  load on Windows) via `dlopen`, with the same in-process crash containment
+  as Windows (`seh_guard_posix.cpp`: a POSIX `sigaction`/`sigsetjmp` guard
+  standing in for Windows' VEH, so a faulting plugin doesn't take the whole
+  app down). Scanned from `/usr/lib/vst`, `/usr/local/lib/vst`, `~/.vst`.
+- **VST3** loads standard cross-platform `.vst3` bundles via the vendored
+  SDK's own Linux hosting module. Scanned from `/usr/lib/vst3`,
+  `/usr/local/lib/vst3`, `~/.vst3`.
+- **Fundamental** (VCO/VCF/ADSR/LFO/Mixer/...) rack modules run real DSP, not
+  stubs: the Windows build's `generate_fundamental_dsp.ps1` code-generation
+  step (extracting the DSP-only part of each vendored VCV Rack module source)
+  has a `python3` port (`tools/generate_fundamental_dsp.py`) used automatically
+  when PowerShell isn't found, so `python3` is a Linux build dependency too.
+- **Csound** is built from the vendored source (`vendor/csound`) and
+  statically linked -- no system Csound install needed, and none of the
+  DLL-staging Windows needs (`CSOUND_ROOT` still works if you'd rather point
+  at a real install/prefix instead).
+
+### Running under KMS/DRM (no desktop, no window manager)
+
+PatchKnob's SDL shell is built as an "appliance" target: every file/save/
+folder picker is drawn by the app itself (see `sdlui/views/file_dialog/`),
+and the toolkit includes its own in-app window manager
+(`ui::WindowManager` in `sdlui/gui.h`) for exactly this case, so nothing
+requires an OS window manager, taskbar, or native dialog to run.
+
+To boot straight into PatchKnob on bare hardware (no X11/Wayland session):
+
+1. The SDL3 build must have its `kmsdrm` video backend compiled in.
+   Distro SDL3 packages built against `libdrm`/`libgbm` (mesa) already
+   include it -- check with:
+   ```sh
+   SDL_VIDEODRIVER=kmsdrm ./build-linux/PatchKnob
+   ```
+   `SDL_Init: kmsdrm not available` means the installed SDL3 was built
+   without it; rebuild SDL3 from source with `-DSDL_KMSDRM=ON` (needs
+   `libdrm-dev`/`libgbm-dev` or their Arch equivalents `libdrm`/`mesa`) and
+   point `PKG_CONFIG_PATH` at that build.
+2. The user running PatchKnob needs permission to become DRM master on the
+   card in `/dev/dri` -- either membership in the `video` group
+   (`sudo usermod -aG video $USER`, then re-login) or a running `seatd`/
+   `logind` session that grants it.
+3. Nothing else may already hold DRM master on that card. A desktop
+   compositor (Hyprland, GNOME, KDE, a display manager) claims it while
+   running, so KMS/DRM only succeeds from a bare VT with no compositor
+   active (e.g. `systemctl isolate multi-user.target`, or a distro image
+   with no display manager at all) -- not alongside your normal desktop
+   session.
+
+Once those hold, `SDL_VIDEODRIVER=kmsdrm ./build-linux/PatchKnob` (or simply
+running it with no other video session active, since SDL falls back to
+`kmsdrm` automatically when there is no X11/Wayland to find) opens directly
+on the framebuffer.
 
 ## Windows Build
 

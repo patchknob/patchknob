@@ -258,8 +258,26 @@ using BridgeDestroy = void (*)(rack::engine::Module*);
 
 std::vector<HMODULE>& bridgeLibraries()
 {
-    static auto* libraries = new std::vector<HMODULE>();
-    return *libraries;
+    struct LibraryRegistry {
+        std::vector<HMODULE> handles;
+        // DELIBERATELY NO FreeLibrary.  This registry is a function-local
+        // static, so it is constructed the first time a bridge DLL is loaded --
+        // which is LATE, well after the statics that own a RackEngine (and
+        // therefore own live ModuleHandles whose `destroy` function pointers
+        // point INTO these DLLs).  Static destruction runs in reverse order of
+        // construction, so the registry was torn down FIRST: every DLL was
+        // unmapped while live handles still held pointers into it, and the
+        // subsequent ModuleHandle::reset() called through an unmapped page.
+        //
+        // Unloading at process exit buys nothing -- the OS reclaims the
+        // mappings either way -- so the correct fix is not to unload at all.
+        // Anything that genuinely needs a DLL gone before exit has to unload it
+        // only after proving no ModuleHandle from it is still alive, which is
+        // not something a static destructor can establish.
+        ~LibraryRegistry() = default;
+    };
+    static LibraryRegistry libraries;
+    return libraries.handles;
 }
 
 // A third-party bridge module can fault in its constructor/destructor (bad
@@ -302,8 +320,8 @@ struct BridgeModule {
 
 std::vector<std::unique_ptr<BridgeModule>>& bridgeModules()
 {
-    static auto* modules = new std::vector<std::unique_ptr<BridgeModule>>();
-    return *modules;
+    static std::vector<std::unique_ptr<BridgeModule>> modules;
+    return modules;
 }
 
 // Swap the device in from disk on first use: LoadLibraryW + resolve exports.

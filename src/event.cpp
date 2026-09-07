@@ -19,14 +19,18 @@
 //-----------------------------------------------------------------------------
 #include "event.h"
 
+#include <cstring>
+
 event::event()
 {
+    m_column = c_no_column;
     m_timestamp = 0;
     m_status = EVENT_NOTE_OFF;
     m_data[0] = 0;
     m_data[1] = 0;
 
     m_sysex = NULL;
+    m_size = 0;
 
     m_linked = NULL;
     m_selected = false;
@@ -41,6 +45,67 @@ event::~event()
     delete[] m_sysex;
   
   m_sysex = NULL;
+}
+
+/* Deep-copy the owned sysex buffer -- see the note in event.h. */
+event::event( const event &a_ev )
+{
+  m_column    = a_ev.m_column;
+  m_timestamp = a_ev.m_timestamp;
+  m_status    = a_ev.m_status;
+  m_data[0]   = a_ev.m_data[0];
+  m_data[1]   = a_ev.m_data[1];
+  m_linked    = a_ev.m_linked;
+  m_has_link  = a_ev.m_has_link;
+  m_selected  = a_ev.m_selected;
+  m_marked    = a_ev.m_marked;
+  m_painted   = a_ev.m_painted;
+  m_size      = 0;
+  m_sysex     = NULL;
+
+  if ( a_ev.m_sysex != NULL && a_ev.m_size > 0 )
+  {
+    m_sysex = new unsigned char[a_ev.m_size];
+    memcpy( m_sysex, a_ev.m_sysex, a_ev.m_size );
+    m_size  = a_ev.m_size;
+  }
+}
+
+event &
+event::operator=( const event &a_ev )
+{
+  if ( this == &a_ev )
+    return *this;
+
+  m_column    = a_ev.m_column;
+  m_timestamp = a_ev.m_timestamp;
+  m_status    = a_ev.m_status;
+  m_data[0]   = a_ev.m_data[0];
+  m_data[1]   = a_ev.m_data[1];
+  m_linked    = a_ev.m_linked;
+  m_has_link  = a_ev.m_has_link;
+  m_selected  = a_ev.m_selected;
+  m_marked    = a_ev.m_marked;
+  m_painted   = a_ev.m_painted;
+
+  /* build the new buffer before releasing the old one, so a throwing
+     allocation cannot leave this event holding a freed pointer */
+  unsigned char *buf = NULL;
+  long           sz  = 0;
+  if ( a_ev.m_sysex != NULL && a_ev.m_size > 0 )
+  {
+    buf = new unsigned char[a_ev.m_size];
+    memcpy( buf, a_ev.m_sysex, a_ev.m_size );
+    sz  = a_ev.m_size;
+  }
+
+  if ( m_sysex != NULL )
+    delete[] m_sysex;
+
+  m_sysex = buf;
+  m_size  = sz;
+
+  return *this;
 }
 
 long 
@@ -58,7 +123,26 @@ event::set_timestamp( const unsigned long a_time )
 void 
 event::mod_timestamp( unsigned long a_mod )
 {
-    m_timestamp %= a_mod;
+    /*  a_mod is the pattern length.  At zero this divided by zero, and because
+        a_mod is UNSIGNED a negative timestamp was promoted to a huge positive
+        one instead of wrapping -- either way the event landed nowhere real.
+
+        The negative check has to be made on a SIGNED view of the field.
+        `m_timestamp < 0` is unsigned-compared and therefore always false, so
+        the guard below never once fired: a timestamp that had been set from a
+        negative long (a live event stamped before the transport origin) still
+        wrapped as a huge unsigned value and landed on an arbitrary tick inside
+        the pattern -- in range, and in the wrong place, which is worse than out
+        of range because nothing downstream can tell. */
+    if ( a_mod == 0 )
+        return;
+
+    const long signed_ts = (long) m_timestamp;
+    if ( signed_ts < 0 ){
+        m_timestamp = 0;
+        return;
+    }
+    m_timestamp = (unsigned long)( signed_ts % (long) a_mod );
 }
 
 void 
@@ -280,7 +364,7 @@ event::get_rank( void ) const
 }
 
 bool 
-event::operator>( const event &a_rhsevent )
+event::operator>( const event &a_rhsevent ) const
 {
     if ( m_timestamp == a_rhsevent.m_timestamp )
     {
@@ -294,7 +378,7 @@ event::operator>( const event &a_rhsevent )
 
 
 bool 
-event::operator<( const event &a_rhsevent )
+event::operator<( const event &a_rhsevent ) const
 { 
     if ( m_timestamp == a_rhsevent.m_timestamp )
     {
@@ -307,7 +391,7 @@ event::operator<( const event &a_rhsevent )
 }
 
 bool 
-event::operator<=( const unsigned long &a_rhslong )
+event::operator<=( const unsigned long &a_rhslong ) const
 { 
     return (m_timestamp <= a_rhslong); 
 }   
@@ -315,7 +399,7 @@ event::operator<=( const unsigned long &a_rhslong )
 
 
 bool 
-event::operator>( const unsigned long &a_rhslong )
+event::operator>( const unsigned long &a_rhslong ) const
 { 
     return (m_timestamp > a_rhslong); 
 }   

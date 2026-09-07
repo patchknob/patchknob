@@ -1,0 +1,25 @@
+      Universe View
+      The Universe view displays an overview of the entire Pro Tools session above the tracks pane in the Edit
+      window.
+
+
+
+
+      Universe view at the top of the Edit window
+
+      This overview represents audio and MIDI material on all tracks in the session that are not hidden (including
+      tracks that are inactive, or that contain offline clips). The order in which material is displayed in the Uni-
+      verse view corresponds to the track order in the Edit window.
+
+      In the Universe view, audio, MIDI, and video clips on tracks are represented by horizontal lines that are the
+      same colors as the clips on the tracks. Each audio track is represented at the same height regardless of how
+      many channels it has. Additionally, tracks that show Automation, Controller, or Playlist lanes are repre-
+      sented with increasing height for each lane shown.
+
+      Since Auxiliary Input, Master Fader, and VCA Master tracks do not contain audio or MIDI clips, they are
+      displayed as blank areas in the Universe view.
+
+
+
+
+686   Pro Tools Reference Guide

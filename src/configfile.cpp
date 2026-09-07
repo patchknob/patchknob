@@ -19,6 +19,7 @@
 //-----------------------------------------------------------------------------
 
 #include "configfile.h"
+#include <cstring>
 #include <iostream>
 
 configfile::configfile( string a_name )

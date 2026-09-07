@@ -1,0 +1,44 @@
+Foley Recording                                     Tracking and Overdubbing
+                                                    Music
+Foley recording is one of the more specialized
+forms of recording in film production with unique   Modern multitrack recording requires the flexibil-
+monitoring requirements. Between punches and        ity to “capture the moment” by allowing on-the-fly
+takes, inputs must be muted while Foley artists     record enabling and punch recording, as provided
+move themselves and equipment as they progress      by TrackPunch. Features of TrackPunch for all
+through a scene.                                    tracking, overdubbing, and punching situations in-
+                                                    clude the following:
+TrackInput monitoring can be configured to sup-
+                                                    • Record enable tracks while the transport is mov-
+port Foley style TrackPunch recording using the
+                                                      ing.
+Mute Record-Armed Tracks While Stopped prefer-
+ence.                                               • Punch tracks in and out using on-screen Record
+                                                      Enable buttons, remotely from a synchronizer,
+To configure Pro Tools for Foley-style punch          from a control surface, or using a foot switch.
+record monitoring:
+                                                    • Compare and match levels using TrackInput
+1   Choose Setup > Preferences and click the          switching.
+    Operation tab.
+
+2   Enable Mute Record-Armed Tracks While           “In-the-box” Dubbing
+    Stopped.                                        (HDX Only)
+3   Configure synchronization and other settings    Pro Tools Ultimate software with HDX hardware
+    for Pro Tools and your other devices.           lets you punch in and out of cascaded tracks. You
+4   Enable TrackPunch or DestructivePunch mode      can activate and deactivate recording or input
+    and proceed with punch recording.               monitoring on tracks in all punch modes (and in
+                                                    punch modes only): QuickPunch, TrackPunch, and
+When recording online and Mute Record-Armed         DestructivePunch.
+Tracks While Stopped is enabled, record-enabled
+tracks mute when the Transport is stopped. Input    Workflow example for configuring “in-the-box”
+can still be monitored at any time by using the     dubbing:
+TrackInput switch.                                  1   Using internal busses, route your source tracks,
+                                                        by stem (for example, dialog, music, and ef-
+                                                        fects), to your record tracks (see Figure 1 on
+                                                        page 618).
+                                                    2   Route your stem source tracks to your print
+                                                        master track (such as a 5.1 audio track).
+
+
+
+
+                                                                        Chapter 27: Punch Recording Modes   617

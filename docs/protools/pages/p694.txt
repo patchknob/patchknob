@@ -1,0 +1,47 @@
+        For Elastic Audio warping, position the cursor           For the Velocity Trim tool, position the cursor
+      over an Event marker or a Warp marker, in the             over the note and press Command (Mac) or Con-
+      lower half of the clip (for more information on           trol (Windows).
+      warping audio, see “Editing in Warp View” on
+      page 1023).
+        For the Trim tool, position the cursor near the
+      clip’s start or end point, in the upper half of the
+      clip.
+
+             To temporarily switch the Smart Tool to the
+             Scrubber, place the cursor in the upper half
+             of the clip so that the Selector tool is en-
+             abled, then press Control (Mac) or Start           Trimming the velocity of a note
+             (Windows).
+                                                                     To temporarily switch the Smart Tool to
+      The Smart Tool in Notes View                                   the Pencil tool, press Control (Mac) or
+                                                                     Start (Windows).
+                      Selector tool (marquee)
+
+
+                                                                     To temporarily switch the Smart Tool to the
+                                                                     Eraser, press Option+Control (Mac) or
+                                                                     Alt+Start (Windows).
+
+                                                                The Smart Tool in Automation
+          Trim note start   Grabber tool        Trim note end   and Controller Views
+      Smart Tool in Notes view                                  The following capabilities are available with the
+                                                                Smart Tool when working in both automation and
+      The following capabilities are available with the         controller views:
+      Smart Tool when working with MIDI and Instru-
+                                                                • For the Selector tool, position the cursor any-
+      ment tracks in Notes view in the Edit window and
+                                                                  where in the bottom 75% of the playlist for the
+      in MIDI Editor windows:
+                                                                  Selector tool. Drag with the Selector tool to se-
+         For the Marquee Selector, position the cursor so        lect breakpoints.
+      it does not cover any notes.                              • For Trim tools, position the cursor in the top
+        For the Grabber tool, position the cursor over           25% of the playlist for the Trim tool. Drag with
+      the note, near its middle.                                  the Trim tool to trim breakpoints. Press Com-
+                                                                  mand+Shift (Mac) or Control+Shift (Windows)
+        For the Trim tool, position the cursor near the          while trimming for fine control.
+      note start or end point.
+
+
+
+
+662   Pro Tools Reference Guide

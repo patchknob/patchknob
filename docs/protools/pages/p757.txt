@@ -1,0 +1,46 @@
+To edit Batch Fades in the Edit window:                 2   Move the fade by doing one of the following:
+1   Make an Edit selection that includes multiple       • Drag the fade with the Time Grabber tool to a
+    whole clips with fades.                               new location on the track.
+2   Right-click the Edit selection and choose Fades >   • Nudge the fade by pressing Plus (+) or
+    Batch Fades.                                          Minus (–) on the numeric keypad to move the
+3   Configure the Batch Fades dialog as desired and       fade forward or backward on the track.
+    click OK.
+
+
+
+Moving and Nudging Fades
+and Crossfades
+Fades and crossfades can be moved or nudged in          Dragging the fade with the Time Grabber
+tracks, independently of their contributing clips.
+Moving or nudging fade-ins or fade-outs reveals or
+hides audio as the fade is moved from the edge of
+a contributing clip. Moving or nudging crossfades
+changes the overlap point of the contributing clips.
+Moving or nudging fades is also constrained by
+underlying clip boundaries.                             Result of moved fade
+
+                                                        Moving Clips Containing Fades
+Moving or Nudging Fades or                              or Crossfades
+Crossfades within Clips
+                                                        When you move or nudge a clip selection that con-
+To move or nudge a fade or crossfade within its         tains a fade-in, fade-out, or crossfade, the fade
+contributing clips:
+                                                        moves with the selection.
+1   Select the fade or crossfade by doing one of the
+    following:                                          To move a clip selection with fades or crossfades:
+
+• Use the Time Grabber tool to select the fade.         1   Do one of the following:
+• Use the Selector tool to select a range that in-      • Click a clip with the Time Grabber tool (or dou-
+  cludes the fade.                                        ble-click with the Selector tool) to select the clip
+                                                          along with the fade (in or out).
+                                                        • Select multiple clips that include the fades and
+                                                          crossfades you want to move.
+
+
+
+Selecting a fade with the Time Grabber
+
+
+
+
+                                                                               Chapter 32: Fades and Crossfades   725

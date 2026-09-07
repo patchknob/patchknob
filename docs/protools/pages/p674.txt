@@ -1,0 +1,49 @@
+                                                              Grid Mode Lock
+                                                              To ensure that you do not inadvertently change the
+                                                              Grid mode setting when using Edit mode keyboard
+                                                              shortcuts, you can enable Edit/Tool Mode Key-
+                                                              board Lock.
+
+                                                              To lock (or unlock) the selected Grid mode:
+                                                              1    Click the Grid mode selector and choose
+                                                                   Absolute or Relative.
+
+                                                              2    Select (or deselect) Options > Edit/Tool Mode
+                                                                   Keyboard Lock.
+
+
+
+                                                              Edit Tools
+      Grid Value indicator and pop-up menu                    Pro Tools provides the following Edit tools: the
+                                                              Zoomer, Trim, Selector, Grabber, Scrubber, and
+            The current Grid value is also used for the       Pencil tools, and the multifunctional Smart Tool.
+            Quantize to Grid command (see “Quantizing
+            Clips to Grid” on page 703) and Separated                             Zoomer                Scrubber
+                                                                  Zoom buttons             Smart Tool          Pencil
+            Clip At Grid command (see “Separate Com-
+            mands” on page 694).
+
+      To increase the grid value incrementally:
+
+         Press Shift+Equal (=)
+                                                                           Zoom Toggle            Grabber
+      To decrease the grid value incrementally:                                               Selector
+                                                                                           Trim
+         Press Shift+Minus (–)
+                                                              Zoom buttons and Edit tools
+      The Clips/Markers option in the Grid Value menu
+                                                              To select an Edit tool:
+      allows events to be placed freely (as in Slip mode),
+      but they will snap to clip locations (start, end, and       Click the icon for the tool you want in the Tool-
+      sync points), markers, and Edit selections when              bar.
+      placed near them.
+
+            MIDI notes inserted with the Pencil tool ig-
+            nore the Clips/Markers option, and instead
+            snap to the time value selected in the Grid
+            Value selector.
+
+
+
+
+642   Pro Tools Reference Guide

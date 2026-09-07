@@ -60,6 +60,43 @@ struct PdObj
     // nbx/knob natural, radio cell index.  Flushed to `text` only on release.
     double      gui_val = 0.0;
     bool        gui_val_set = false;
+    // Bang flash deadline (SDL ticks); >0 while lit.  Per-object so several bangs can
+    // flash at once when a message fans out through the running patch.
+    unsigned    flash_until = 0;
+    // Faithful round-trip.  kind 'x' is a PASSTHROUGH gobj (a subpatch/graph/array/
+    // scalar the editor doesn't edit but must preserve): `raw` holds its verbatim
+    // .pd record(s), emitted unchanged on save.  `post` holds any NON-gobj records
+    // (#A data, #X coords/#X f/#X declare/#X struct, ...) that followed this gobj in
+    // the source, so they survive the round-trip in place.  Both empty for normal
+    // editable objects.
+    std::string raw;
+    std::string post;
+    // If this passthrough gobj is a graph containing an array, `arr` holds its data
+    // so draw() can render the waveform (parsed once, not re-scanned per frame).
+    // A data-structure SCALAR ('x' gobj) sets `tmpl` to its template name and reuses
+    // `arr` for its float field values, so draw() can render it from the template.
+    std::vector<float> arr;
+    std::string        tmpl;
+};
+
+// --- data structures --------------------------------------------------------
+// A value source in a template's drawing instruction: a constant, or a scalar field.
+struct PdFieldDesc { bool isConst = true; float val = 0.f; std::string field; };
+// One drawing instruction attached to a template (drawpolygon/drawcurve/drawnumber).
+struct PdDraw
+{
+    enum Kind { Polygon, Curve, Number } kind = Polygon;
+    bool                     closed = false;    // filled* -> closed path
+    std::vector<PdFieldDesc> coords;            // Polygon/Curve: x0,y0,x1,y1,...
+    PdFieldDesc              field, x, y;        // Number: draw field value at (x,y)
+};
+// A data-structure template: named fields (in order) + the drawing instructions
+// that render each scalar of this type.
+struct PdTemplate
+{
+    std::string              name;
+    std::vector<std::string> fields;
+    std::vector<PdDraw>      draws;
 };
 
 // A wire.  Indices are into the model vector, in file (record) order -- exactly
@@ -84,21 +121,50 @@ public:
     //  Public API the shell uses
     // ========================================================================
 
-    //! Point the editor at a .pd file.  If it exists it is PARSED into the
-    //! model; otherwise the editor starts empty (save() will create it).
-    void set_patch_path( const std::string& path );
+    //! Load the patch from in-memory .pd TEXT (the canonical storage now -- the patch
+    //! is held on the node and saved with the project, no file on disk).  Empty text
+    //! => empty patch.
+    void set_patch_text( const std::string& text );
 
-    //! Re-read the current .pd from disk into the model (e.g. changed on disk).
+    //! Serialise the current model to .pd text (what the host stores on the node).
+    std::string patch_text() const;
+
+    //! Point the editor at a .pd file to IMPORT (external interop).  Parses it into
+    //! the model; the file is not the source of truth.
+    void set_patch_path( const std::string& path );
+    void set_export_path( const std::string& path ) { m_path = path; }
+
+    //! Re-read the current import .pd from disk into the model.
     void reload_from_disk();
 
-    //! Serialise the model back to the .pd file.  Does NOT fire on_changed --
-    //! the caller (or an interactive edit) decides.  Returns false on failure
-    //! (no path set / cannot open the file).
+    //! EXPORT the model to the .pd file at set_patch_path() (external interop only).
+    //! Does NOT fire on_changed.  Returns false if no path is set / cannot write.
     bool save();
 
-    //! Fired AFTER a successful save() following an interactive edit, so the
-    //! host can ask libpd to reload the patch.  May be left null.
+    //! Fired after a STRUCTURAL edit, so the host can pull patch_text() and reload
+    //! libpd (adc~/dac~ ports may have changed).  May be left null.
     std::function<void()> on_changed;
+    std::function<void()> on_open_file, on_save_file, on_save_file_as;
+
+    //! Fired after a GUI value edit in RUN mode: the host should STORE patch_text() on
+    //! the node WITHOUT reloading (the live value already went out via on_gui_send),
+    //! so the project keeps the latest value without restarting the patch.  May be null.
+    std::function<void(const std::string& text)> on_store_text;
+
+    //! Fired when a GUI atom is driven in RUN mode, so the host can inject the value
+    //! into the RUNNING libpd instance (recv = the atom's receive symbol).  Unlike
+    //! on_changed (a file reload), this drives the patch LIVE -- a toggle can start a
+    //! [metro] the instant you click it.  May be left null.
+    std::function<void(const std::string& recv, float val)> on_gui_send;
+    std::function<void(const std::string& recv)>            on_gui_bang;
+
+    //! Every GUI atom's SEND symbol, so the host can libpd_bind them for feedback.
+    std::vector<std::string> gui_send_symbols() const;
+
+    //! Reflect a message that reached a GUI atom in the running patch onto its widget
+    //! (bang -> flash; float -> set value), keyed by the atom's SEND symbol.  This is
+    //! what makes data VISIBLY flow through the wires (a banged bang lights up).
+    void apply_gui_feedback( const std::string& sendSym, bool bang, float val );
 
     //! Inlet/outlet counts for an object, keyed by the FIRST word of its text.
     //! Falls back to {1,1}.  Static so it can be reused / unit-tested.
@@ -126,7 +192,21 @@ private:
     static const int PICK_W    = 190;  // module-picker panel width
     static const int PICK_ROWS = 12;   // visible rows in the picker list
 
-    enum EditMode { Mode_None = 0, Mode_Pick, Mode_Edit };
+    enum EditMode { Mode_None = 0, Mode_Pick, Mode_Edit, Mode_Props };
+
+    // ---- IEMGUI Properties dialog (right-click a GUI atom) ------------------
+    // One editable field maps to a RAW token in the object's .pd record: `sym`
+    // fields are symbols (send/receive/label), the rest are numbers.
+    struct PropField { std::string name; std::string val; int tok = -1; bool sym = false; };
+    int                     m_prop_obj  = -1;   // object whose properties are open
+    int                     m_prop_edit = -1;   // field row being text-edited, -1 none
+    std::vector<PropField>  m_props;
+    void open_props ( ui::App& app, int oi );
+    void close_props( ui::App& app );
+    void apply_prop ( ui::App& app, int fieldIdx );   // write one field back + commit
+    void draw_props ( ui::App& app );
+    bool props_mouse( ui::App& app, const ui::MouseEv& e, bool downEdge );
+    SDL_Rect props_rect( ui::App& app ) const;
 
     // ---- coordinate + geometry helpers -------------------------------------
     void obj_screen( const PdObj& o, int& sx, int& sy ) const;
@@ -143,6 +223,12 @@ private:
     int  obj_at   ( ui::App& app, int mx, int my ) const;
     bool outlet_at( ui::App& app, int mx, int my, int& idx, int& outlet ) const;
     bool inlet_at ( ui::App& app, int mx, int my, int& idx, int& inlet  ) const;
+    int  wire_at  ( ui::App& app, int mx, int my ) const;   // hit-test a wire -> conn index
+
+    // ---- live control ------------------------------------------------------
+    void live_send_gui( ui::App& app, int oi );            // push a GUI atom's value live
+    std::string gui_recv_symbol( const PdObj& o ) const;   // the atom's receive symbol ("" none)
+    std::string gui_send_symbol( const PdObj& o ) const;   // the atom's send symbol ("" none)
 
     // ---- model mutation ----------------------------------------------------
     bool add_conn( int from, int outlet, int to, int inlet );
@@ -150,7 +236,10 @@ private:
     void create_object( ui::App& app, const std::string& text, int px, int py );
     void commit( ui::App& app );          // save() + on_changed() + redraw
     void reset_interaction();
-    void parse();                          // read m_path -> objs_/conns_
+    void release_inline_edit();      // drop any live edit pointing into objs_
+    void parse();                          // read m_path file -> parse_text()
+    void parse_text( const std::string& content );   // .pd text -> objs_/conns_
+    std::string serialize() const;         // objs_/conns_ -> .pd text
     void sanitize_conns();
 
     // ---- drawing -----------------------------------------------------------
@@ -171,19 +260,29 @@ private:
     void finalize_obj_edit( ui::App& app );
 
     // ---- model -------------------------------------------------------------
-    std::vector<PdObj>  objs_;
-    std::vector<PdConn> conns_;
+    std::vector<PdObj>     objs_;
+    std::vector<PdConn>    conns_;
+    std::vector<PdTemplate> m_templates;   // data-structure templates (name -> draws)
+    void build_templates();                // (re)scan the patch for struct + draw objects
+    const PdTemplate* find_template( const std::string& name ) const;
+    void draw_scalar( ui::App& app, int i );   // render a scalar via its template
 
     // ---- file --------------------------------------------------------------
     std::string m_path;
     int         m_canvas_w = 600;
     int         m_canvas_h = 400;
+    // Faithful round-trip: the verbatim top #N canvas header, and any non-gobj
+    // records that appeared before the first gobj (preserved on save).
+    std::string m_header;
+    std::string m_preamble;
 
     // ---- view --------------------------------------------------------------
     int   m_ox   = 0;        // pan offset x (screen px)
     int   m_oy   = 0;        // pan offset y
     float m_zoom = 1.0f;     // canvas zoom (mousewheel)
     int   m_sel  = -1;       // selected object index, -1 = none
+    int   m_sel_wire = -1;   // selected connection index (Delete removes it), -1 = none
+    unsigned m_recv_serial = 0;  // next auto receive-symbol id (pkui<N>) for live GUI atoms
     ui::CanvasScroll m_scroll;   // draggable H/V scroll bars for large patches
     void  content_bounds( ui::App& app, int& cl, int& cr, int& ct, int& cb ) const;
 
@@ -211,6 +310,13 @@ private:
     bool     gui_interact( ui::App& app, int oi, int mx, int my, bool press );
     void     flush_gui_value( int oi );   // write the live gui_val into the .pd text
 
+    // Number-box keyboard entry: click an nbx (RUN mode) to TYPE a value, Enter to
+    // commit (Escape cancels).  Mirrors the object-text edit, but parses a number.
+    int         m_num_edit = -1;          // nbx index being typed into, -1 = none
+    std::string m_num_buf;                // digits typed so far
+    void begin_num_edit( ui::App& app, int oi );
+    void finalize_num_edit( ui::App& app, bool commit );
+
     bool     m_wire  = false;   // dragging a wire from an outlet
     int      m_wire_from = -1, m_wire_outlet = 0;
     int      m_wire_to = -1,   m_wire_inlet  = 0;
@@ -228,9 +334,17 @@ private:
     // ---- overlay mode ------------------------------------------------------
     EditMode m_mode = Mode_None;
     int      m_edit_obj = -1;        // object whose text is being edited
+    // begin_text() hands App a std::string* that lives INSIDE objs_, so any
+    // push_back/erase/clear on that vector would leave App::text_target
+    // dangling.  Remember the exact pointer and the App so every mutation
+    // path can hand it back first (App::end_text_if only compares, never
+    // dereferences).
+    std::string* m_edit_ptr = nullptr;
+    ui::App*     m_edit_app = nullptr;
 
     // ---- module picker (graphical card grid; drag a card onto the canvas) --
     std::string m_search;            // live-edited search string
+    int         m_pick_cat = 0;      // active category filter (0 = All; see PICK_CATS)
     int         m_pick_x = 0, m_pick_y = 0;    // panel anchor (screen coords)
     int         m_pick_cx = 0, m_pick_cy = 0;  // new-object position (Pd coords)
     int         m_pick_scroll = 0;             // grid scroll offset (rows)

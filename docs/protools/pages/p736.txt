@@ -1,0 +1,41 @@
+      For Elastic Audio clips, only the clips are quan-      To split a stereo or multichannel track:
+      tized and all Elastic Audio Events contained within    1   Select one or more stereo or multichannel tracks
+      the clips (such as transient events) are moved             (see “Selecting Tracks” on page 257).
+      equally, thereby retaining their rhythmic relation-
+      ships.                                                 2   Choose Track > Split Into Mono. Clips from the
+                                                                 channels on the selected tracks are placed on
+           To quantize individual MIDI notes or Elastic          new, mono audio tracks.
+           Audio Events, use the Quantize Event Opera-
+           tions. You can also use the Quantize Event        Names for the new tracks are based on the source
+           Operation to quantize audio clips. For more       track name and channel suffix. For example, if a
+           information see “Quantize” on page 1058).         stereo track called “Funkit” is split, two new tracks
+                                                             called “Funkit.L” and “Funkit.R” are created.
+
+                                                             Output and send assignments and volume and pan
+      Editing Stereo and                                     settings are retained in the new tracks. Mono
+      Multichannel Tracks                                    equivalents of stereo and multi-mono plug-in as-
+      Clips on individual channels within stereo and         signments are assigned in the new tracks. How-
+      multichannel tracks cannot be independently se-        ever, multichannel plug-in assignments are not as-
+      lected. All selections for these tracks are time-      signed in the new tracks.
+      based, which means that selections made with the
+      Selector or Time Grabber tool extend to each and       Dragging Clips to and from
+      every channel in the track.                            Stereo and Multichannel Tracks
+      When clips in multichannel tracks are edited with
+      any of the Trim tools or dragged with the Time
+      Grabber tool, material on all channels is affected
+      equally as a group.
+
+      Split Selected Tracks
+      To edit a specific channel within a stereo or multi-
+      channel track without affecting the other channels,
+      you can split the track into separate mono tracks.
+      Once the edits have been made to the separated
+      material, you can then drag or copy it back to the
+      original multichannel track.
+
+                                                             Dragging a stereo clip to two mono audio tracks
+
+
+
+
+704   Pro Tools Reference Guide

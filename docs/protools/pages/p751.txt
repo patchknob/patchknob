@@ -1,0 +1,52 @@
+To fade from the insertion point to a clip start        3   Use the view buttons to adjust the view of the
+point:                                                      crossfade. It may take a few moments to calcu-
+1   Place the cursor at a location in the clip.             late the waveform display for long selections.
+
+2   Do one of the following:                            4   Select an Out Shape and an In Shape.
+• Choose Edit > Fades > Fade To Start.                  5   Select a Linking option.
+• Press Control+D (Mac) or Start+D (Windows).           6   Click the Audition button to audition the cross-
+                                                            fade. For long crossfades, it may take Pro Tools
+The fade is applied based on the Fade In prefer-
+                                                            a few moments to calculate and load the audio
+ences (see “Fade and Crossfade Preferences” on
+                                                            into playback RAM.
+page 716).
+                                                        7   Do one of the following:
+To fade from the insertion point to a clip end point:
+                                                        • Adjust the curves by selecting different preset
+1   Place the cursor at a location in the clip.           shapes with the Out Shape and In Shape pop-up
+2   Do one of the following:                              menus.
+
+• Choose Edit > Fades > Fade To End.                    • Drag the Fade-In and Fade-Out curves to a cus-
+                                                          tom shape. By choosing None as the Linking op-
+• Press Control+G (Mac) or Start+G (Windows).
+                                                          tion, you can drag the beginning or end points of
+The fade is applied based on the Fade Out prefer-         a fade curve to adjust its beginning or end point.
+ences (see “Fade and Crossfade Preferences” on          8   Click the Audition button to audition the cross-
+page 716).                                                  fade again.
+                                                        9   When the crossfade sounds right, click OK.
+Creating a Crossfade                                          Crossfade lengths can be resized with any of
+                                                              the Trim tools, including Nudge Trim com-
+To create a crossfade between two clips:
+                                                              mands. See “Using the Trim Tools” on
+1   With the Selector tool, click at the point where          page 652 and “Trimming with Nudge” on
+    you want the crossfade to begin in the first clip         page 699.
+    and drag to where you want it to end in the sec-
+    ond clip. Crossfade selections can begin and        To remove a crossfade, do one of the following:
+    end anywhere in their respective clips.                Select the area of the track containing any cross-
+2   Do one of the following:                                fades you want to delete and choose Edit >
+                                                            Fades > Delete.
+• Choose Edit > Fades > Create.
+• Press Command+F (Mac) or Control+F (Win-                 Select the crossfade with the Time Grabber tool
+  dows).                                                    and press Delete (Mac) or Backspace (Win-
+                                                            dows).
+      To apply a Crossfade using the Default
+                                                           Right-click the crossfade with any of the edit
+      Crossfade setting (in the Editing Prefer-
+                                                            tools and select Delete Fades from the pop-up
+      ences), and without opening the Fades dia-
+                                                            menu.
+      log, press Command+Control+F (Mac) or
+      Control+Start+F (Windows).
+
+                                                                              Chapter 32: Fades and Crossfades   719

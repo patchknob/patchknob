@@ -1,0 +1,53 @@
+      Auto-Toggle When Changing                                To scroll the contents of the Edit window or Mix
+      Selection                                                window horizontally:
+
+                                                               1   Focus the window you want to scroll by click-
+      When Zoom Toggle is enabled, selecting a differ-
+                                                                   ing in it or bringing it forward.
+      ent range of material, or selecting material on a dif-
+      ferent track affects Zoom Toggle as follows:             2   Hold the Shift key while turning the mouse
+      • Changing the selection length does not re-zoom             scroll wheel.
+        the window, the current zoom level is main-
+        tained.
+      • Changing the selection to a different track sets       Using the Trim Tools
+        the toggle-in state for track height and view.         Trim tools provide clip, note, and data trimming
+        However, horizontal zoom remains unchanged.            functions. The following Trim tools are available:
+        When moving the selection from a toggled in
+                                                               • Trim tool; also called the Standard Trim tool
+        track, the toggled out track height and view are
+        restored.                                              • Time Compression/Expansion Trim tool; also
+                                                                 called the TCE Trim tool
+            Auto-Toggle does not work for Edit se-
+                                                               • Scrub Trim tool (Pro Tools Ultimate only)
+            lections across multiple tracks that are
+            Zoom-toggled to Fit to Window.                     • Loop Trim tool
+
+                                                               The Standard and Scrub Trim tools are only con-
+                                                               strained by the boundaries of the whole-audio file
+      Zooming with a Scroll Wheel                              referenced by the clip. The TCE Trim tool is only
+      If you have a mouse with a scroll wheel, you can         constrained by the maximum TCE amount when
+      use the scroll wheel to zoom in and out of tracks,       using the TCE Trim tool.
+      both vertically and horizontally.
+                                                               The TCE, Scrub, and Loop Trim tools do not apply
+      To continuously zoom horizontally using a scroll         to fades.
+      wheel:
+
+         Hold Option (Mac) or Alt (Windows) while
+          turning the mouse scroll wheel.                      Trim Tool
+                                                               With the Trim tool, you can quickly shorten or ex-
+      To continuously zoom audio (vertical zoom) in the
+                                                               pand a clip (up to the entire length of the source au-
+      Edit window:
+                                                               dio file). The first time you trim a clip, Pro Tools
+         Hold Option+Shift (Mac) or Alt+Shift (Win-           automatically adds it to the Clips List as a new clip
+          dows) while turning the mouse scroll wheel.          (with a name derived from the original) in order to
+                                                               differentiate it from the original.
+      To continuously zoom MIDI (vertical zoom) in the
+      Edit window:                                             The Trim tool is a nondestructive tool and does not
+         Hold Option+Control (Mac) or Alt+Start (Win-         actually modify the original audio or MIDI data
+          dows) while turning the mouse scroll wheel.          (when working on clips). To return to the length of
+                                                               the original clip, drag it from the Clips List, or re-
+                                                               size the edited clip with the Trim tool to its original
+                                                               length.
+
+652   Pro Tools Reference Guide

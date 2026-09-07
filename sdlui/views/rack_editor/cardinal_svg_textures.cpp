@@ -24,10 +24,18 @@ bool readValue(std::istream& stream, T& value)
 
 std::string packPath()
 {
+    // Ownership differs: SDL2 hands back a buffer the caller must free, SDL3
+    // returns a pointer into storage it owns and freeing it is a crash.
+#ifdef PATCHKNOB_SDL3
+    const char* base = SDL_GetBasePath();
+    if (!base) return "cardinal_svg.pak";
+    std::string path(base);
+#else
     char* base = SDL_GetBasePath();
     if (!base) return "cardinal_svg.pak";
     std::string path(base);
     SDL_free(base);
+#endif
     return path + "cardinal_svg.pak";
 }
 

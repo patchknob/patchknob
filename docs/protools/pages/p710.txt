@@ -1,0 +1,53 @@
+      • Drag in a field to scroll to a new value. For finer   Selecting Across Multiple
+        resolution, Command-drag (Mac) or Control-            Tracks
+        drag (Windows).
+                                                              To perform edits across multiple tracks or all
+      • Press Command (Mac) or Control (Windows)              tracks, you must first select the tracks. Do this by
+        and Plus (+) or Minus (–), then type a number, to     including other tracks in the selection, or by select-
+        add or subtract from the current field value. For     ing in a Timebase ruler (for all tracks).
+        example, to add 10 to a current field value, press
+        Command (Mac) or Control (Windows) and                To make a selection in multiple tracks:
+        Plus (+) key, type “10,” and press Enter.
+                                                                 With the Selector tool, drag vertically to include
+      • Press Escape to exit the Edit Selection indicators        adjacent tracks in a selection (drag horizontally
+        without entering any values.                              to define the time range).
+
+            These shortcuts can also be used to enter start   To extend a selection to another track:
+            and end values in the Transport window.
+                                                              1   Using the Selector or Time Grabber tool, make
+      Calculator Entry Mode                                       a selection in the first track or tracks.
+
+      You can perform calculator-style editing of values      2   Shift-click in additional tracks with the Selector
+      in the Edit Selection indicators.                           tool. An identical range is selected for each ad-
+                                                                  ditional track.
+      To subtract time values:
+                                                              To shorten or lengthen the selection across each of
+      1   In the Edit Selection indicator, highlight the      the tracks, press Shift while dragging to change the
+          time field you want to change.                      range of the selection.
+      2   Press Minus (–) on the numeric keypad.
+                                                              To select across all tracks, do one of the following:
+      3   Type the amount you want to subtract from the
+                                                                 Enable the All Edit Group and make a selection
+          current time value, then press Enter.
+                                                                  in any track.
+      4   Press Enter again to apply the change.
+                                                                 Drag with the Selector tool in any Timebase
+      To add time values:
+                                                                  ruler (make sure the Timeline and Edit Selec-
+                                                                  tions are linked).
+      1   In the Edit Selection indicator, highlight the
+          time field you want to change.                      These selections include all tracks in the Edit win-
+                                                              dow, but do not include the Conductor tracks (for
+      2   Press Plus (+) on the numeric keypad.
+                                                              Tempo, Meter, and Markers).
+      3   Type the amount you want to add to the current
+          time value, then press Enter.                       To select across all tracks, including the
+                                                              Conductor tracks (for Tempo, Meter, and Markers):
+      4   Press Enter again to apply the change.
+                                                                 Option-drag (Mac) or Alt-drag (Windows) with
+                                                                  the Selector tool in any Timebase ruler.
+
+
+
+
+678   Pro Tools Reference Guide

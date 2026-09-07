@@ -18,9 +18,15 @@
 //   UID=<class id string from the SDK>
 //   CATEGORY=<category>
 //   ISSYNTH=<0|1>
-//   AUDIOIN=<channels on main audio input bus, summed>
-//   AUDIOOUT=<channels on main audio output bus, summed>
+//   AUDIOIN=<channels summed over ALL audio input buses>
+//   AUDIOOUT=<channels summed over ALL audio output buses>
+//   BUSIN=<bus layout, plugin_api.h wire format>
+//   BUSOUT=<bus layout, plugin_api.h wire format>
 //   CLASS_END
+// AUDIOIN/AUDIOOUT stay the flat totals they always were; BUSIN/BUSOUT add the
+// grouping, which is what lets the host reach a multi-out instrument's later
+// buses and give the main bus a stable identity.  A consumer that sees no
+// BUSIN/BUSOUT line reads the flat total as one main bus.
 // If the module fails to load:  OK=0  ERR=<reason>.
 //
 // Build: see CMakeLists.txt (compiles the same minimal SDK source subset the
@@ -38,8 +44,11 @@
 #include "pluginterfaces/vst/ivsteditcontroller.h"
 #include "pluginterfaces/vst/vsttypes.h"
 
+#include "../plugin_api.h"
+
 #include <cstdio>
 #include <string>
+#include <vector>
 
 using namespace Steinberg;
 using namespace Steinberg::Vst;
@@ -62,6 +71,30 @@ int sumChannels(IComponent* comp, MediaType mt, BusDirection dir)
 int busCount(IComponent* comp, MediaType mt, BusDirection dir)
 {
     return (int)comp->getBusCount(mt, dir);
+}
+
+// Ordered bus layout, straight from IComponent::getBusInfo (ivstcomponent.h).
+// Bus 0 is the main bus; busType tells kMain from kAux (side-chain / FX return).
+std::vector<PatchKnob::engine::PluginBusInfo>
+busLayout(IComponent* comp, MediaType mt, BusDirection dir)
+{
+    std::vector<PatchKnob::engine::PluginBusInfo> out;
+    const int32 count = comp->getBusCount(mt, dir);
+    for (int32 i = 0; i < count; ++i)
+    {
+        BusInfo info = {};
+        if (comp->getBusInfo(mt, dir, i, info) != kResultOk)
+            continue;
+        PatchKnob::engine::PluginBusInfo b;
+        b.name         = Steinberg::Vst::StringConvert::convert(info.name);
+        b.channelCount = (int)info.channelCount;
+        b.isMain       = (info.busType == kMain);
+        b.isAux        = (info.busType == kAux);
+        if (b.name.empty())
+            b.name = out.empty() ? "Main" : ("Bus " + std::to_string(i + 1));
+        out.push_back(std::move(b));
+    }
+    return out;
 }
 
 } // namespace
@@ -114,6 +147,7 @@ int main(int argc, char* argv[])
         std::printf("CATEGORY=%s\n", subcats.c_str());
 
         int audioIn = 0, audioOut = 0, eventIn = 0;
+        std::string busIn, busOut;
 
         // Instantiate to read real bus topology. Guard with try in case a
         // plugin throws; a crash is contained by the parent's child-process
@@ -126,6 +160,10 @@ int main(int argc, char* argv[])
                 audioIn  = sumChannels(comp, kAudio, kInput);
                 audioOut = sumChannels(comp, kAudio, kOutput);
                 eventIn  = busCount(comp, kEvent, kInput);
+                busIn  = PatchKnob::engine::pluginEncodeBusLayout(
+                             busLayout(comp, kAudio, kInput));
+                busOut = PatchKnob::engine::pluginEncodeBusLayout(
+                             busLayout(comp, kAudio, kOutput));
             }
         }
 
@@ -134,6 +172,8 @@ int main(int argc, char* argv[])
         std::printf("ISSYNTH=%d\n", isSynth ? 1 : 0);
         std::printf("AUDIOIN=%d\n", audioIn);
         std::printf("AUDIOOUT=%d\n", audioOut);
+        std::printf("BUSIN=%s\n", busIn.c_str());
+        std::printf("BUSOUT=%s\n", busOut.c_str());
         std::printf("CLASS_END\n");
         ++emitted;
     }

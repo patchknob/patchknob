@@ -1,0 +1,54 @@
+      To fill a selection with Repeat to Fill Selection:      To copy all types of automation on all selected
+                                                              tracks when copying only automation or controller
+      1   Select the clip you want to copy.                   data:
+      2   Choose Edit > Copy.                                    Choose Edit > Copy Special > All Automation.
+      3   Select the area you want to fill using the Selec-
+                                                              To paste to multiple tracks:
+          tor tool and choose Edit > Paste Special > Re-
+          peat to Fill Selection.                             1   Do one of the following:
+
+      4   Do one of the following:                            • Place the insertion point in each of the destina-
+                                                                tion tracks by Shift-clicking in them.
+      • If pasting audio clips to larger areas, the Batch
+        Fades dialog opens. Configure the dialog to cre-      • Make a selection in one of the Timebase rulers.
+        ate crossfades between each pasted clip, then         2   Choose Edit > Paste.
+        click OK.
+                                                              When you paste multiple types of data, whatever
+      • If you do not want crossfades for the pasted au-
+                                                              data has been copied is pasted into the correct type
+        dio, click Cancel in the Batch Fades dialog.
+                                                              of playlist. Automation data is pasted into the cor-
+                                                              responding automation playlist. Audio or MIDI
+                                                              data is pasted into the audio or MIDI playlist. You
+      Editing Across Multiple                                 do not need to set target tracks to the specific type
+      Tracks                                                  of data being pasted for the paste to work correctly.
+      When working with data from multiple tracks,
+                                                              If all destination tracks in a multitrack paste are
+      there are some important points to remember.
+                                                              displayed as automation, the paste replaces any
+      For example, if any selected tracks are set to their
+                                                              previous data on the target track without shuf-
+      master view (see “Master Views for Tracks” on
+                                                              fling—regardless of whether Shuffle Clips is
+      page 264), edits affect not only audio and MIDI for
+                                                              enabled.
+      the selected tracks, but all automation and control-
+      ler data as well.
+
+      If all selected tracks are displayed as automation
+      data, edits only affect the type of automation data
+      displayed in each track. Furthermore, if track 1 dis-
+      plays Pan automation, track 2 displays Volume au-
+      tomation, and track 3 displays Mute automation,
+      the Cut command cuts only pan data from track 1,
+      volume data from track 2, and mute data from
+      track 3.
+
+            For more information on selecting data on
+            multiple tracks, see “Selecting Across Multi-
+            ple Tracks” on page 678.
+
+
+
+
+638   Pro Tools Reference Guide

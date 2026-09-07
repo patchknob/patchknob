@@ -96,6 +96,20 @@ private:
     // insane self-reported AEffect counts before they size any buffer.
     bool validateEffectCounts() const;
 
+    // Ask the plugin how its numInputs/numOutputs channels are GROUPED INTO
+    // BUSES (effGetInputProperties / effGetOutputProperties -> VstPinProperties;
+    // kVstPinIsStereo marks a pin as the left half of a pair, kVstPinUseSpeaker
+    // makes arrangementType authoritative) and publish the result on desc_.
+    // A plugin that does not answer -- or answers without ever saying anything
+    // about grouping -- gets the correct fallback: ONE main bus carrying all
+    // numOutputs channels, i.e. exactly the flat list this host always used.
+    // Message thread only; also refreshes the RT channel maps below.
+    void refreshBusLayout();
+    // Fill `buses` from one direction's pins. Returns false when the plugin
+    // told us nothing usable, so the caller can install the flat fallback.
+    bool probePinBuses(int32_t opcode, int numPins,
+                       std::vector<PluginBusInfo>& buses) const;
+
     // Latch dead_ and log once; every later plugin call becomes a no-op.
     void markDead(const char* where, uint32_t code) const;
 
@@ -107,6 +121,10 @@ private:
     // Message-thread half of the teardown gate: stop new process() entries,
     // then wait out any in-flight audio block before touching plugin state.
     void quiesceProcessing();
+
+    // The VST2 shell sub-plugin id this descriptor selects (0 = none/default);
+    // answered to audioMasterCurrentId while the plugin is being constructed.
+    int32_t shellSubPluginId() const { return shellId_; }
 
     PluginDescriptor desc_;
 
@@ -121,6 +139,12 @@ private:
     bool     opened_  = false;      // effOpen called
     bool     active_  = false;      // effMainsChanged(1) in effect
     bool     prepared_ = false;
+    // effEditOpen dispatched and not yet closed. closeEditor() is reached from
+    // several directions (container WM_CLOSE, editor_close(), release()), and
+    // effEditClose is NOT idempotent, so the state has to be tracked here.
+    bool     editorOpen_ = false;
+    // Sub-plugin selector for VST2 shells, decoded from desc_.uid at load().
+    int32_t  shellId_ = 0;
 
     // Fault / lifetime hardening. dead_ latches after any caught plugin fault
     // (mutable: dispatch() and the param getters are const). alive_ and
@@ -131,6 +155,19 @@ private:
     mutable std::atomic<bool> dead_{false};
     std::atomic<bool>         alive_{false};
     std::atomic<bool>         processing_{false};
+
+    // PLUGIN CHANNEL -> CALLER CHANNEL map, one entry per plugin channel, built
+    // by refreshBusLayout() on the message thread and only READ by process().
+    // Each bus owns a stereo slot in the caller's array (plugin_api.h
+    // kPluginBusSlotChannels), so this is not the identity map whenever a bus
+    // is mono: it is what keeps bus N lined up with the caller's Nth stereo
+    // port instead of sliding one channel left for every mono bus before it.
+    // Precomputed because process() is allocation-free and must not walk the
+    // descriptor's std::vectors.
+    std::vector<int> inCallerChan_;
+    std::vector<int> outCallerChan_;
+    int rtMainOutChannels_  = 0;   // bus 0's width -- the mono-upmix cue
+    int rtMainOutSlotWidth_ = 0;   // 0 == layout unknown (upmix fills the block)
 
     // Realtime scratch (allocated in prepare, used in process).
     std::vector<float*> inPtrs_;

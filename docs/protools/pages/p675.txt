@@ -1,0 +1,47 @@
+The Zoomer, Trim, Grabber, and Pencil tools have       Pencil Tool Use the Pencil tool to draw automation
+multiple modes, which you can select from a pop-       and MIDI data.
+up menu when you click the tool.
+                                                            For information on using the Edit tools in
+     You can use F5 (Zoomer), F6 (Trim), F7 (Se-            Notes view on MIDI and Instrument tracks,
+     lector), and F8 (Grabber), F9 (Scrubber),              see Chapter 35, “MIDI Editing.”
+     and F10 (Pencil) to select and toggle through
+     the modes for each tool.
+                                                            For information on using the Edit tools in
+                                                            Warp view and Analysis view on Elastic
+     Press the Escape key to toggle through the             Audio-enabled tracks, see “Editing in Warp
+     Edit tools.                                            View” on page 1023 and “Editing in Analy-
+                                                            sis View” on page 1030.
+Zoom Buttons Use the Zoom buttons to zoom in
+and out vertically and horizontally on MIDI and
+audio track material. You can also store and recall    Zooming Options
+five Zoom presets.
+                                                       Zooming options in Pro Tools include Zoom but-
+Zoomer Tool Use the Zoomer tool to select a zoom       tons, the Zoomer tool, the Zoom Preset buttons,
+view in a track.                                       and the Zoom Toggle command.
+Zoom Toggle Use the Zoom Toggle to switch be-
+tween the current zoom view and a defined zoom
+view.                                                  Zoom Buttons
+Trim Tools Use the Trim tools to trim clips and clip   Pro Tools includes different Zoom buttons for
+groups.                                                zooming in and out on track data.
+
+Selector Tool Use the Selector to make selections      The Edit window, MIDI Editor windows, and the
+on tracks.                                             Score Editor window also provide Zoom buttons
+                                                       above and below the right vertical scroll bar (see
+Grabber Tools Use the Grabber tools to select,         “Edit Window Zoom Buttons” on page 211,
+separate, or move clips on tracks.                     “MIDI Editor Zoom Controls” on page 835, and
+                                                       “Score Editor Zoom Controls” on page 856.)
+Smart Tool Use the Smart tool to Trim, Select, or
+Grab clips, or apply or adjust fades in tracks.
+                                                       Horizontal Zoom In and Out
+Scrubber Tool Use the Scrubber tool to scrub           Buttons
+through track material.
+                                                       The Horizontal Zoom In and Out buttons let you
+                                                       zoom in and out horizontally on track data.
+
+
+
+
+                                                       Horizontal Zoom Out and In buttons
+
+
+                                                                            Chapter 29: Edit Modes and Tools   643

@@ -8,6 +8,7 @@
 //  engine's planar float** convention, so we forward it straight through.
 //----------------------------------------------------------------------------
 #include "audio_engine.h"
+#include <algorithm>
 
 #include "portaudio.h"
 
@@ -19,13 +20,13 @@
 namespace PatchKnob { namespace engine {
 
 // File-static trampoline registered with PortAudio (exact PaStreamCallback sig).
-static int pa_trampoline(const void* /*input*/, void* output,
+static int pa_trampoline(const void* input, void* output,
                          unsigned long frameCount,
                          const PaStreamCallbackTimeInfo* /*timeInfo*/,
                          PaStreamCallbackFlags statusFlags,
                          void* userData) {
     return static_cast<AudioEngine*>(userData)
-        ->render_into(output, frameCount, (unsigned long)statusFlags);
+        ->render_into(input, output, frameCount, (unsigned long)statusFlags);
 }
 
 // Liveness registry for the stream-finished callback.  Some host APIs (WASAPI)
@@ -195,10 +196,50 @@ bool AudioEngine::open(unsigned int sampleRate, unsigned int blockSize, unsigned
     unsigned long frames = bufferFrames_ ? bufferFrames_ : blockSize;
     if (frames == 0) frames = paFramesPerBufferUnspecified;
 
+    // ---- capture ----------------------------------------------------------
+    // Try DUPLEX first so the patcher's Audio In node and input recording have
+    // something to read.  Plenty of setups have no capture device, or cannot do
+    // duplex on one stream, so a failure here falls back to output-only: input
+    // is a feature, losing playback would be a regression.
+    PaStreamParameters ip;
+    bool wantInput = wantInputChannels_ > 0;
+    if (wantInput) {
+        PaDeviceIndex idev = selectedInputDeviceId_ != 0
+            ? (PaDeviceIndex)(selectedInputDeviceId_ - 1) : paNoDevice;
+        if (idev == paNoDevice && hostApi_ >= 0) {
+            const PaHostApiInfo* hi = Pa_GetHostApiInfo(hostApi_);
+            idev = hi ? hi->defaultInputDevice : Pa_GetDefaultInputDevice();
+        } else if (idev == paNoDevice) {
+            idev = Pa_GetDefaultInputDevice();
+        }
+        const PaDeviceInfo* idi = (idev == paNoDevice) ? nullptr : Pa_GetDeviceInfo(idev);
+        if (!idi || idi->maxInputChannels < 1) {
+            wantInput = false;
+        } else {
+            ip.device           = idev;
+            ip.channelCount     = (int)std::min<unsigned int>(
+                                      wantInputChannels_, (unsigned int)idi->maxInputChannels);
+            ip.sampleFormat     = paFloat32 | paNonInterleaved;
+            ip.suggestedLatency = idi->defaultLowInputLatency;
+            ip.hostApiSpecificStreamInfo = nullptr;
+        }
+    }
+
     PaStream* s = nullptr;
-    PaError e = Pa_OpenStream(&s, /*input=*/nullptr, &op,
-                              (double)sampleRate, frames,
-                              paClipOff, &pa_trampoline, this);
+    PaError e = paNoError;
+    numInputChannels_ = 0;
+    if (wantInput) {
+        e = Pa_OpenStream(&s, &ip, &op, (double)sampleRate, frames,
+                          paClipOff, &pa_trampoline, this);
+        if (e == paNoError) numInputChannels_ = (unsigned int)ip.channelCount;
+    }
+    if (!wantInput || e != paNoError) {
+        s = nullptr;
+        e = Pa_OpenStream(&s, /*input=*/nullptr, &op,
+                          (double)sampleRate, frames,
+                          paClipOff, &pa_trampoline, this);
+        numInputChannels_ = 0;
+    }
     if (e != paNoError) {
         lastError_ = std::string("Pa_OpenStream: ") + Pa_GetErrorText(e);
         return false;
@@ -281,7 +322,7 @@ bool AudioEngine::isRunning() const {
 }
 
 // --- realtime audio thread --------------------------------------------------
-int AudioEngine::render_into(void* output, unsigned long nFrames, unsigned long statusFlags) {
+int AudioEngine::render_into(const void* input, void* output, unsigned long nFrames, unsigned long statusFlags) {
     // Flush denormals for this callback: decaying reverb/filter tails would
     // otherwise cost 10-100x per sample.  MXCSR is per-thread, so set it here
     // (RAII-scoped; restored on return so a shared thread is left untouched).
@@ -290,6 +331,9 @@ int AudioEngine::render_into(void* output, unsigned long nFrames, unsigned long 
     const int    ch  = (int)numChannels_;
     const int    n   = (int)nFrames;
     float**      out = static_cast<float**>(output);   // paNonInterleaved -> float**
+    // paNonInterleaved capture arrives as float*[]; null when opened output-only.
+    const float* const* in   = static_cast<const float* const*>(input);
+    const int           inCh = in ? (int)numInputChannels_ : 0;
 
     if (statusFlags & paOutputUnderflow)
         underflowCount_.fetch_add(1, std::memory_order_relaxed);
@@ -305,7 +349,7 @@ int AudioEngine::render_into(void* output, unsigned long nFrames, unsigned long 
     // silence and keep the stream alive.
     try {
         if (cb && cb->fn) {
-            cb->fn(out, ch, n, (double)sampleRate_);
+            cb->fn(in, inCh, out, ch, n, (double)sampleRate_);
         } else {
             for (int c = 0; c < ch; ++c)
                 for (int i = 0; i < n; ++i) out[c][i] = 0.0f;

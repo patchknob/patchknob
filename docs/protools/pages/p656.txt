@@ -1,0 +1,44 @@
+      Waveform Views                                      Power When selected, the wave form display is
+                                                          calculated according to the Root Mean Square
+      Pro Tools provides a several different Waveform     (RMS). Power view can be used for normal or rec-
+      View options. Depending on the editing task, you    tified views. Power view is useful for better seeing
+      may want to display waveforms in any number of      the characteristics of the audio in the waveform
+      different ways.                                     representation when zoomed out beyond the sam-
+                                                          ple level. For mastering applications in particular,
+      Calculating Waveform                                it can be more revealing of the sonic characteristics
+      Overviews                                           of the audio than Peak view.
+      Waveforms can be calculated using Peak or Power
+      overviews.
+
+      To set how the Waveform view is calculated:
+
+         Choose View > Waveforms and select Peak or
+                                                          Normal Power Waveform view with Outlines
+          Power
+
+      Peak When selected, the waveform display is cal-         Peak view is always shown during recording.
+      culated based on the sample-by-sample peak level.        Power waveform view is calculated and
+      Peak view is traditionally how Pro Tools calcu-          shown only after you stop recording.
+      lates the waveform overview and can be used for
+      normal or rectified views. Peak view clearly dis-
+      plays any clipping in the waveform.                      Power view is not available in Destructive
+                                                               Punch mode or when zoomed to the sample
+                                                               level.
+
+                                                          Rectified Waveforms
+                                                          Rectified waveforms are displayed so that their
+      Normal Peak Waveform view with Outlines             positive and negative waveform excursions (the
+                                                          portions that fall above and below the center line)
+            When zoomed in to the sample level,           are summed together and viewed as a single posi-
+            Pro Tools always displays Peak view.          tive-value signal. This view lets you see more
+                                                          waveform detail in normal or reduced track height
+                                                          views. It can be particularly useful when editing
+                                                          volume automation data, since it depicts waveform
+                                                          levels as starting at the bottom of the track. Recti-
+                                                          fied view is available in both Peak and Power
+                                                          views.
+
+
+
+
+624   Pro Tools Reference Guide

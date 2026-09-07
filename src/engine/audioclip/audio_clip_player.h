@@ -65,9 +65,19 @@ public:
     //! `gain`. Non-owning: `clip` must outlive the player (or until removed).
     //! Returns false if the schedule is full or `clip` is null/empty.
     bool addClip(const AudioClip* clip, int64_t startSample, float gain = 1.0f);
+    uint64_t addRegion(const AudioClip* clip, int64_t startSample, float gain = 1.0f);
 
     //! Remove the scheduled clip at editable index. Returns false if OOB.
     bool removeClip(int index);
+
+    //! Replace the WHOLE editable schedule in one publish (message thread).
+    //! Entries carrying a nonzero regionId KEEP it -- this is what lets a
+    //! track partition rebuild the schedule without breaking the stable ids
+    //! callers hold on the surviving regions -- and entries with regionId 0
+    //! are assigned fresh ids.  Entries with a null/ragged/empty clip are
+    //! dropped.  Returns false (and schedules nothing new) if `regions` has
+    //! more than kMaxClips usable entries.
+    bool setSchedule(const std::vector<ScheduledClip>& regions);
 
     //! Remove every scheduled clip.
     void clearClips();
@@ -76,6 +86,21 @@ public:
     //! clip at editable index; republishes the snapshot. Message thread.
     bool setClipFades(int index, int64_t fadeInFrames, int64_t fadeOutFrames,
                       float fadeInTension, float fadeOutTension);
+
+    //! Set the fade SHAPES (ScheduledClip::kFadeShape*), SLOPES (kFadeSlope*)
+    //! and -- when `link` >= 0 -- the edit-time crossfade link of the clip at
+    //! editable index; republishes.  Message thread.  Pro Tools ch.32.
+    bool setClipFadeShapes(int index, int inShape, int outShape,
+                           int inSlope, int outSlope, int link = -1);
+
+    //! AutoFades (PT p752): real-time fade-in/out applied at every FREE-STANDING
+    //! region boundary during playback (a boundary carrying a real fade keeps
+    //! that fade alone).  Implemented as a widened edge-declick window, so butt
+    //! joints crossfade over it (the smoothstep halves sum to unity) and it is
+    //! baked into any offline render that goes through process()/mixWindow.
+    //! 0 (default) = only the fixed ~2 ms declick.  Message thread; atomic.
+    void setAutoFadeFrames(int64_t frames);
+    int64_t autoFadeFrames() const { return autoFadeFrames_.load(std::memory_order_acquire); }
 
     //! Update the REGION placement of the clip at editable index: timeline start,
     //! start-offset into the source, and length (frames; length<=0 == to source
@@ -91,7 +116,14 @@ public:
     bool setClipMuted(int index, bool muted);
 
     //! Set the region loop flag (wrap the source to fill `length`).  Republishes.
+    //! Switching looping ON captures the region's CURRENT trimmed source span as
+    //! the loop period (see ScheduledClip::loopLength), so extending the region
+    //! afterwards repeats that span instead of the whole rest of the source.
     bool setClipLoop(int index, bool loop);
+
+    //! Set the loop period explicitly, in SOURCE frames (0 = to the source end).
+    //! Republishes.  Message thread.
+    bool setClipLoopLength(int index, int64_t frames);
 
     //! Clip at editable index (const access to its ScheduledClip fields).
     const ScheduledClip* scheduled(int index) const {
@@ -105,8 +137,13 @@ public:
     void setWarp(const AudioClip* clip, const std::vector<WarpMarker>& markers);
     void clearWarp(const AudioClip* clip);
 
+    //! Declick ramp length in frames (~2 ms at the prepared rate).  Public so a
+    //! test can reproduce the player's own envelope exactly.
+    int64_t declickFrames() const { return declickFrames_; }
+
     //! Current number of scheduled clips (editable list).
     int clipCount() const { return (int)edit_.size(); }
+    int regionIndex(uint64_t id) const;
 
     //! Scheduled clip at editable index (message thread), or a null placement.
     ScheduledClip clipAt(int index) const {
@@ -132,10 +169,12 @@ public:
     //! internal buffer is reset. Message thread only.
     std::shared_ptr<AudioClip> stopRecord(const std::string& name = "recording");
 
-    //! Append `nframes` of stereo audio to the capture buffer when armed.
+    //! Append `nframes` of audio to the capture buffer when armed.
     //! Realtime-safe: no allocation/locks (drops overflow past the reserve).
-    //! `in` is [2][nframes] planar (in[1] may be null for a mono feed).
-    void captureBlock(const float* const* in, int nframes);
+    //! `in` is [numChannels][nframes] planar.  Pass the caller's REAL channel
+    //! count: with numChannels < 2 the left feed is duplicated, and in[1] is
+    //! never dereferenced (reading it on a mono bus walked off the host's array).
+    void captureBlock(const float* const* in, int nframes, int numChannels = 2);
 
     // --- IPluginInstance: lifecycle (message thread) -------------------------
 
@@ -180,35 +219,127 @@ private:
     //! publish it atomically. Message thread only.
     void publishSchedule();
 
+    //! Audio thread: acquire-load the live snapshot AND stamp its slot as in
+    //! use, so publishSchedule() cannot recycle it mid-block.  The stamp goes
+    //! down before the pointer is trusted and is then validated against the
+    //! publish counter (see the implementation); wait-free, bounded retries.
+    ScheduleSnapshot* acquireSnapshot();
+
     PluginDescriptor desc_;
 
     // Editable schedule (message-thread truth); audio thread never reads this.
     std::vector<ScheduledClip> edit_;
+    uint64_t nextRegionId_ = 1;
 
     // Ring-buffered snapshots + the live pointer the audio thread reads.
     ScheduleSnapshot               snapStore_[kSnapshotSlots];
     std::atomic<int>               activeSlot_{0};
     std::atomic<ScheduleSnapshot*> liveSchedule_{nullptr};
+    //! The slot process() is currently walking, so publishSchedule() can avoid
+    //! recycling it out from under the audio thread.
+    std::atomic<ScheduleSnapshot*> readingSnapshot_{nullptr};
+    //! Counts publishes, bumped BEFORE publishSchedule() picks or writes a slot.
+    //! acquireSnapshot() reads it either side of stamping readingSnapshot_ to
+    //! prove no publish overlapped the stamp -- a pointer compare cannot do it,
+    //! the ring is kSnapshotSlots deep so a lap brings the same pointer back.
+    std::atomic<uint64_t>          publishSeq_{0};
 
     // Prepared state.
     double sampleRate_ = 48000.0;
     int    maxBlock_   = 0;
     bool   active_     = false;
+    // DECLICK: every region edge, every loop wrap and the transport stop get a
+    // short smoothstep ramp, exactly as the sampler declicks a voice start/steal.
+    // Derived from the sample rate in prepare(), so it is the same number of
+    // MILLISECONDS at 44.1k and at 192k.
+    int64_t declickFrames_ = 0;
+    //! AutoFade length in frames (0 = off); read by the audio thread each
+    //! block, set from the message thread -- hence atomic.
+    std::atomic<int64_t> autoFadeFrames_{ 0 };
+    // Transport-stop tail: STOP used to clear the buffer to zero mid-waveform.
+    // We keep rendering the timeline for one declick window, ramping out.
+    bool    wasPlaying_ = false;
+    bool    tailArmed_  = false;  // a stop happened; the ramp still owes frames
+    int64_t tailPos_    = 0;   // next timeline sample the tail renders
+    int64_t tailDone_   = 0;   // frames of the ramp already emitted
 
     // Realtime-warp state (pimpl: keeps signalsmith out of this header).  Holds
     // a per-clip {warp map + stretch instance + read cursor}, mutex-guarded.
     struct WarpState;
     std::unique_ptr<WarpState> warp_;
     // Render a warped region into out{L,R} for the block; false = no warp / skip.
+    // `chGain` folds the mix for a mono output bus, matching the raw path.
     bool renderWarped(const ScheduledClip& sc, int64_t winStart, int n,
-                      float* outL, float* outR);
+                      float* outL, float* outR, float chGain);
+
+    // Mix every region of `snap` that overlaps [winStart, winStart+n) into
+    // out{L,R} (which the caller has already cleared).  The whole realtime
+    // render path, shared by normal playback and the transport-stop tail.
+    void mixWindow(ScheduleSnapshot* snap, int64_t winStart, int n,
+                   float* outL, float* outR, float chGain);
+
+    // Lock-free "does this clip have a live warp map?".  The audio thread needs
+    // the answer WITHOUT the warp mutex: on a lost try_lock it must not swap in
+    // raw playback, which is a different pitch and a different timing.  It is
+    // the last resort for a clip that has never rendered a warped block (no
+    // anchor yet, see WarpAnchor); everything else continues from the anchor.
+    bool clipIsWarped(const AudioClip* clip) const;
+
+    // Message thread (under the warp mutex): keep the lock-free registry above
+    // in step with warp_->entries.
+    void publishWarpedClips();
+
+    // Message thread: block until the audio thread has provably left any block
+    // that could still be writing the record buffers, honouring the graph's
+    // keep-alive convention (patch_nodes' two-block generation rule) before
+    // storage the audio thread may hold a pointer into is freed or resized.
+    void awaitRecordGrace();
 
     // Record buffer. cap_[] are pre-reserved on startRecord(); recFrames_ is the
     // published write cursor. recCapacity_ is the reserved frame count so the
     // audio thread can bound its appends without touching the vector's size.
+    // recCh_ are FULLY SIZED by startRecord() and written by index, so the audio
+    // thread never mutates or reads a vector size.  recCapacity_ is atomic
+    // because the audio thread reads it while the message thread re-arms.
+    // Lock-free registry of clips that currently have a warp map, so the audio
+    // thread can tell a warped region from an unwarped one without the mutex.
+    static constexpr int kMaxWarpedClips = kMaxClips;
+    std::atomic<const AudioClip*> warpedClips_[kMaxWarpedClips];
+    std::atomic<int>              warpedCount_{0};
+
+    // LAST-KNOWN WARP MAPPING, one per warped clip.  Written and read ONLY by
+    // the audio thread (renderWarped/renderWarpCached), so it needs no atomics
+    // and no lock: it is the audio thread's own memory of where the warp map
+    // had got to, kept so that a block which loses the warp try_lock can carry
+    // the region on instead of emitting silence.  The anchor is in the map's
+    // LOCAL dst coordinates and carries no region offset, so it stays valid for
+    // every region that shares the clip.
+    struct WarpAnchor {
+        const AudioClip* clip      = nullptr;  // owner (null == unused slot)
+        int64_t          warpedLen = 0;        // dst length of the warp map
+        int64_t          dstAnchor = 0;        // local dst position of the anchor
+        double           srcAnchor = 0.0;      // source frame it maps to
+        double           ratio     = 1.0;      // source frames per dst frame there
+    };
+    WarpAnchor warpAnchors_[kMaxWarpedClips];
+    int        warpAnchorCount_ = 0;
+    // Audio thread: this clip's anchor slot, appended on first use.
+    WarpAnchor* warpAnchor(const AudioClip* clip, bool create);
+    // Audio thread WITHOUT the warp mutex: render one region-block from the
+    // anchor above (a linear continuation of the map).  false = nothing known
+    // about this clip yet, so there is nothing to continue.
+    bool renderWarpCached(const ScheduledClip& sc, int64_t winStart, int n,
+                          float* outL, float* outR, float chGain);
+
+    // Audio-thread liveness, for the record-buffer keep-alive (see
+    // awaitRecordGrace): rtGen_ counts finished blocks, capBusy_ is set for the
+    // duration of a capture so the message thread can wait one out.
+    std::atomic<uint64_t> rtGen_{0};
+    std::atomic<bool>     capBusy_{false};
+
     std::atomic<bool>    recording_{false};
     std::atomic<int64_t> recFrames_{0};
-    int64_t              recCapacity_ = 0;
+    std::atomic<int64_t> recCapacity_{0};
     std::vector<float>   recCh_[2];
 };
 

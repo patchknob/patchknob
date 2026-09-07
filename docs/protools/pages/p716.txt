@@ -1,0 +1,56 @@
+      Timeline Selections to/from Edit                       The Main Counter displays the playback location
+      Selections                                             in the time format for the Main Time Scale. The
+                                                             Sub Counter can be set to any of the other Time
+      When the Timeline and Edit selections are un-
+                                                             Scale formats for another timing reference.
+      linked, you can copy selections between them.
+                                                             The Edit Selection indicators (to the right of the
+      To change the Timeline selection to match the          Main and Sub counters) display the Start and End
+      current Edit selection:
+                                                             times, and Length of the current Edit selection ac-
+         Choose Edit > Selection > Change Timeline to       cording to the Main Timebase.
+          Match Edit.
+                                                             The Main and Sub Counters, as well as the Edit Se-
+            Press Option+Shift+5 (Mac) or Alt+Shift+5        lection indicators, also appear in the Transport
+            (Windows) to change the Timeline selection to    window when it is set to display Counters.
+            match the Edit selection.
+                                                             To navigate with the Edit window Main Counter (or
+      To change the Edit selection to match the current      one of the Edit Selection indicators):
+      Timeline selection:
+                                                             1   Do one of the following:
+         Choose Edit > Selection > Change Edit to Match
+                                                             • Click in one of the counters.
+          Timeline.
+                                                             • Press asterisk (*) on the numeric keypad to high-
+            Press Option+Shift+6 (Mac) or                      light the Main Counter in the Edit window (or
+            Alt+Shift+6 (Windows) to change                    the Main Counter in the Transport window or
+            the Edit selection to match the Time-              Big Counter window, if either are displayed).
+            line selection.
+                                                             2   Type in the new location. Press Period (.) to cy-
+                                                                 cle through to the different time fields.
+      Navigating the Timeline with the
+      Edit Window Counters and                               3   Press Enter to accept the new value and auto-
+      Indicators                                                 matically locate there.
+      The counters and indicators at the top of the Edit
+      window display the current playback location and       Scrolling in a Timebase Ruler
+      Edit selection. These include the Main and Sub
+                                                             You can scroll the contents of the Edit window by
+      Counters, and the Edit Selection Start, End, and
+                                                             dragging in a ruler. While this does not actually up-
+      Length indicators.
+                                                             date the session’s Current Location, it does let you
+      All Edit window counters and indicators (except        conveniently shift the display left or right for the
+      the Sub Counter) let you enter a location in their     sake of finding and editing material.
+      counter display to navigate to a specific time loca-
+                                                             This method of scrolling is especially useful when
+      tion.
+                                                             using the Continuous Scrolling option, which does
+                                                             not update or follow Timeline selections.
+
+
+
+      Main and Sub Counters, Edit Selection indicators
+
+
+
+684   Pro Tools Reference Guide

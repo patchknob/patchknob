@@ -1,0 +1,53 @@
+For information on file and clip naming, see “Au-       TrackPunch Setup
+dio Files, Clips and Takes” on page 603.
+                                                        Before using TrackPunch in a record pass you
+QuickPunch with an Edit Selection                       must configure Pro Tools, session, and track set-
+                                                        tings.
+If you make an Edit selection and use QuickPunch,
+the following rules apply:                              Configuring Pro Tools
+• If the Transport is not online, recording begins
+                                                        To configure Pro Tools:
+  and stops whenever you click the Record button
+  in the Transport—regardless of the selection’s        1   Configure tracks, voicing, and other Track-
+  start or end point.                                       Punch settings as needed (see “Guidelines for
+                                                            Punch Recording” on page 601).
+• If the Transport is online, punch-in/out behavior
+  is controlled by the Online Options setting on        2   Make sure Pro Tools is not recording or playing
+  the Operation Preferences page.                           back (the Transport is stopped).
+  • If you select Record Online at Insertion/
+    Selection, QuickPunch punches in and out            Enabling TrackPunch Mode
+    only within the selection (or in the case of an
+    insertion point, only after the insertion point).   To enable TrackPunch mode:
+
+  • If you select Record Online at Timecode                Do any of the following:
+    Lock, QuickPunch disregards the selection           • Select Options > TrackPunch.
+    and punches in and out whenever you want
+                                                        • Right-click the Record button in the Transport,
+    (after Pro Tools has locked to timecode).
+                                                          and select TrackPunch from the pop-up menu.
+     For information about online playback with         • Control-click (Mac) or Start-click (Windows)
+     Pro Tools, see the User Guide that came with         the Record button in the Transport to cycle
+     your system. For information about synchro-          through available Record modes until Track-
+     nization with TrackPunch and Destructive-            Punch mode is selected (a “T” indicates Track-
+     Punch recording, see “Synchronization and            Punch mode).
+     Track Arming Options for Punch Recording”
+                                                        • Press Command+Shift+T (Mac) or Con-
+     on page 605.
+                                                          trol+Shift+T (Windows).
+
+                                                        Transport Display of TrackPunch Status
+TrackPunch Audio Recording
+(Pro Tools Ultimate Software Only)                                            TrackPunch      Record Enable
+                                                                                enabled       Status indicator
+TrackPunch mode lets you punch tracks in and out
+individually (one at a time) or punch multiple
+tracks in and out simultaneously. TrackPunch is a
+nondestructive punch mode which leaves previous
+                                                                                               Input Status
+material on disk. (To destructively replace audio                                              indicator
+on disk, see “DestructivePunch Audio Recording”         TrackPunch and TrackInput Status indicators in the
+on page 610).                                           Transport window
+
+
+
+                                                                            Chapter 27: Punch Recording Modes    607

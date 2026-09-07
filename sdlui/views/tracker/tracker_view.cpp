@@ -15,6 +15,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>       // memcpy (FX blob serialise)
+#include <set>
 
 namespace ui {
 
@@ -56,8 +57,13 @@ std::string compact_label( const std::string& name, const char* fallback )
     return clip_chars( out, 4 );
 }
 
+// Every value divides c_ppqn (768 = 2^8*3) EXACTLY, so a row always lands on a
+// whole tick and rows never drift against the beat.  The 2^8 factor is what
+// makes 128/256 possible at all; the 3 keeps the triplet grids exact.
+//   768/256 == 3 ticks per row -- the finest entry grid the sequencer can express
+//   without going sub-tick.
 static const int k_lpb_values[] =
-    { 1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64 };
+    { 1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64, 96, 128, 192, 256, 384, 768 };
 
 int lpb_index( int lpb )
 {
@@ -78,6 +84,7 @@ TrackerView::TrackerView( sequence* seq, int track )
     m_track = track;
 
     m_rows_per_beat = 4;
+    m_secondary_highlight = 4;
     m_num_tracks    = 1;
     m_fx_cols       = 2;
 
@@ -137,6 +144,8 @@ TrackerView::reset_fx_defaults()
     // count from the pattern just viewed (deserialize_fx returns early on an empty
     // blob, so without this the count bleeds and gets committed into the new pattern).
     m_fx_cols = 2;
+    m_num_tracks = 1;
+    m_secondary_highlight = 4;
     m_fx_bind.assign( 8, std::vector<FxBinding>() );
     m_fx_vst.assign( 8, std::vector<std::map<int,int> >() );
     for ( int t = 0; t < 8; ++t )
@@ -183,7 +192,14 @@ TrackerView::serialize_fx() const
 {
     std::string b;
     blob_u8( b, (unsigned)m_fx_cols );
-    const int maxRow = pattern_lines();
+    //  NOT BOUNDED BY THE PATTERN LENGTH.  This filter was a row count at the
+    //  current LPB, then the length in ticks; both DELETED automation on save.
+    //  Shortening a pattern is a reversible edit now -- sequence::set_length
+    //  hides notes past the new end instead of pruning them, and the note-lane
+    //  and note-off trailers below have never been range-filtered -- so an FX
+    //  value out past the END must survive the round trip exactly the same way
+    //  and come back when the pattern grows again.  Only garbage (a negative
+    //  key) is dropped.
     for ( int t = 0; t < 8; ++t )
     {
         for ( int fi = 0; fi < m_fx_cols; ++fi )
@@ -194,12 +210,12 @@ TrackerView::serialize_fx() const
             blob_i32( b, bd.node );   blob_i32( b, bd.module );
             blob_f32( b, bd.min_value ); blob_f32( b, bd.max_value );
             blob_str( b, bd.label );  blob_str( b, bd.name );
-            // value map (rows in range only)
+            // value map, keyed by TICK (see the FXTK trailer for the version tag)
             std::string vv; unsigned cnt = 0;
             if ( fi < (int)m_fx_vst[t].size() )
                 for ( std::map<int,int>::const_iterator it = m_fx_vst[t][fi].begin();
                       it != m_fx_vst[t][fi].end(); ++it )
-                    if ( it->first >= 0 && it->first < maxRow )
+                    if ( it->first >= 0 )
                         { blob_i32( vv, it->first ); blob_i32( vv, it->second ); ++cnt; }
             blob_u32( b, cnt ); b += vv;
         }
@@ -228,6 +244,24 @@ TrackerView::serialize_fx() const
         blob_i32( b, (int)it->second.tick );
         blob_i32( b, it->second.track );
     }
+    // The number of visible/open note columns is pattern state too.  Lane tags
+    // above can hint at a minimum, but empty columns are intentional workspace
+    // and must survive save/load as well.
+    blob_u8( b, (unsigned)m_num_tracks );
+    blob_u8( b, (unsigned)m_secondary_highlight );
+    // --- FXTK trailer -------------------------------------------------------
+    // Marks the FX value maps above as TICK-keyed and records the LPB the
+    // pattern was last edited at.
+    //
+    // Both halves are load-bearing.  Without the tag, a blob written before this
+    // change (keys = ROW INDEX at some unknown LPB) is indistinguishable from a
+    // new one, and every value would be re-read at the wrong musical position.
+    // Without the LPB, reload would fall back to the default 4 and re-interpret
+    // a pattern authored at, say, 32 -- which is the same corruption by a
+    // different route.  LPB is a VIEW setting, but it is pattern state.
+    blob_u32( b, 0x4B54584Bu );          // "FXTK"
+    blob_u32( b, 1u );                   // FXTK version
+    blob_u32( b, (unsigned)m_rows_per_beat );
     return b;
 }
 
@@ -287,13 +321,152 @@ TrackerView::deserialize_fx( const std::string& blob )
                         ExplicitNoteOff{ otick, otrk };
             }
         }
+        if ( r.ok && r.pos < r.n )
+        {
+            const int noteCols = (int)r.u8();
+            if ( noteCols >= 1 && noteCols <= 8 ) m_num_tracks = noteCols;
+            if (r.ok && r.pos < r.n) {
+                const int hi=(int)r.u8();
+                if(hi>=1 && hi<=64)m_secondary_highlight=hi;
+            }
+        }
     }
+
+    // --- FXTK: are the FX keys TICKS (new) or ROW INDICES (old)? -------------
+    // The tag sits at the very end, after the values it describes, so the keys
+    // above were read raw and are reinterpreted here.
+    bool fxKeysAreTicks = false;
+    if ( r.ok && r.pos + 12 <= r.n )
+    {
+        const size_t save = r.pos;
+        if ( r.u32() == 0x4B54584Bu )        // "FXTK"
+        {
+            const unsigned fxtkVer = r.u32();
+            const int lpb = (int)r.u32();
+            if ( r.ok && fxtkVer >= 1 )
+            {
+                fxKeysAreTicks = true;
+                // LPB is pattern state: restoring it is what stops a pattern
+                // authored at a fine grid from being re-read at the default 4.
+                if ( lpb_index( lpb ) >= 0 ) m_rows_per_beat = lpb;
+            }
+            else r.pos = save;
+        }
+        else r.pos = save;
+    }
+    if ( !fxKeysAreTicks )
+    {
+        // Legacy blob: keys are row indices. Convert to ticks so they stop
+        // moving when the LPB changes.  The old format never recorded the LPB
+        // they were entered at, so the historical default (4) is the only
+        // available assumption -- patterns authored at another LPB land on the
+        // wrong ticks, which is unavoidable and strictly better than the old
+        // behaviour, where they were deleted outright on the next save.
+        const int legacyLpb = 4;
+        const long per = ( c_ppqn / legacyLpb ) > 0 ? ( c_ppqn / legacyLpb ) : 1;
+        for ( int t = 0; t < 8; ++t )
+            for ( int f = 0; f < (int)m_fx_vst[t].size(); ++f )
+            {
+                std::map<int,int> ticked;
+                for ( std::map<int,int>::const_iterator it = m_fx_vst[t][f].begin();
+                      it != m_fx_vst[t][f].end(); ++it )
+                    ticked[ (int)( (long)it->first * per ) ] = it->second;
+                m_fx_vst[t][f].swap( ticked );
+            }
+    }
+
+    // Project v9 also stores a column tag directly on each note-on. Rebuild
+    // the view map from that authoritative data when the blob is absent/old,
+    // and merge missing entries when a partially written trailer exists.
+    if ( m_seq )
+    {
+        std::vector<sequence::EventSnapshot> evs;
+        m_seq->snapshot_events( evs );
+        std::map< std::pair<long,int>, int > occurrences;
+        int highest = -1;
+        for ( const sequence::EventSnapshot& ev : evs )
+        {
+            if ( (ev.status & 0xF0) != EVENT_NOTE_ON || ev.d1 == 0 ) continue;
+            const int occurrence = occurrences[std::make_pair(ev.tick,(int)ev.d0)]++;
+            if ( ev.column < 0 || ev.column >= 8 ) continue;
+            const NoteKey key = note_key( ev.tick, (int)ev.d0, occurrence );
+            if ( m_note_lanes.find(key) == m_note_lanes.end() ) m_note_lanes[key]=ev.column;
+            highest=std::max(highest,ev.column);
+        }
+        if ( highest >= 0 ) m_num_tracks=std::max(m_num_tracks,highest+1);
+    }
+    publish_sampler_note_columns();
+}
+
+void
+TrackerView::publish_sampler_note_columns()
+{
+    if (!m_seq) return;
+    std::set<int> samplerNodes;
+    for (const std::vector<FxBinding>& lane : m_fx_bind)
+        for (const FxBinding& b : lane)
+            if (b.type == FX_VST_PARAM &&
+                b.target == FX_TARGET_PATCH_PLUGIN_PARAM && b.node >= 0)
+                samplerNodes.insert(b.node);
+    if (samplerNodes.empty()) return;
+
+    // DELIBERATELY NO LONGER STAMPS ANYTHING.
+    //
+    // This used to walk every note-on in the pattern and push (pitch -> column)
+    // into the sampler's 128-entry table.  That table is keyed by PITCH, so the
+    // walk was last-writer-wins: a C-4 in column 0 and a C-4 in column 3 both
+    // ended up tagged with whichever the loop happened to visit last.  The
+    // sampler allocates one voice per column, so the two notes then collapsed
+    // onto a SINGLE voice and cut each other off, and note-offs released
+    // whichever voice matched the pitch first -- the wrong one.
+    //
+    // The column now rides on the MIDI event itself (MidiEvent::column, stamped
+    // in mastermidibus::play from the event's own tag), which identifies the
+    // voice exactly and needs no side table.  Keeping this walk would actively
+    // corrupt the fallback path used by untagged live input.
+    (void)samplerNodes;
 }
 
 // Flush the current view FX state back into the sequence it belongs to.
 void
+TrackerView::apply_note_columns()
+{
+    if ( !m_seq )
+        return;
+    m_seq->clear_event_columns();
+
+    const long len = m_seq->get_length();
+    const long per = ticks_per_row();
+    if ( per < 1 || len < 1 )
+        return;
+    const int rows = (int) ( ( len + per - 1 ) / per );
+
+    std::vector<NoteCell> nl;
+    for ( int row = 0; row < rows; ++row )
+    {
+        collect_row_notes( row, nl );          // resolves lanes exactly as drawn
+        for ( int lane = 0; lane < (int) nl.size(); ++lane )
+        {
+            const NoteCell& nc = nl[lane];
+            if ( nc.note < 0 )
+                continue;
+            m_seq->set_event_column( nc.ts, nc.note, nc.occurrence, lane );
+        }
+    }
+
+    // With the columns known, make the DATA obey them: within a column a note
+    // is cut -- or given the note-off it never had -- one max-LPB step before
+    // the next note starts.  That step is the finest the grid can express, so
+    // the release always lands on its own row and the retrigger never depends
+    // on which of two events sharing a tick is emitted first.
+    m_seq->enforce_column_gaps( c_ppqn / k_lpb_values[
+        ( sizeof( k_lpb_values ) / sizeof( k_lpb_values[0] ) ) - 1 ] );
+}
+
+void
 TrackerView::commit_fx()
 {
+    apply_note_columns();
     if ( m_seq ) m_seq->set_fx_blob( serialize_fx() );
 }
 
@@ -336,9 +509,105 @@ TrackerView::num_rows( void ) const
 {
     if ( !m_seq )
         return 1;
-    int rows = m_seq->get_length() / ticks_per_row();
+    //  CEIL, exactly as apply_note_columns() does.  These two disagreed while
+    //  every pattern length was a whole number of rows; the piano roll's END
+    //  marker is draggable now, so an arbitrary snapped length is reachable and
+    //  the disagreement became visible: flooring here hid the final PARTIAL row
+    //  (its notes could not be seen, moved or deleted) while apply_note_columns
+    //  kept reading and writing it.  A row the grid refuses to show but the
+    //  commit path still edits is the worst of both, so show it.
+    const long per = ticks_per_row();
+    int rows = (int) ( ( m_seq->get_length() + per - 1 ) / per );
     if ( rows < 1 ) rows = 1;
     return rows;
+}
+
+//  Row span of the pattern's own loop window (sequence::get_loop_start/end),
+//  the grey band the piano roll's ruler draws.  Returns false when there is
+//  nothing to show -- no sequence, or the default "spans the whole pattern"
+//  state, which means "no loop set" (see sequence::m_loop_start's comment).
+//
+//  START FLOORS, END CEILS.  Both used to floor, which lost a loop end that
+//  did not land on a row boundary and -- for any window shorter than one row --
+//  collapsed the span to nothing, so the guard `end > start` suppressed the
+//  highlight entirely and a loop the user had definitely set looked unset.
+//  Ceiling the end makes the wash cover every row the window touches, which is
+//  the honest rendering at this grid resolution.
+bool
+TrackerView::loop_row_span( int* first_row, int* end_row ) const
+{
+    if ( !m_seq )
+        return false;
+    const long ls = m_seq->get_loop_start();
+    const long le = m_seq->get_loop_end();
+    // same "is a window set" test the engine uses (sequence::play_span)
+    if ( !( ( ls > 0 || le < m_seq->get_length() ) && le > ls ) )
+        return false;
+    const long per = ticks_per_row();
+    int f = (int) ( ls / per );
+    int e = (int) ( ( le + per - 1 ) / per );
+    if ( e <= f ) e = f + 1;            // sub-row window: still one whole row
+    if ( first_row ) *first_row = f;
+    if ( end_row   ) *end_row   = e;
+    return true;
+}
+
+//  LOOP EDITING.  The tracker had none at all: the loop window could only be
+//  set from the piano roll's ruler, and this view drew a highlight for a state
+//  it could neither change nor even report.  These three are the same edits the
+//  piano roll offers (its LOOP/1-SHOT chip, its ruler marquee, clearing it),
+//  reached here from Shift+L, the header chip and the context menu.
+void
+TrackerView::toggle_loop_enabled( void )
+{
+    if ( !m_seq )
+        return;
+    m_seq->set_loop_enabled( !m_seq->get_loop_enabled() );   // set_dirty()s itself
+}
+
+void
+TrackerView::set_loop_from_selection( void )
+{
+    if ( !m_seq )
+        return;
+    const long per = ticks_per_row();
+    int r0 = m_sel_active ? m_sel_row0 : m_cursor_row;
+    int r1 = m_sel_active ? m_sel_row1 : m_cursor_row;   // inclusive
+    if ( r1 < r0 ) { int t = r0; r0 = r1; r1 = t; }
+    if ( r0 < 0 ) r0 = 0;
+    long ns = (long) r0 * per;
+    long ne = (long) ( r1 + 1 ) * per;                   // exclusive
+    const long L = m_seq->get_length();
+    if ( ne > L ) ne = L;                                // never past the END marker
+    if ( ns >= ne ) ns = ne > per ? ne - per : 0;
+
+    //  ORDER MATTERS: each setter clamps against the CURRENT value of the other
+    //  (set_loop_start against loop_end, set_loop_end against loop_start), so
+    //  the bound that has to MOVE OUT OF THE WAY must be written first or the
+    //  stale one truncates the new window.
+    if ( ns >= m_seq->get_loop_end() )
+    {
+        m_seq->set_loop_end( ne );
+        m_seq->set_loop_start( ns );
+    }
+    else
+    {
+        m_seq->set_loop_start( ns );
+        m_seq->set_loop_end( ne );
+    }
+    m_seq->set_dirty();                 // the setters do not; repaint every view
+}
+
+void
+TrackerView::clear_loop_window( void )
+{
+    if ( !m_seq )
+        return;
+    // "No loop set" is start 0 / end == length, NOT a zero-width window (see
+    // sequence::m_loop_start).  End first: set_loop_start clamps against it.
+    m_seq->set_loop_end( m_seq->get_length() );
+    m_seq->set_loop_start( 0 );
+    m_seq->set_dirty();
 }
 
 int
@@ -365,37 +634,24 @@ TrackerView::set_pattern_lines( int lines )
     const long new_length = (long) lines * ticks_per_row();
     if ( new_length == m_seq->get_length() )
         return;
-    const long old_length = m_seq->get_length();
     m_seq->set_length( new_length, false );
-    if ( new_length < old_length )
-    {
-        for ( std::map< NoteKey, ExplicitNoteOff >::iterator it = m_explicit_note_offs.begin();
-              it != m_explicit_note_offs.end(); )
-        {
-            if ( it->first.ts >= new_length || it->second.tick >= new_length )
-                m_explicit_note_offs.erase( it++ );
-            else
-                ++it;
-        }
-        for ( std::map< NoteKey, int >::iterator it = m_note_lanes.begin();
-              it != m_note_lanes.end(); )
-        {
-            if ( it->first.ts >= new_length )
-                m_note_lanes.erase( it++ );
-            else
-                ++it;
-        }
-        for ( int t = 0; t < m_num_tracks; ++t )
-            for ( int f = 0; f < (int)m_fx_vst[t].size(); ++f )
-                for ( std::map<int,int>::iterator it = m_fx_vst[t][f].begin();
-                      it != m_fx_vst[t][f].end(); )
-                {
-                    if ( it->first >= lines )
-                        m_fx_vst[t][f].erase( it++ );
-                    else
-                        ++it;
-                }
-    }
+
+    //  HIDE, DO NOT DESTROY -- the same policy sequence::set_length now follows
+    //  for the notes themselves.  Shrinking used to delete every lane
+    //  assignment, explicit note-off and FX-automation cell past the new end,
+    //  so typing a smaller number into LINES and immediately typing the old one
+    //  back came back with the notes (the engine keeps them) stripped of their
+    //  columns, their OFFs and all their automation.  A LENGTH change must not
+    //  be a destructive edit in either direction: everything out of range is
+    //  simply not drawn (num_rows bounds the grid) and not committed
+    //  (apply_note_columns walks the same rows), and returns intact when the
+    //  pattern grows back.
+    //
+    //  The pattern's LOOP window needs no fixing up here either: set_length
+    //  keeps an explicitly placed window and only repairs a degenerate
+    //  ordering, and loop_row_span()/the wash clamp what they draw to the rows
+    //  that exist, so a window left reaching past a shortened pattern reappears
+    //  whole when the length comes back.
     m_seq->set_dirty();
     if ( m_cursor_row >= lines )
         m_cursor_row = lines - 1;
@@ -417,7 +673,12 @@ TrackerView::begin_lines_edit( App& app )
             {
                 char* end = nullptr;
                 long value = std::strtol( m_lines_edit.c_str(), &end, 10 );
-                if ( end != m_lines_edit.c_str() )
+                //  A no-op commit must stay a no-op.  num_rows() CEILS now, so
+                //  a pattern whose length is not a whole number of rows shows
+                //  (say) 17 for 16.5 rows -- and re-committing that 17 would
+                //  quietly ROUND THE PATTERN UP, moving the END marker the user
+                //  set in the piano roll just because they pressed Enter.
+                if ( end != m_lines_edit.c_str() && (int) value != pattern_lines() )
                     set_pattern_lines( (int) value );
             }
             sync_lines_edit();
@@ -470,7 +731,6 @@ TrackerView::collect_row_notes( int row, std::vector<NoteCell>& out )
     out.assign( m_num_tracks, empty );
 
     long ts = row_start_tick( row );
-    long tf = ts + ticks_per_row();
 
     long tick_s, tick_f;
     int  note, vel;
@@ -483,7 +743,12 @@ TrackerView::collect_row_notes( int row, std::vector<NoteCell>& out )
                                         &selected, &vel ) != DRAW_FIN )
     {
         int occurrence = occurrences[ std::make_pair( tick_s, note ) ]++;
-        if ( tick_s >= ts && tick_s < tf )
+        // EXACT tick only.  Showing everything inside the row's span meant a
+        // note entered at a finer LPB appeared to belong to the coarse row --
+        // and editing that row then destroyed it.  Off-grid notes are hidden
+        // at this resolution instead (see row_has_hidden_notes) and come back
+        // untouched when the LPB is fine enough to address them again.
+        if ( tick_s == ts )
         {
             NoteCell nc;
             nc.note = note;
@@ -563,6 +828,25 @@ TrackerView::collect_row_note_offs( int row, std::vector<NoteCell>& out )
             }
         }
     }
+}
+
+bool
+TrackerView::row_has_hidden_notes( int row ) const
+{
+    if ( !m_seq )
+        return false;
+    const long ts = row_start_tick( row );
+    const long tf = ts + ticks_per_row();
+
+    long tick_s, tick_f;
+    int  note, vel;
+    bool selected;
+    m_seq->reset_draw_marker();
+    while ( m_seq->get_next_note_event( &tick_s, &tick_f, &note,
+                                        &selected, &vel ) != DRAW_FIN )
+        if ( tick_s > ts && tick_s < tf )       // inside the row, not ON it
+            return true;
+    return false;
 }
 
 bool
@@ -663,6 +947,14 @@ TrackerView::set_note_lane( long ts, int note, int occurrence, int track )
     if ( track < 0 || track >= m_num_tracks )
         return;
     m_note_lanes[ note_key( ts, note, occurrence ) ] = track;
+    // Keep live audition/playback column-local immediately; commit_fx() later
+    // writes the same assignment into the event itself for persistence.
+    for (const std::vector<FxBinding>& lane : m_fx_bind)
+        for (const FxBinding& b : lane)
+            if (b.type == FX_VST_PARAM &&
+               b.target == FX_TARGET_PATCH_PLUGIN_PARAM && b.node >= 0)
+                PatchKnob::app::audio_app_patch_sampler_set_note_column(
+                    b.node, note, track);
 }
 
 void
@@ -851,6 +1143,7 @@ TrackerView::set_note_at_cell( int note )
                        m_cursor_track );
 
     m_seq->verify_and_link();
+    apply_note_columns();          // re-stamp columns + insert the auto note-offs
     m_seq->set_dirty();
 }
 
@@ -989,7 +1282,7 @@ TrackerView::read_fx_value( int row, int track, int fi, int* val )
 
     FxBinding& b = m_fx_bind[track][fi];
     std::map<int,int>& mp = m_fx_vst[track][fi];
-    std::map<int,int>::iterator it = mp.find( row );
+    std::map<int,int>::iterator it = mp.find( (int)row_start_tick( row ) );
     if ( it != mp.end() )
     {
         if ( val ) *val = clamp_int( it->second, 0, 0xffff );
@@ -1014,7 +1307,10 @@ TrackerView::read_fx_value( int row, int track, int fi, int* val )
 // (play_pattern_fx) and the view both use it identically.
 static void route_binding( const FxBinding& binding, int track, int val, int column )
 {
-    if ( binding.type != FX_VST_PARAM || !PatchKnob::app::audio_app_running() )
+    // Offline freeze deliberately stops the device stream and manually pumps
+    // audio blocks. Parameter routing remains valid in that state and is
+    // consumed by the next pumped block.
+    if ( binding.type != FX_VST_PARAM )
         return;
     val = clamp_int( val, 0, 0xffff );
     float norm = (float) val / 65535.0f;
@@ -1056,18 +1352,49 @@ TrackerView::route_fx_value( const FxBinding& binding, int track, int val, int c
 // window is closed/unfocused, and FX not playing for other patterns on the track.
 // (CC-bound FX columns are already real events in the sequence and play themselves.)
 void
-TrackerView::play_pattern_fx( sequence* s, int lastRow, int curRow, int nrows )
+TrackerView::play_pattern_fx( sequence* s, long long lastTick, long long curTick )
 {
-    if ( !s || nrows < 1 || !PatchKnob::app::audio_app_running() )
+    if ( !s )
         return;
     const std::string blob = s->get_fx_blob();
     if ( blob.empty() )
         return;
+
+    // ---- parsed-blob CACHE --------------------------------------------------
+    // This function runs once per active pattern per FRAME.  Re-parsing the blob
+    // each time meant rebuilding 8 x cols FxBindings -- two std::string
+    // allocations apiece -- plus 8 x cols std::maps, thousands of allocations
+    // per frame, on the same thread that paces playback.  That is a jitter
+    // source in its own right, and it gets worse the more automation exists.
+    // The blob is immutable between commits, so it doubles as the cache key.
+    struct ParsedFx {
+        std::string blobKey;
+        int  cols = 0;
+        bool tickKeyed = false;
+        std::vector< std::vector<FxBinding> >           bind;
+        std::vector< std::vector< std::map<int,int> > > vals;
+    };
+    static std::map<sequence*, ParsedFx> s_parsed;   // main thread only
+    ParsedFx& pf = s_parsed[s];
+    const bool reparse = ( pf.blobKey != blob );
+
+    if ( reparse )
+    {
+    pf.blobKey = blob;
+    // FXTK is written last and is exactly 12 bytes, so the tail tells us whether
+    // the value maps are tick-keyed without re-walking the whole blob.
+    bool tickKeyed = false;
+    if ( blob.size() >= 12 )
+    {
+        const unsigned char* e = (const unsigned char*)blob.data() + blob.size() - 12;
+        const unsigned magic = (unsigned)e[0] | ((unsigned)e[1] << 8) |
+                               ((unsigned)e[2] << 16) | ((unsigned)e[3] << 24);
+        tickKeyed = ( magic == 0x4B54584Bu );
+    }
     BlobR r( blob );
     int cols = (int) r.u8();
     if ( !r.ok || cols < 1 || cols > 16 )
-        return;
-    const int vstTrack = s->get_midi_bus();
+        { pf.cols = 0; return; }
     std::vector< std::vector<FxBinding> >          bind( 8 );
     std::vector< std::vector< std::map<int,int> > > vals( 8 );
     for ( int t = 0; t < 8; ++t )
@@ -1088,42 +1415,71 @@ TrackerView::play_pattern_fx( sequence* s, int lastRow, int curRow, int nrows )
         }
     }
     if ( !r.ok )
-        return;
-    // Tag the instrument's note-columns from the persisted lane trailer so that
-    // per-column FX (above) targets the voices those notes trigger.  The FX target
-    // node IS the track's instrument; harmless (no-op) for non-sampler plugins.
+        { pf.cols = 0; return; }
+    // Legacy blobs key their values by ROW INDEX at the old default LPB 4.
+    // Convert to ticks so one code path below serves both.
+    if ( !tickKeyed )
     {
-        int samplerNode = -1;
-        for ( int t = 0; t < 8 && samplerNode < 0; ++t )
+        const long per = ( c_ppqn / 4 ) > 0 ? ( c_ppqn / 4 ) : 1;
+        for ( int t = 0; t < 8; ++t )
             for ( int fi = 0; fi < cols; ++fi )
-                if ( bind[t][fi].type == FX_VST_PARAM &&
-                     bind[t][fi].target == FX_TARGET_PATCH_PLUGIN_PARAM )
-                    { samplerNode = bind[t][fi].node; break; }
-        if ( samplerNode >= 0 && r.pos < r.n )
-        {
-            unsigned lc = r.u32();
-            for ( unsigned k = 0; k < lc && r.ok; ++k )
             {
-                long ts = (long) r.i32(); int nt = r.i32(); int oc = r.i32(); int ln = r.i32();
-                (void) ts; (void) oc;
-                if ( r.ok )
-                    PatchKnob::app::audio_app_patch_sampler_set_note_column( samplerNode, nt, ln );
+                std::map<int,int> ticked;
+                for ( std::map<int,int>::const_iterator it = vals[t][fi].begin();
+                      it != vals[t][fi].end(); ++it )
+                    ticked[ (int)( (long)it->first * per ) ] = it->second;
+                vals[t][fi].swap( ticked );
             }
-        }
     }
-    auto fireRow = [&]( int row )
+    pf.cols = cols;
+    pf.tickKeyed = tickKeyed;
+    pf.bind.swap( bind );
+    pf.vals.swap( vals );
+    }   // end reparse
+
+    if ( pf.cols < 1 )
+        return;
+    const int vstTrack = s->get_midi_bus();
+    const int cols = pf.cols;
+    const std::vector< std::vector<FxBinding> >&           bind = pf.bind;
+    const std::vector< std::vector< std::map<int,int> > >& vals = pf.vals;
+
+    // Fire every value whose TICK lies in the half-open span (from, to].
+    // Tick-driven, not row-driven: the callers used to quantise the playhead to
+    // a hardcoded LPB-4 row grid, so at any finer LPB most values were never
+    // dispatched at all -- the automation was stored correctly and then simply
+    // not played.  A span also cannot skip values when the caller is late,
+    // which the old `while (rr != curRow)` row walk did on every frame hitch.
+    auto fireSpan = [&]( long long from, long long to )
     {
+        if ( to < from ) return;
         for ( int t = 0; t < 8; ++t )
             for ( int fi = 0; fi < cols; ++fi )
             {
                 if ( bind[t][fi].type != FX_VST_PARAM ) continue;
-                std::map<int,int>::iterator it = vals[t][fi].find( row );
-                if ( it != vals[t][fi].end() ) route_binding( bind[t][fi], vstTrack, it->second, t );
+                // upper_bound + early break: O(log n + hits), NOT a full scan.
+                // This runs for every active pattern on every frame, so a linear
+                // walk here costs more the finer the LPB -- i.e. exactly when
+                // there is the most data -- and shows up as playback jitter.
+                const std::map<int,int>& mp = vals[t][fi];
+                for ( std::map<int,int>::const_iterator it =
+                          mp.upper_bound( (int)from );
+                      it != mp.end() && (long long)it->first <= to; ++it )
+                    route_binding( bind[t][fi], vstTrack, it->second, t );
             }
     };
-    if ( lastRow < 0 ) { fireRow( ( ( curRow % nrows ) + nrows ) % nrows ); return; }
-    int rr = lastRow, guard = 0;
-    while ( rr != curRow && ++guard <= nrows ) { rr = ( rr + 1 ) % nrows; fireRow( rr ); }
+
+    const long long len = s->get_length() > 0 ? (long long)s->get_length() : 1;
+    long long cur = ( ( curTick % len ) + len ) % len;
+    if ( lastTick < 0 )
+    {
+        // Entering the pattern: apply whatever sits exactly on this tick.
+        fireSpan( cur - 1, cur );
+        return;
+    }
+    long long last = ( ( lastTick % len ) + len ) % len;
+    if ( cur >= last ) fireSpan( last, cur );
+    else { fireSpan( last, len - 1 ); fireSpan( -1, cur ); }   // wrapped the pattern
 }
 
 void
@@ -1154,7 +1510,8 @@ TrackerView::set_fx_value_at( int row, int track, int fi, int val, bool push_und
     {
         if ( push_undo )
             m_seq->push_undo();
-        m_fx_vst[track][fi][row] = val;   // shadow VST-param values (no host event)
+        // keyed by TICK, so the value stays put when the LPB changes
+        m_fx_vst[track][fi][(int)row_start_tick( row )] = val;
         route_fx_value( b, vst_track(), val, track );   // `track` is the note-column
         m_seq->set_dirty();
     }
@@ -1184,12 +1541,12 @@ TrackerView::clear_fx_cell( void )
     {
         m_seq->push_undo();
         remove_cc_at( row_start_tick( m_cursor_row ), b.cc );
-        m_fx_vst[m_cursor_track][fi].erase( m_cursor_row );
+        m_fx_vst[m_cursor_track][fi].erase( (int)row_start_tick( m_cursor_row ) );
     }
     else if ( b.type == FX_VST_PARAM )
     {
         m_seq->push_undo();
-        m_fx_vst[m_cursor_track][fi].erase( m_cursor_row );
+        m_fx_vst[m_cursor_track][fi].erase( (int)row_start_tick( m_cursor_row ) );
         m_seq->set_dirty();
     }
 }
@@ -1211,7 +1568,7 @@ TrackerView::fire_fx_row( int row )
             if ( b.type != FX_VST_PARAM )
                 continue;
             std::map<int,int>& mp = m_fx_vst[t][f];
-            std::map<int,int>::iterator it = mp.find( row );
+            std::map<int,int>::iterator it = mp.find( (int)row_start_tick( row ) );
             if ( it != mp.end() )
                 route_fx_value( b, track, it->second, t );   // `t` is the note-column
         }
@@ -1286,6 +1643,7 @@ TrackerView::bind_fx_target( const FxBinding& binding )
     }
     m_fx_vst[m_cursor_track][fi].clear();
     m_fx_bind[m_cursor_track][fi] = b;
+    publish_sampler_note_columns();
 }
 
 std::string
@@ -1402,6 +1760,9 @@ TrackerView::hdr_button_at( int px, int py ) const
     if ( in( m_btn_lpb_plus   ) ) return HDR_LPB_PLUS;
     if ( in( m_btn_oct_minus  ) ) return HDR_OCT_MINUS;
     if ( in( m_btn_oct_plus   ) ) return HDR_OCT_PLUS;
+    if ( in( m_btn_hilite_minus ) ) return HDR_HILITE_MINUS;
+    if ( in( m_btn_hilite_plus  ) ) return HDR_HILITE_PLUS;
+    if ( in( m_btn_loop         ) ) return HDR_LOOP;
     return HDR_NONE;
 }
 
@@ -1418,15 +1779,29 @@ TrackerView::ensure_cursor_visible( App& app )
 }
 
 void
-TrackerView::move_cursor( App& app, int drow, int dcol )
+TrackerView::move_cursor( App& app, int drow, int dcol, bool wrap )
 {
     if ( dcol != 0 )
     {
         int total = total_subcols();
         int maxg  = m_num_tracks * total;
         int gc    = m_cursor_track * total + m_cursor_col + dcol;
-        while ( gc < 0 )     gc += maxg;
-        while ( gc >= maxg ) gc -= maxg;
+        if ( wrap )
+        {
+            while ( gc < 0 )     gc += maxg;
+            while ( gc >= maxg ) gc -= maxg;
+        }
+        else
+        {
+            //  Extending a SELECTION must stop at the ends.  Wrapping sent the
+            //  cursor from the first sub-column of track 0 to the LAST
+            //  sub-column of the last track, and the selection rectangle --
+            //  min/max of anchor and cursor -- instantly covered every track and
+            //  every column.  One Shift+Left at the left edge and the block you
+            //  were building was the whole pattern width.
+            if ( gc < 0 )      gc = 0;
+            if ( gc >= maxg )  gc = maxg - 1;
+        }
         m_cursor_track = gc / total;
         m_cursor_col   = gc % total;
     }
@@ -1435,6 +1810,7 @@ TrackerView::move_cursor( App& app, int drow, int dcol )
     if ( m_cursor_row < 0 ) m_cursor_row = 0;
     if ( m_cursor_row >= num_rows() ) m_cursor_row = num_rows() - 1;
 
+    reset_fx_typing();               // leaving the cell abandons a partial entry
     ensure_cursor_visible( app );
     app.request_redraw();
 }
@@ -1453,6 +1829,14 @@ TrackerView::set_lines_per_beat( int lpb )
 }
 
 void
+TrackerView::set_secondary_highlight( int rows )
+{
+    if(rows<1)rows=1;if(rows>64)rows=64;
+    m_secondary_highlight=rows;
+    commit_fx();
+}
+
+void
 TrackerView::set_rows_per_beat( int rpb )
 {
     set_lines_per_beat( rpb );
@@ -1468,6 +1852,9 @@ TrackerView::set_num_note_cols( int n )
         m_cursor_track = m_num_tracks - 1;
     if ( m_sel_track >= m_num_tracks || m_sel_track1 >= m_num_tracks )
         m_sel_active = false;
+    // Persist immediately. Saving normally commits the visible editor too, but
+    // this also covers switching/closing windows directly after resizing.
+    if ( m_seq ) m_seq->set_fx_blob( serialize_fx() );
 }
 
 void
@@ -1712,6 +2099,7 @@ TrackerView::paste_at_cursor( void )
         m_cursor_track = old_track;
         m_cursor_col = old_col;
         m_seq->verify_and_link();
+        apply_note_columns();   // pasted notes join their column and get offs
         m_seq->set_dirty();
         return;
     }
@@ -2024,7 +2412,7 @@ TrackerView::clear_selection_cells( bool push_undo )
                     FxBinding& b = m_fx_bind[t][fi];
                     if ( b.type == FX_MIDI_CC )
                         remove_cc_at( row_start_tick( r ), b.cc );
-                    m_fx_vst[t][fi].erase( r );
+                    m_fx_vst[t][fi].erase( (int)row_start_tick( r ) );
                 }
     }
 
@@ -2261,7 +2649,7 @@ TrackerView::clear_row( void )
             if ( b.type == FX_MIDI_CC )
                 remove_cc_at( ts, b.cc );
             else if ( b.type == FX_VST_PARAM )
-                m_fx_vst[t][f].erase( m_cursor_row );
+                m_fx_vst[t][f].erase( (int)row_start_tick( m_cursor_row ) );
         }
     m_seq->verify_and_link();
     m_seq->set_dirty();
@@ -2363,15 +2751,20 @@ TrackerView::insert_row( void )
     for ( int t = 0; t < m_num_tracks; ++t )
         for ( int f = 0; f < m_fx_cols; ++f )
         {
+            // keys are TICKS: inserting a row pushes everything at or after the
+            // cursor down by ONE ROW's worth of ticks
+            const long per       = ticks_per_row();
+            const long cursorTk  = row_start_tick( m_cursor_row );
+            const long limitTick = (long)num_rows() * per;
             std::map<int,int> shifted;
             for ( std::map<int,int>::const_iterator it = m_fx_vst[t][f].begin();
                   it != m_fx_vst[t][f].end(); ++it )
             {
-                int row = it->first;
-                if ( row >= m_cursor_row )
-                    ++row;
-                if ( row >= 0 && row < num_rows() )
-                    shifted[row] = it->second;
+                long tk = it->first;
+                if ( tk >= cursorTk )
+                    tk += per;
+                if ( tk >= 0 && tk < limitTick )
+                    shifted[(int)tk] = it->second;
             }
             m_fx_vst[t][f].swap( shifted );
         }
@@ -2652,21 +3045,51 @@ TrackerView::poll_playhead( void )
     int nr  = num_rows();
     if ( nr < 1 ) nr = 1;
 
+    //  sequence::get_last_tick() already folds the playhead by the LOOP WINDOW
+    //  and reports it inside that window (it used to fold by m_length), so this
+    //  is a pattern position that is in range by construction.  The old extra
+    //  `% nr` therefore no longer wrapped anything real -- it only MISPLACED the
+    //  playhead in the two cases where the tick can exceed the row count: a
+    //  length that is not a whole number of rows, and a loop window left
+    //  reaching past a shortened pattern (set_length hides the window now, it no
+    //  longer clamps it).  Clamp instead of wrapping.
     long tick = m_seq->get_last_tick();
-    int  cur  = ( tick / tpr ) % nr;
+    if ( tick < 0 ) tick = 0;
+    int  cur  = (int) ( tick / tpr );
+    if ( cur >= nr ) cur = nr - 1;
+
+    //  The rows the playhead actually visits are the LOOP's rows when the clip
+    //  repeats a window, not every row of the pattern.  Walking 0..nr-1 fired
+    //  the FX cells of rows outside the window -- rows that never played -- on
+    //  every wrap, so automation parked outside the loop kept being dispatched.
+    int fire0 = 0, fire1 = nr;
+    if ( m_seq->get_loop_enabled() )
+    {
+        int f = 0, e = 0;
+        if ( loop_row_span( &f, &e ) )
+        {
+            if ( f < 0 ) f = 0;
+            if ( e > nr ) e = nr;
+            if ( e > f ) { fire0 = f; fire1 = e; }
+        }
+    }
+    const int span = fire1 - fire0;
 
     // fire every VST-param FX row crossed since last time (handles loop wrap).
-    if ( m_last_fire_row < 0 )
+    if ( m_last_fire_row < 0 ||
+         m_last_fire_row < fire0 || m_last_fire_row >= fire1 )
     {
+        // no usable predecessor (first frame, or the loop window moved out from
+        // under it): fire just where we are rather than sweeping the pattern.
         fire_fx_row( cur );
     }
     else if ( cur != m_last_fire_row )
     {
         int r = m_last_fire_row, guard = 0;
         do {
-            r = ( r + 1 ) % nr;
+            r = ( r + 1 >= fire1 ) ? fire0 : r + 1;
             fire_fx_row( r );
-        } while ( r != cur && ++guard < nr );
+        } while ( r != cur && ++guard < span );
     }
     m_last_fire_row = cur;
 
@@ -2726,6 +3149,9 @@ TrackerView::close_menu( void )
     m_menu_open = false;
     m_menu_items.clear();
     m_menu_scroll = 0;
+    m_parent_menu_open = false;
+    m_parent_menu_items.clear();
+    m_parent_menu_scroll = 0;
 }
 
 void
@@ -2734,12 +3160,38 @@ TrackerView::draw_menu( App& app )
     const Theme& th = theme();
     const int rowh = app.mono.ch() + 6;
 
+    auto draw_level = [&](const std::vector<MenuItem>& items, int x, int y,
+                          int w, int h, int scroll) {
+        SDL_Rect frame{x,y,w,h};
+        fill_rect(app.ren,frame,th.panel);
+        frame_rect(app.ren,frame,th.hi);
+        int mx,my; ui::mouse_logical(app,mx,my);   // logical, not window px
+        const int visible=(h-4)/rowh;
+        for(int vr=0;vr<visible;++vr) {
+            const int idx=scroll+vr;
+            if(idx<0||idx>=(int)items.size()) break;
+            const MenuItem& mi=items[(size_t)idx];
+            const int ry=y+2+vr*rowh;
+            if(mi.separator) { hline(app.ren,x+4,x+w-4,ry+rowh/2,th.dim); continue; }
+            SDL_Rect row{x+1,ry,w-2,rowh};
+            const bool hover=mi.enabled&&mx>=row.x&&mx<row.x+row.w&&my>=row.y&&my<row.y+row.h;
+            if(hover) fill_rect(app.ren,row,th.accent);
+            const Color fg=!mi.enabled?th.dim:(hover?th.bg:th.hi);
+            app.mono.draw(app.ren,x+10,ry+3,mi.label,fg);
+            if(mi.submenu)
+                app.mono.draw(app.ren,x+w-app.mono.cw()-8,ry+3,">",fg);
+        }
+    };
+    if(m_parent_menu_open)
+        draw_level(m_parent_menu_items,m_parent_menu_x,m_parent_menu_y,
+                   m_parent_menu_w,m_parent_menu_h,m_parent_menu_scroll);
+
     SDL_Rect frame { m_menu_x, m_menu_y, m_menu_w, m_menu_h };
     fill_rect( app.ren, frame, th.panel );
     frame_rect( app.ren, frame, th.hi );
 
     int mx, my;
-    SDL_GetMouseState( &mx, &my );
+    ui::mouse_logical( app, mx, my );   // logical, not window px
     int visible = ( m_menu_h - 4 ) / rowh;
     for ( int vr = 0; vr < visible; ++vr )
     {
@@ -2826,6 +3278,26 @@ TrackerView::open_context_menu( App& app, int sx, int sy )
         mi.action = [this]() { clear_row(); };
         m_menu_items.push_back( mi );
     }
+    // --- pattern loop window (the same one the piano roll's ruler edits) ---
+    { MenuItem sep; sep.enabled = false; sep.separator = true; m_menu_items.push_back( sep ); }
+    {
+        MenuItem mi;
+        mi.label = ( m_seq && m_seq->get_loop_enabled() )
+                   ? "Loop: On  (Shift+L)" : "Loop: 1-Shot  (Shift+L)";
+        mi.action = [this]() { toggle_loop_enabled(); };
+        m_menu_items.push_back( mi );
+    }
+    {
+        MenuItem mi; mi.label = "Set Loop From Selection  (Ctrl+L)";
+        mi.action = [this]() { set_loop_from_selection(); };
+        m_menu_items.push_back( mi );
+    }
+    {
+        MenuItem mi; mi.label = "Clear Loop  (Ctrl+Shift+L)";
+        mi.enabled = loop_row_span( nullptr, nullptr );
+        mi.action = [this]() { clear_loop_window(); };
+        m_menu_items.push_back( mi );
+    }
 
     m_menu_x = sx; m_menu_y = sy;
     m_menu_scroll = 0;
@@ -2862,12 +3334,11 @@ TrackerView::build_fx_menu_root( App& app )
 
     // MIDI CC submenu
     {
-        MenuItem mi; mi.label = "MIDI CC  >";
+        MenuItem mi; mi.label = "MIDI CC";
         mi.submenu = [this]( App& a ) {
             m_menu_items.clear();
-            { MenuItem b; b.label = "< Back"; b.submenu = [this]( App& aa ){ build_fx_menu_root( aa ); };
-              m_menu_items.push_back( b ); }
-            { MenuItem sep; sep.enabled = false; sep.separator = true; m_menu_items.push_back( sep ); }
+            { MenuItem h; h.label = "MIDI CC"; h.enabled = false; m_menu_items.push_back(h); }
+            { MenuItem sep; sep.enabled = false; sep.separator = true; m_menu_items.push_back(sep); }
             static const int common_cc[] = { 1, 7, 10, 11, 64, 71, 72, 73, 74, 91, 93 };
             for ( unsigned i = 0; i < sizeof(common_cc)/sizeof(common_cc[0]); ++i ) {
                 int cc = common_cc[i]; MenuItem it; char buf[64];
@@ -2884,11 +3355,10 @@ TrackerView::build_fx_menu_root( App& app )
     if ( PatchKnob::app::audio_app_track_param_count( vst_track() ) > 0 )
     {
         const int tk = vst_track();
-        MenuItem mi; mi.label = "Track Instrument  >";
+        MenuItem mi; mi.label = "Track Instrument";
         mi.submenu = [this, tk]( App& a ) {
             m_menu_items.clear();
-            { MenuItem b; b.label = "< Back"; b.submenu = [this]( App& aa ){ build_fx_menu_root( aa ); };
-              m_menu_items.push_back( b ); }
+            { MenuItem h; h.label = "Track Instrument"; h.enabled = false; m_menu_items.push_back(h); }
             { MenuItem sep; sep.enabled = false; sep.separator = true; m_menu_items.push_back( sep ); }
             const int cnt = PatchKnob::app::audio_app_track_param_count( tk );
             for ( int i = 0; i < cnt; ++i ) {
@@ -2923,7 +3393,7 @@ TrackerView::build_fx_menu_root( App& app )
         { MenuItem hdr; hdr.label = "Instrument"; hdr.enabled = false; m_menu_items.push_back( hdr ); }
         for ( std::size_t i = 0; i < nodes.size(); ++i ) {
             const int nid = nodes[i]; const std::string nm = names[i];
-            MenuItem mi; mi.label = nm + "  >";
+            MenuItem mi; mi.label = nm;
             mi.submenu = [this, nid, nm]( App& a ){ build_fx_menu_node( a, nid, nm ); };
             m_menu_items.push_back( mi );
         }
@@ -2938,25 +3408,55 @@ void
 TrackerView::build_fx_menu_node( App& app, int nodeId, const std::string& nodeName )
 {
     m_menu_items.clear();
-    { MenuItem b; b.label = "< Back"; b.submenu = [this]( App& aa ){ build_fx_menu_root( aa ); };
-      m_menu_items.push_back( b ); }
+    { MenuItem h; h.label = nodeName; h.enabled = false; m_menu_items.push_back(h); }
     { MenuItem sep; sep.enabled = false; sep.separator = true; m_menu_items.push_back( sep ); }
-    { MenuItem hdr; hdr.label = nodeName; hdr.enabled = false; m_menu_items.push_back( hdr ); }
 
     std::vector<FxBinding> targets = on_list_fx_targets ? on_list_fx_targets()
                                                         : std::vector<FxBinding>();
-    for ( std::size_t i = 0; i < targets.size(); ++i ) {
-        if ( targets[i].node != nodeId ) continue;
-        FxBinding binding = targets[i];
-        if ( binding.label.empty() ) binding.label = compact_label( binding.name, "P" );
-        std::string lab = binding.name; std::size_t p = lab.find( " > " );
-        if ( p != std::string::npos ) lab = lab.substr( p + 3 );   // drop the node prefix
-        MenuItem it; it.label = lab.empty() ? binding.label : lab;
-        it.action = [this, binding]() { bind_fx_target( binding ); };
-        m_menu_items.push_back( it );
+    std::vector<int> modules;std::vector<std::string> moduleNames;
+    for(const FxBinding& b:targets)if(b.node==nodeId&&b.module>=0&&
+        std::find(modules.begin(),modules.end(),b.module)==modules.end()){
+        modules.push_back(b.module);std::string lab=b.name;
+        size_t a=lab.find(" > ");if(a!=std::string::npos)lab=lab.substr(a+3);
+        size_t z=lab.find(" > ");moduleNames.push_back(z==std::string::npos?lab:lab.substr(0,z));
+    }
+    if(!modules.empty()){
+        for(size_t i=0;i<modules.size();++i){const int mid=modules[i];const std::string mn=moduleNames[i];
+            MenuItem it;it.label=mn;it.submenu=[this,nodeId,mid,mn](App& a){build_fx_menu_device(a,nodeId,mid,mn);};
+            m_menu_items.push_back(it);}
+    }else for ( std::size_t i = 0; i < targets.size(); ++i ) {
+        if ( targets[i].node != nodeId ) continue;FxBinding binding=targets[i];
+        if(binding.label.empty())binding.label=compact_label(binding.name,"P");
+        std::string lab=binding.name;size_t p=lab.find(" > ");if(p!=std::string::npos)lab=lab.substr(p+3);
+        MenuItem it;it.label=lab.empty()?binding.label:lab;it.action=[this,binding](){bind_fx_target(binding);};
+        m_menu_items.push_back(it);
     }
     layout_menu( app );
     m_menu_open = true;
+}
+
+void TrackerView::build_fx_menu_device(App& app,int nodeId,int moduleId,
+                                       const std::string& deviceName,int page)
+{
+    std::vector<FxBinding> all=on_list_fx_targets?on_list_fx_targets():std::vector<FxBinding>();
+    std::vector<FxBinding> params;for(const FxBinding& b:all)
+        if(b.node==nodeId&&b.module==moduleId)params.push_back(b);
+    m_menu_items.clear();{MenuItem h;h.label=deviceName;h.enabled=false;m_menu_items.push_back(h);}
+    {MenuItem s;s.enabled=false;s.separator=true;m_menu_items.push_back(s);}
+    if(page<0&&params.size()>32){
+        for(int first=0;first<(int)params.size();first+=32){const int pg=first/32;
+            MenuItem it;it.label="Parameters "+std::to_string(first+1)+"-"+
+                std::to_string(std::min((int)params.size(),first+32));
+            it.submenu=[this,nodeId,moduleId,deviceName,pg](App& a){
+                build_fx_menu_device(a,nodeId,moduleId,deviceName,pg);};m_menu_items.push_back(it);}
+    }else{
+        const int first=page<0?0:page*32,last=std::min((int)params.size(),first+32);
+        for(int i=first;i<last;++i){FxBinding binding=params[(size_t)i];std::string lab=binding.name;
+            size_t a=lab.find(" > ");if(a!=std::string::npos)lab=lab.substr(a+3);
+            size_t b=lab.find(" > ");if(b!=std::string::npos)lab=lab.substr(b+3);
+            MenuItem it;it.label=lab;it.action=[this,binding](){bind_fx_target(binding);};m_menu_items.push_back(it);}
+    }
+    layout_menu(app);m_menu_open=true;
 }
 
 //----------------------------------------------------------------------------
@@ -2971,10 +3471,9 @@ TrackerView::draw( App& app )
     // a null pointer (the shell may mount us before a pattern is chosen).
     if ( !m_seq )
     {
-        SDL_RenderSetClipRect( app.ren, &rect );
+        ui::ScopedClip clipScope(app.ren,rect);
         fill_rect( app.ren, rect, th.bg );
         frame_rect( app.ren, rect, th.dim );
-        SDL_RenderSetClipRect( app.ren, nullptr );
         return;
     }
 
@@ -2985,7 +3484,7 @@ TrackerView::draw( App& app )
     const int ctrl_h   = ch + 4;        // add/remove-column toolbar band
 
     // clip so nothing spills outside our widget rect.
-    SDL_RenderSetClipRect( app.ren, &rect );
+    ui::ScopedClip clipScope(app.ren,rect);
 
     fill_rect( app.ren, rect, th.bg );
 
@@ -3026,11 +3525,12 @@ TrackerView::draw( App& app )
                                   s, c, false );
         };
 
-        char nbuf[4], fbuf[4], lbuf[4], obuf[4];
+        char nbuf[4], fbuf[4], lbuf[4], obuf[4], hbuf[4];
         snprintf( nbuf, sizeof(nbuf), "%d", m_num_tracks );
         snprintf( fbuf, sizeof(fbuf), "%d", m_fx_cols );
         snprintf( lbuf, sizeof(lbuf), "%d", m_rows_per_beat );
         snprintf( obuf, sizeof(obuf), "%d", m_octave );
+        snprintf( hbuf, sizeof(hbuf), "%d", m_secondary_highlight );
 
         put( 0, "NOTE", th.text );
         draw_btn( 5, "[-]", HDR_NOTE_MINUS, m_num_tracks > 1, m_btn_note_minus );
@@ -3054,6 +3554,13 @@ TrackerView::draw( App& app )
         draw_btn( 52, "[-]", HDR_OCT_MINUS, m_octave > 0, m_btn_oct_minus );
         put( 56, obuf, th.hi );
         draw_btn( 58, "[+]", HDR_OCT_PLUS, m_octave < 8, m_btn_oct_plus );
+
+        put( 64, "HI", th.text );
+        draw_btn( 67, "[-]", HDR_HILITE_MINUS, m_secondary_highlight > 1,
+                  m_btn_hilite_minus );
+        put( 71, hbuf, th.hi );
+        draw_btn( 74, "[+]", HDR_HILITE_PLUS, m_secondary_highlight < 64,
+                  m_btn_hilite_plus );
 
         const bool editing_lines = app.editing_text() && app.text_target == &m_lines_edit;
         if ( !editing_lines )
@@ -3081,6 +3588,27 @@ TrackerView::draw( App& app )
     SDL_Rect hdr { rect.x, rect.y + ctrl_h, grid_w, header_h };
     fill_rect( app.ren, hdr, th.panel );
     int hty = rect.y + ctrl_h + 2;
+
+    // LOOP / 1-SHOT chip, in the header's row-number gutter cell -- the one
+    // header cell that was empty.  Same control, same two words and the same
+    // click-to-toggle as the piano roll's chip, so the per-clip one-shot state
+    // is VISIBLE here (it was not shown at all) and reachable without knowing
+    // Shift+L.  draw_fitted shrinks "1-SHOT" into the 4-character gutter.
+    {
+        const bool loop_on = m_seq->get_loop_enabled();
+        SDL_Rect chip { rect.x + 1, rect.y + ctrl_h + 1,
+                        gutter_px - 2, header_h - 2 };
+        if ( chip.w < 4 ) chip.w = 4;
+        if ( chip.h < 4 ) chip.h = 4;
+        m_btn_loop = chip;
+        const bool pressed = ( m_hdr_press == HDR_LOOP );
+        fill_rect ( app.ren, chip, ( loop_on || pressed ) ? th.accent : th.bg );
+        frame_rect( app.ren, chip, loop_on ? th.hi : th.dim );
+        app.mono.draw_fitted( app.ren,
+                              SDL_Rect{ chip.x + 1, chip.y, chip.w - 2, chip.h },
+                              loop_on ? "LOOP" : "1-SHOT",
+                              loop_on ? th.bg : th.text, true );
+    }
     for ( int t = 0; t < m_num_tracks; ++t )
     {
         int cx = rect.x + gutter_px + t * track_px;
@@ -3145,9 +3673,15 @@ TrackerView::draw( App& app )
         int occurrence = draw_occurrences[ std::make_pair( tick_s, note ) ]++;
         std::map< NoteKey, ExplicitNoteOff >::const_iterator off =
             m_explicit_note_offs.find( note_key( tick_s, note, occurrence ) );
+        // A coarser LPB must not visually fold multiple fine-grid events into
+        // one row.  Besides looking corrupt, that made the lane assignment
+        // below spill those hidden events across columns even though the cell
+        // editing path (collect_row_notes) correctly treats them as off-grid.
+        // Keep the data untouched and let row_has_hidden_notes() paint the dot.
+        const bool note_on_grid = ( tick_s % tpr ) == 0;
         int row = (int)( tick_s / tpr );
         int screen_row = row - m_top_row;
-        if ( screen_row >= 0 && screen_row < vis )
+        if ( note_on_grid && screen_row >= 0 && screen_row < vis )
         {
             NoteCell nc;
             nc.note = note;
@@ -3179,8 +3713,9 @@ TrackerView::draw( App& app )
         }
         if ( off != m_explicit_note_offs.end() )
         {
+            const bool off_on_grid = ( off->second.tick % tpr ) == 0;
             int off_row = (int)( off->second.tick / tpr ) - m_top_row;
-            if ( off_row >= 0 && off_row < vis &&
+            if ( off_on_grid && off_row >= 0 && off_row < vis &&
                  off->second.track >= 0 && off->second.track < m_num_tracks )
             {
                 NoteCell nc;
@@ -3203,12 +3738,39 @@ TrackerView::draw( App& app )
         while ( m_seq->get_next_event( EVENT_CONTROL_CHANGE, (unsigned char)cc,
                                        &tick, &d0, &d1, &cc_selected ) )
         {
+            // Match notes: fine-grid automation stays addressable at its
+            // original LPB instead of being drawn as a different coarse cell.
+            if ( ( tick % tpr ) != 0 ) continue;
             int screen_row = (int)( tick / tpr ) - m_top_row;
             if ( screen_row < 0 || screen_row >= vis ) continue;
             int& value = visible_cc_values[(size_t)screen_row * 128 + cc];
             if ( value < 0 ) value = d1;
         }
     }
+
+    // Piano-roll loop range (sequence::get_loop_start()/get_loop_end(), a
+    // sub-window independent of the pattern's own length), shown here as a
+    // row-range wash so the tracker visibly reflects the same region: a
+    // 1-bar loop shows exactly that bar's rows highlighted, no matter how
+    // many bars the full pattern spans.  Rows are still numbered from the
+    // pattern's own tick 0 (not re-origined to the loop) -- this is a
+    // highlight over the existing grid, not a separate windowed view.
+    // Default state (loop_end == length, loop_start == 0) means "no loop
+    // set": loop_row_span() reports that as "nothing to draw" so a fresh
+    // pattern looks unchanged (loop_end otherwise equals the pattern length
+    // by default, which would make EVERY row match "in loop" and wash the
+    // whole grid uniformly).  It also CEILS the end row -- see there.
+    int  loopStartRow = 0, loopEndRow = 0;
+    const bool loopSet = loop_row_span( &loopStartRow, &loopEndRow );
+    // LOOPING IS OPTIONAL.  With it off the clip is a one-shot: it plays its
+    // data once and the window means nothing for playback.  The wash used to
+    // ignore this flag completely, so a one-shot still claimed, in the loudest
+    // way the grid can, that it repeated those rows -- flatly contradicting the
+    // piano roll's "1-SHOT" chip for the same clip.  Off, the window is drawn
+    // as an inert marker (a faint rail, no de-emphasis of the rest) exactly the
+    // way the piano roll draws its band faint; the header chip carries the
+    // state itself.
+    const bool loopOn = m_seq->get_loop_enabled();
 
     for ( int sr = 0; sr < vis; ++sr )
     {
@@ -3220,6 +3782,8 @@ TrackerView::draw( App& app )
 
         bool is_beat = ( row % m_rows_per_beat ) == 0;
         bool is_bar  = ( row % ( m_rows_per_beat * (int)bpm ) ) == 0;
+        bool is_secondary = m_secondary_highlight > 0 &&
+                            (row % m_secondary_highlight) == 0;
 
         // beat / bar shading (panel over bg, brighter on bars).
         if ( is_bar )
@@ -3230,6 +3794,40 @@ TrackerView::draw( App& app )
             SDL_SetRenderDrawBlendMode( app.ren, SDL_BLENDMODE_BLEND );
             fill_rect( app.ren, rowq, c );
             SDL_SetRenderDrawBlendMode( app.ren, SDL_BLENDMODE_NONE );
+        }
+        else if (is_secondary)
+        {
+            Color c=th.active;c.a=35;
+            SDL_SetRenderDrawBlendMode(app.ren,SDL_BLENDMODE_BLEND);
+            fill_rect(app.ren,rowq,c);
+            SDL_SetRenderDrawBlendMode(app.ren,SDL_BLENDMODE_NONE);
+        }
+
+        // piano-roll loop range (see loopStartRow/loopEndRow above).  With
+        // looping ON, rows OUTSIDE the window are washed 50% toward white so
+        // the loop's own rows read as "normal" against a visibly de-emphasized
+        // rest of the pattern.  With it OFF nothing is de-emphasized -- every
+        // row plays -- and only the rail below marks where the window sits.
+        if ( loopSet )
+        {
+            const bool inLoop = row >= loopStartRow && row < loopEndRow;
+            if ( loopOn )
+            {
+                Color c = inLoop ? th.accent : Color{255,255,255,0};
+                c.a = inLoop ? 30 : 128;
+                SDL_SetRenderDrawBlendMode( app.ren, SDL_BLENDMODE_BLEND );
+                fill_rect( app.ren, rowq, c );
+                SDL_SetRenderDrawBlendMode( app.ren, SDL_BLENDMODE_NONE );
+            }
+            // Loop rail: a hard 2px bar down the far left of the gutter for the
+            // rows in the window.  The wash alone cannot express a window
+            // narrower than the eye can separate from the beat shading, and it
+            // is absent entirely for a one-shot, so the rail is what makes a
+            // short or inert loop legible -- bright when it repeats, dim when
+            // it does not.
+            if ( inLoop )
+                fill_rect( app.ren, SDL_Rect{ rect.x + 1, y, 2, row_h },
+                           loopOn ? th.accent : th.dim );
         }
 
         // playhead row highlight (from get_last_tick, via poll_playhead).
@@ -3279,6 +3877,10 @@ TrackerView::draw( App& app )
         snprintf( rn, sizeof(rn), "%3d", row );
         app.mono.draw( app.ren, rect.x + cw/2, ty, rn,
                        is_beat ? th.hi : th.dim );
+        // A dot means this row hides notes entered at a finer LPB.  They are
+        // still in the pattern -- raise the LPB to reach them.
+        if ( row_has_hidden_notes( row ) )
+            app.mono.draw( app.ren, rect.x + cw/2 + 3 * cw, ty, ".", th.sel );
 
         const std::vector<NoteCell>& nl = visible_notes[sr];
         const std::vector<NoteCell>& offl = visible_offs[sr];
@@ -3323,8 +3925,16 @@ TrackerView::draw( App& app )
                 }
                 else if ( binding.type == FX_VST_PARAM )
                 {
+                    // KEYS ARE TICKS, not row indices (set_fx_at_cell,
+                    // fire_fx_row and read_fx_value all key by
+                    // row_start_tick).  This one lookup was left keyed by row
+                    // when the store was migrated, so a VST-param value typed
+                    // into an FX cell vanished from the grid the moment the
+                    // row was not also its own tick -- i.e. at every LPB
+                    // except the degenerate one -- while still playing back.
                     std::map<int,int>& values = m_fx_vst[t][f];
-                    std::map<int,int>::iterator value = values.find( row );
+                    std::map<int,int>::iterator value =
+                        values.find( (int) row_start_tick( row ) );
                     if ( value != values.end() )
                     {
                         fval = clamp_int( value->second, 0, 0xffff );
@@ -3361,7 +3971,6 @@ TrackerView::draw( App& app )
     frame_rect( app.ren, rect, th.dim );
     if ( m_menu_open )
         draw_menu( app );
-    SDL_RenderSetClipRect( app.ren, nullptr );
 }
 
 //----------------------------------------------------------------------------
@@ -3378,8 +3987,13 @@ TrackerView::on_mouse( App& app, const MouseEv& e )
         if ( e.pressed )
         {
             const int rowh = app.mono.ch() + 6;
+            // Bound the hit test by the rows draw_menu actually PAINTS.  The box
+            // is `(m_menu_h-4)/rowh` rows tall but was hit-tested over its whole
+            // height, so a click in the leftover strip at the bottom selected the
+            // next entry -- one the user could not see.
+            const int visible = ( m_menu_h - 4 ) / std::max( 1, rowh );
             bool inside = e.x >= m_menu_x && e.x < m_menu_x + m_menu_w &&
-                          e.y >= m_menu_y && e.y < m_menu_y + m_menu_h;
+                          e.y >= m_menu_y + 2 && e.y < m_menu_y + 2 + visible * rowh;
             if ( inside )
             {
                 int vr = ( e.y - ( m_menu_y + 2 ) ) / rowh;
@@ -3391,8 +4005,23 @@ TrackerView::on_mouse( App& app, const MouseEv& e )
                     {
                         if ( mi.submenu )              // DRILL DOWN: rebuild in place
                         {
+                            m_parent_menu_items=m_menu_items;
+                            m_parent_menu_x=m_menu_x; m_parent_menu_y=m_menu_y;
+                            m_parent_menu_w=m_menu_w; m_parent_menu_h=m_menu_h;
+                            m_parent_menu_scroll=m_menu_scroll;
+                            m_parent_menu_open=true;
                             mi.submenu( app );
-                            m_menu_scroll = 0;
+                            // Size the rebuilt child before choosing its side.
+                            // The stale parent width made wide submenus overlap
+                            // their parent or jump beyond the editor boundary.
+                            m_menu_x=m_parent_menu_x; m_menu_y=m_parent_menu_y;
+                            m_menu_scroll=0;
+                            layout_menu(app);
+                            m_menu_x=(m_parent_menu_x+m_parent_menu_w+4+m_menu_w<=rect.x+rect.w)
+                                ? m_parent_menu_x+m_parent_menu_w+4
+                                : m_parent_menu_x-m_menu_w-4;
+                            m_menu_y=m_parent_menu_y;
+                            layout_menu(app);
                             app.request_redraw();
                             return true;
                         }
@@ -3401,6 +4030,34 @@ TrackerView::on_mouse( App& app, const MouseEv& e )
                         ensure_cursor_visible( app );
                         app.request_redraw();
                         return true;
+                    }
+                }
+            }
+            if(m_parent_menu_open) {
+                const int pvis=(m_parent_menu_h-4)/std::max(1,rowh);
+                const bool pin=e.x>=m_parent_menu_x&&e.x<m_parent_menu_x+m_parent_menu_w&&
+                    e.y>=m_parent_menu_y+2&&e.y<m_parent_menu_y+2+pvis*rowh;
+                if(pin) {
+                    const int vr=(e.y-(m_parent_menu_y+2))/rowh;
+                    const int idx=m_parent_menu_scroll+vr;
+                    if(idx>=0&&idx<(int)m_parent_menu_items.size()) {
+                        MenuItem mi=m_parent_menu_items[(size_t)idx];
+                        if(mi.enabled&&!mi.separator) {
+                            if(mi.submenu) {
+                                mi.submenu(app);
+                                m_menu_x=m_parent_menu_x; m_menu_y=m_parent_menu_y;
+                                m_menu_scroll=0;
+                                layout_menu(app);
+                                m_menu_x=(m_parent_menu_x+m_parent_menu_w+4+m_menu_w<=rect.x+rect.w)
+                                    ? m_parent_menu_x+m_parent_menu_w+4
+                                    : m_parent_menu_x-m_menu_w-4;
+                                m_menu_y=m_parent_menu_y;
+                                layout_menu(app); app.request_redraw(); return true;
+                            }
+                            close_menu();
+                            if(mi.action) mi.action();
+                            app.request_redraw(); return true;
+                        }
                     }
                 }
             }
@@ -3473,6 +4130,12 @@ TrackerView::on_mouse( App& app, const MouseEv& e )
                 }
                 case HDR_OCT_MINUS: set_octave( get_octave() - 1 ); break;
                 case HDR_OCT_PLUS:  set_octave( get_octave() + 1 ); break;
+                case HDR_HILITE_MINUS:
+                    set_secondary_highlight(m_secondary_highlight-1); break;
+                case HDR_HILITE_PLUS:
+                    set_secondary_highlight(m_secondary_highlight+1); break;
+                case HDR_LOOP:                  // LOOP <-> 1-SHOT for this clip
+                    toggle_loop_enabled(); break;
                 default: break;
             }
             // recompute cached column-x layout on the next draw + repaint.
@@ -3494,48 +4157,63 @@ TrackerView::on_mouse( App& app, const MouseEv& e )
     const int ctrl_h   = ch + 4;        // add/remove-column toolbar band
 
     // map the pointer Y to a row, clamped so dragging past either end still
-    // selects the first / last row.
+    // selects the first / last row.  NOT written to m_cursor_row here: a click
+    // in the column HEADER band lands in this same handler, and assigning up
+    // front teleported the edit cursor to the top visible row every time you
+    // touched a header (to open an FX picker, say) -- losing the row you were
+    // editing for a gesture that has nothing to do with rows.
     int sr  = ( e.y - rect.y - ctrl_h - header_h ) / row_h;
     int row = ( e.y - rect.y < ctrl_h + header_h ) ? m_top_row : m_top_row + sr;
     if ( row < 0 ) row = 0;
     if ( row >= num_rows() ) row = num_rows() - 1;
-    m_cursor_row = row;
 
     const int gutter_px = kGutterChars * cw;
     const int track_px  = track_chars() * cw;
 
-    auto map_column = [&]( int mx )
+    //  Resolve a pointer X to (note column, sub-column) WITHOUT writing the
+    //  cursor -- the header path needs the answer but must not move the cursor.
+    auto column_at = [&]( int mx, int* out_track, int* out_col ) -> bool
     {
         int x = mx - rect.x;
         if ( x < gutter_px )
-            return;
+            return false;
         int t = ( x - gutter_px ) / track_px;
-        if ( t >= 0 && t < m_num_tracks )
-        {
-            m_cursor_track = t;
-            int rel_chars = ( ( x - gutter_px ) % track_px ) / cw;
+        if ( t < 0 || t >= m_num_tracks )
+            return false;
+        int rel_chars = ( ( x - gutter_px ) % track_px ) / cw;
 
-            // nearest sub-column by its character midpoint.
-            int best = 0, bestd = 1 << 30;
-            int total = total_subcols();
-            for ( int c = 0; c < total; ++c )
-            {
-                int sx, sw;
-                subcol_geom( c, &sx, &sw );
-                int mid = sx + sw / 2;
-                int d = rel_chars - mid; if ( d < 0 ) d = -d;
-                if ( d < bestd ) { bestd = d; best = c; }
-            }
-            m_cursor_col = best;
+        // nearest sub-column by its character midpoint.
+        int best = 0, bestd = 1 << 30;
+        int total = total_subcols();
+        for ( int c = 0; c < total; ++c )
+        {
+            int sx, sw;
+            subcol_geom( c, &sx, &sw );
+            int mid = sx + sw / 2;
+            int d = rel_chars - mid; if ( d < 0 ) d = -d;
+            if ( d < bestd ) { bestd = d; best = c; }
         }
+        *out_track = t; *out_col = best;
+        return true;
+    };
+    auto map_column = [&]( int mx )
+    {
+        int t = 0, c = 0;
+        if ( column_at( mx, &t, &c ) ) { m_cursor_track = t; m_cursor_col = c; }
     };
 
     if ( !m_sel_drag && e.y >= rect.y + ctrl_h &&
          e.y < rect.y + ctrl_h + header_h )
     {
-        map_column( e.x );
-        if ( e.button == SDL_BUTTON_LEFT && m_cursor_col >= 2 )
-            open_fx_menu( app, e.x, e.y, m_cursor_track, m_cursor_col - 2 );
+        //  Header click: open the FX picker for the column that was clicked and
+        //  leave the edit cursor where it is.  (open_fx_menu() parks the cursor
+        //  on the FX column it is about to bind -- that part is deliberate, the
+        //  bind_fx_* setters act on the cursor column -- but a click on the
+        //  NOTE or VEL header now moves nothing at all.)
+        int ht = 0, hc = 0;
+        if ( column_at( e.x, &ht, &hc ) &&
+             e.button == SDL_BUTTON_LEFT && hc >= 2 )
+            open_fx_menu( app, e.x, e.y, ht, hc - 2 );
         app.request_redraw();
         return true;
     }
@@ -3543,7 +4221,9 @@ TrackerView::on_mouse( App& app, const MouseEv& e )
     if ( !m_sel_drag && e.y < rect.y + ctrl_h + header_h )
         return true;
 
+    m_cursor_row = row;                 // a genuine GRID press / drag
     map_column( e.x );
+    reset_fx_typing();                  // clicking elsewhere abandons an entry
 
     if ( !m_sel_drag && e.button == SDL_BUTTON_RIGHT )
     {
@@ -3643,7 +4323,7 @@ TrackerView::on_key( App& app, SDL_Keycode k )
             m_sel_track = m_cursor_track;
             m_sel_col = m_cursor_col;
         }
-        move_cursor( app, drow, dcol );
+        move_cursor( app, drow, dcol, /*wrap=*/false );
         m_sel_row0 = std::min( m_sel_anchor_row, m_cursor_row );
         m_sel_row1 = std::max( m_sel_anchor_row, m_cursor_row );
         m_sel_track0 = std::min( m_sel_anchor_track, m_cursor_track );
@@ -3730,6 +4410,11 @@ TrackerView::on_key( App& app, SDL_Keycode k )
                 m_follow = !m_follow;
                 app.request_redraw();
                 return true;
+            case SDLK_l:                            // Ctrl+L  loop <- selection
+                if ( shift ) clear_loop_window();   // Ctrl+Shift+L  clear loop
+                else         set_loop_from_selection();
+                app.request_redraw();
+                return true;
             case SDLK_PERIOD:                       // Ctrl+'.'  velocity +8
                 amplify_selection( 8 );
                 app.request_redraw();
@@ -3775,6 +4460,10 @@ TrackerView::on_key( App& app, SDL_Keycode k )
             case SDLK_TAB:      extend_selection(  0,-total_subcols() ); return true;
             case SDLK_PAGEUP:   extend_selection( -visible_rows( app ), 0 ); return true;
             case SDLK_PAGEDOWN: extend_selection(  visible_rows( app ), 0 ); return true;
+            case SDLK_l:            // Shift+L : loop on/off == the piano roll's
+                toggle_loop_enabled();          // 1-SHOT toggle, same shortcut
+                app.request_redraw();
+                return true;
             default: break;
         }
     }
@@ -3895,8 +4584,23 @@ TrackerView::on_key( App& app, SDL_Keycode k )
                 set_note_at_cell( note );
                 // live preview through the clip's selected instrument; the note
                 // sustains until the key is released (on_key_up -> note off).
+                // Retrigger monophonically per PITCH, not per key.  m_sounding is
+                // keyed by keycode, so two different keys that produce the SAME
+                // note (the lower- and upper-octave rows overlap) each fired a
+                // note-on; releasing either one then sent a note-off that killed
+                // the pitch while the other key was still held.  Release the
+                // sounding voice first, then strike it again: off, then on.
                 if ( m_seq && !m_sounding.count( k ) )
-                { m_seq->play_note_on( note, m_velocity ); m_sounding[k] = note; }
+                {
+                    for ( std::map<SDL_Keycode,int>::iterator it = m_sounding.begin();
+                          it != m_sounding.end(); )
+                    {
+                        if ( it->second == note )
+                        { m_seq->play_note_off( note ); m_sounding.erase( it++ ); }
+                        else ++it;
+                    }
+                    m_seq->play_note_on( note, m_velocity ); m_sounding[k] = note;
+                }
                 move_cursor( app, m_edit_step, 0 );
             }
             app.request_redraw();
@@ -3917,10 +4621,25 @@ TrackerView::on_key( App& app, SDL_Keycode k )
         }
         else
         {
-            int fi = cur_fx_index();
-            int cur = 0;
-            read_fx_value( m_cursor_row, m_cursor_track, fi, &cur );
-            set_fx_at_cell( ( ( cur << 4 ) | hv ) & 0xffff );
+            //  Accumulate the typed digits LOCALLY.  Re-reading the cell to get
+            //  the previous value cannot work for a CC-bound column: the cell is
+            //  16 bits but a CC event carries 7, so whatever was stored comes
+            //  back rounded and a nibble-at-a-time entry never escapes zero.
+            //  See m_fx_type_* in the header.
+            const int  fi = cur_fx_index();
+            const long tk = row_start_tick( m_cursor_row );
+            if ( m_fx_type_tick != tk || m_fx_type_track != m_cursor_track ||
+                 m_fx_type_fi != fi || m_fx_type_digits >= 4 )
+            {
+                m_fx_type_tick = tk; m_fx_type_track = m_cursor_track;
+                m_fx_type_fi = fi;   m_fx_type_accum = 0; m_fx_type_digits = 0;
+            }
+            m_fx_type_accum = ( ( m_fx_type_accum << 4 ) | hv ) & 0xffff;
+            ++m_fx_type_digits;
+            //  Left-align in the 4-digit field the cell displays, so one digit
+            //  is a coarse setting and four are exact.
+            const int shift = 4 * ( 4 - m_fx_type_digits );
+            set_fx_at_cell( ( m_fx_type_accum << shift ) & 0xffff );
         }
         app.request_redraw();
         return true;

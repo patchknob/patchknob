@@ -1,0 +1,45 @@
+Offline Clips Clips are offline when their parent
+files cannot be located, or are not available, when       Audio Clips and Waveforms
+opening a session or importing a track. Offline           When the Track View for audio tracks is set to
+clips appear in the Clips List as italicized and          Waveform, Pro Tools draws a waveform diagram
+dimmed; they appear in playlists as light blue clips      of the audio. Audio waveforms tell you several
+with italicized names. Offline clips can be edited        things about the recorded sound.
+like other clips, but they cannot be processed with
+AudioSuite plug-ins.
+
+Multichannel Clips These clips, which are dis-
+played as a single clip in the Clips List, reference
+multiple clips and audio files for stereo and sur-
+round tracks. Multichannel clips can be expanded          Audio waveform of a drum track
+(by clicking the triangle next to their name) to see
+                                                          In the figure above, the “peaks” represent places in
+the individual channels, which can be dragged in-
+                                                          the recording where the attack of the sound causes
+dependently to tracks.
+                                                          the volume to increase momentarily. These are fol-
+Clip Groups A clip group is a collection of any           lowed by “valleys,” where the volume decreases.
+combination of audio and MIDI clips that looks
+and acts like a single clip. Clip groups are essen-       Different types of sounds produce different types
+tially containers holding one or more clips. Clip         of waveforms. Drums, for example, generally pro-
+groups can be created on a single track or on mul-        duce waveforms with sharp transients (peaks of
+tiple adjacent audio, MIDI, and Instrument tracks.        short duration) that are clearly defined. A drum hit
+Clip groups let you “nest” multiple clips into            has a loud, sharp attack and a rapid decay.
+“macro” clips for groove and tempo manipulation,          Other sounds, such as vocals or sustained synthe-
+editing, and arranging (see “Clip Groups” on              sizer pads, produce very different waveforms.
+page 963).                                                These sounds have less pronounced peaks and val-
+Warped Clips Clips on Real-Time Elastic Audio-            leys because they generally have softer attacks and
+enabled tracks can be warped. Warped clips are            longer decays.
+identified with a Warp Indicator icon in the upper-
+right corner of clips on tracks and to the left of clip
+names in the Clips List. Warped clips result from
+the application of Elastic Audio processing. Elastic
+Audio processing can be applied manually in Warp
+view or using the TCE Trim Tool in Waveform
+view, or automatically using tempo conform,
+quantization, or transposition (see “Warped Clips”
+on page 1029).
+
+
+
+
+                                                                                       Chapter 28: Editing Basics   623

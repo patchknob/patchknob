@@ -1,0 +1,51 @@
+Selecting All from Timebase                            5   Press the Up Arrow key at the point where you
+Rulers                                                     want the selection to end. The selected range
+                                                           becomes highlighted.
+To select all material in all displayed audio and
+MIDI tracks:                                           6   To stop playback, click Stop in the Transport (or
+1   Enable Link Timeline and Edit Selection                press the Spacebar).
+    (Options > Link Timeline and Edit Selection).      To automatically scroll to the beginning of the se-
+2   Double-click in any Timebase ruler. All clips in   lection (or to the location of the on-screen cursor),
+    all displayed audio and MIDI tracks are se-        press the Left Arrow key. To scroll to the end of
+    lected. Tracks that are hidden are not selected.   the selection, press the Right Arrow key.
+
+To select all material in all tracks, including
+                                                       While in Page Scroll or Continuous Scroll mode,
+Conductor events:                                      making a selection in the Timeline or a playlist
+                                                       during playback as the playback cursor moves off-
+1   Enable Link Timeline and Edit Selection
+                                                       screen suspends page scrolling. To resume page
+    (Options > Link Timeline and Edit Selection).
+                                                       scrolling and jump to the current playback loca-
+2   While pressing Option (Mac) or Control (Win-       tion, click the Playback Cursor locater in the Main
+    dows), double-click in any Timebase ruler. All     Timebase ruler (see “Locating the Playback Cur-
+    clips in all displayed audio and MIDI tracks are   sor when It Is Off-Screen” on page 514).
+    selected, including all events in each of the
+    Conductor tracks.                                  Object Selections
+                                                       Use the Object Grabber tool to select noncontigu-
+Making Selections While Playing
+                                                       ous clips on one or more tracks. Noncontiguous se-
+Pro Tools lets you make selections during play-        lections must encompass entire clips. If you want a
+back with the Up and Down Arrow keys.                  noncontiguous selection to include a portion of a
+                                                       clip, first turn the portion into a new clip with the
+To make a selection while playing:                     Separate Clip command (see “Separate Com-
+1   Enable Link Timeline and Edit Selection            mands” on page 694).
+    (Options > Link Timeline and Edit Selection).
+                                                             The Object Grabber is not available when the
+2   With the Selector tool, click somewhere near             Edit mode is set to Shuffle or Spot.
+    the beginning of the track in which you want to
+    make the selection.                                To select noncontiguous clips:
+                                                       1   Set the Edit mode to either Slip or Grid.
+3   Click Play in the Transport window (or press
+    the Spacebar) to begin playback.                   2   Click the Grabber tools pop-up menu and
+                                                           select Object.
+4   When playback reaches the point where you
+    want the selection to begin, press the Down Ar-
+    row key.
+
+
+                                                       Object Grabber tool
+
+
+
+                                                                                 Chapter 30: Making Selections   673

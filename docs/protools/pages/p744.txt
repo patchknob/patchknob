@@ -1,0 +1,50 @@
+      Fade Curves and Separate Waveforms                    Fade-Out Shape Settings
+                                                            The Out Shape setting lets you define the shape of
+                                                            the fade-out from a clip for a fade, or from clip 1
+                                                            for a crossfade.
+      Click this button to display the specified fade
+      curves along with separate views of the fade-in and
+      fade-out waveforms.
+
+      Fade Curves and Superimposed Waveforms
+
+
+
+
+      Click this button to display the specified fade       Fade-Out Shape
+      curves along with superimposed views of the fade-
+                                                            Standard Selects a single continuous fade curve.
+      in and fade-out waveforms.
+                                                            This creates a general-purpose fade that can be ed-
+      Fade Curves and Summed Waveform                       ited by clicking and dragging the curve in the curve
+                                                            editor.
+
+                                                            S-Curve Selects an S-shaped curve, which inverts
+                                                            its beginning and end characteristics. This makes it
+      Click this button to display the specified fade       possible to fade out faster at the curve’s start and
+      curves along with a single waveform representing      slower at its end, for example. S-shaped curves can
+      the summation of the any crossfaded audio.            be useful with material that is difficult to crossfade
+                                                            effectively. S-curves can be edited by clicking and
+      Zoom In                                               dragging the curve in the curve editor.
+
+                                                            Preset Curves Seven commonly used preset
+                                                            curves are provided for fast fade creation. These
+                                                            cannot be edited by clicking and dragging in the
+      Click this button to scale the view of the wave-
+                                                            curve editor.
+      form’s amplitude upwards. Command-click (Mac)
+      or Control-click (Windows) for the default view            For more information on adjusting the fade
+      scale.                                                     shape, see “Manually Adjusting Fade Shapes
+      Zoom Out                                                   in Fade Windows” on page 722.
+
+
+
+
+      Click this button to scale the view of the wave-
+      form’s amplitude downwards. Command-click
+      (Mac) or Control-click (Windows) for the default
+      view scale.
+
+
+
+712   Pro Tools Reference Guide

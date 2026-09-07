@@ -1,0 +1,58 @@
+To go to and select the next clip, do one of the       Restoring the Last Selection
+following:
+                                                       There are times when editing that you can lose
+   Press Control+Tab (Mac) or Start+Tab
+                                                       your selection. If you lose the current Edit (or
+    (Windows).
+                                                       Timeline) selection and want to restore it, use the
+   Press Command+Control+’ (single quote)             Restore Last Selection command.
+    (Mac) or Control+Start+’ (single quote)
+    (Windows).                                         To restore the last selection:
+
+                                                          Choose Edit > Restore Last Selection.
+To extend the selection to include the previous
+clip, do one of the following:                               You can also press Command+Option+Z
+   Press Option+Control+Shift+Tab (Mac) or                  (Mac) or Control+Alt+Z (Windows) to restore
+    Alt+Start+Shift+Tab (Windows).                           the previous selection.
+
+    Press Command+Control+Shift+L (Mac) or
+
+                                                       Changing Track Heights
+    Control+Start+Shift+L (Windows).
+                                                       To fit the Track heights of tracks containing he Edit
+To extend the selection to include the next clip, do   selection to the height of the Edit window:
+one of the following:
+                                                          Press Command+Control+Up Arrow (Mac) or
+   Press Control+Shift+Tab (Mac) or                       Control+Start+Up Arrow (Windows).
+    Start+Shift+Tab (Windows).
+                                                       To change Track height proportionally for tracks
+   Press Command+Control+Shift+’ (single
+                                                       containing the Edit selection:
+    quote) (Mac) or Control+Start+Shift+’ (single
+    quote) (Windows).                                     Press Control+Up or Down Arrows (Mac) or
+                                                           Start+Up or Down Arrows (Windows).
+Moving the Insertion to the                            To change Track views for all tracks together:
+Beginning or End of the
+Selection                                                 Press Option+Control+Up or Down Arrows
+                                                           (Mac) or Alt+Start+Up or Down Arrows
+With the Transport stopped, you can use the Down
+                                                           (Windows).
+and Up Arrows on your alphanumeric keyboard to
+the beginning or end of the Edit (or Timeline) se-
+lection (and collapse the selection).                  Changing Track Views
+                                                       To change Track views for tracks containing the
+To move the insertion to the beginning of the
+                                                       Edit selection:
+selection:
+                                                          Press Command+Control+Left or Right arrows
+   Press the Down Arrow.
+                                                           (Mac) or Control+Start+Left or Right arrows
+To move the insertion to the end of the selection:         (Windows).
+
+   Press the Up Arrow.                                To change Track views for all tracks together:
+
+                                                          Press Command+Option+Control+Left or
+                                                           Right arrows (Mac) or Control+Alt+Start+Left
+                                                           or Right arrows (Windows).
+
+                                                                                 Chapter 30: Making Selections   691

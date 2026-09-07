@@ -1,0 +1,44 @@
+      Fade and Crossfade                                      Fade Presets
+      Preferences
+                                                              Pro Tools provides five Fade Presets so that you
+      You can set default fade and crossfade settings.        can easily store and recall your most commonly
+      These settings load as your “base” settings when        used fade settings. You can also save and import
+      you use the Create Fades command, and the Fade          Fade Preset settings.
+      to Start and Fade to End commands.
+
+      To set the fade and crossfade preferences:
+      1   Choose Setup > Preferences and click the
+          Editing tab.
+
+      2   Set the Pre-Roll and Post-Roll times for Fade
+          previews.
+
+
+
+
+                                                              Presets at the top of the Crossfade dialog
+
+                                                              To store a Fade preset:
+      Fade preferences                                        1   Configure the Fades dialog as you like.
+      3   Click Fade In and set the default shape for fade-   2   Command-click (Mac) or Control-click (Win-
+          ins when using the Smart Tool, then click OK.           dows) the Preset button where you want to store
+      4   Click Fade Out and set the default shape for            the current Fades dialog settings.
+          fade-outs when using the Smart Tool, then click
+                                                              To recall a Fade preset:
+          OK.
+                                                                 Click the Preset button that contains the settings
+      5   Click Crossfade and set the default shape for
+                                                                  you want to recall.
+          crossfades when using the Smart Tool, then
+          click OK.                                                 Press Control+1–5 (Mac) or Start+1–5
+      6   Click OK.                                                 (Windows) to recall the corresponding pre-
+                                                                    set.
+            To apply the default fade or crossfade
+            shape, make an Edit selection and press
+            Command+Control+F (Mac) or Con-
+            trol+Start+F (Windows).
+
+
+
+
+716   Pro Tools Reference Guide

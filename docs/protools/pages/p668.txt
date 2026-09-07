@@ -1,0 +1,52 @@
+      When displaying waveforms for audio tracks, or           Paste Command
+      notes or clips for MIDI tracks, selections include
+                                                               Use the Paste command to place the contents of
+      underlying automation and controller data. If the
+                                                               the Clipboard at the Edit insertion point, and over-
+      track is displaying automation data, only the auto-
+                                                               write any material already there.
+      mation data is affected by the edits.
+      3   Make an Edit selection of the material you want      To paste a selection or clip:
+          to Cut or Copy.                                      1   If you want to constrain the insertion point or
+                                                                   the selection to the current Grid value, enable
+            For information on making Edit selections,
+                                                                   Snap to Grid.
+            see “Selecting Track Material” on page 671.
+                                                               2   Do one of the following:
+      4   Do one of the following:
+                                                               • With the Selector tool, click in a track at the
+      • Choose Edit > Cut to remove the selection and            point where you want to paste the material.
+        place it on the Clipboard.
+                                                               • Use the Selector or Time Grabber tool to make a
+      • Choose Edit > Copy to place the selection on the         selection where the material will be placed.
+        Clipboard, without removing it.
+                                                                     With the Grabber tool, Control-click (Mac)
+      If a portion of a clip was cut or copied, the material         or Start-click (Windows) a clip to conform it
+      on the Clipboard appears as a new clip in the Clips            to the current selection.
+      List. If a portion of a clip was cut, new clips are
+      auto-created from the material residing outside of       3   Choose Edit > Paste.
+      the selection.
+                                                               If pasting at an insertion point with Shuffle Clips
+      When Shuffle Clips is enabled, any subsequent            enabled, material to the right of the paste point is
+      clips slide over to fill any empty space.                shifted to the right. Otherwise, any material within
+                                                               the paste range is overwritten.
+      Deleting Underlying Clip Data
+                                                               If pasting into a selection with Shuffle Clips en-
+      When removing a clip or selection, you can choose        abled, the selection is replaced by the Clipboard’s
+      to remove or keep the underlying clip data.              contents with the adjacent material slid left or right
+                                                               as necessary. Otherwise, the selection is also re-
+      To delete a clip or selection along with the
+      underlying clip data:
+                                                               placed but with the surrounding material remain-
+                                                               ing unchanged.
+         Choose Edit > Cut.
+                                                                     When working with MIDI, you can merge the
+      To delete a clip or selection without removing the             contents of the Clipboard with material in the
+      underlying clip data:                                          destination track using Edit > Paste Special
+         Choose Edit > Clear.                                       > Merge. For more information, see “Paste
+                                                                     Special” on page 1224.
+
+
+
+
+636   Pro Tools Reference Guide

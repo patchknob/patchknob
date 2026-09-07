@@ -22,6 +22,42 @@
 //  with RtMidi (WinMM) for real Windows MIDI I/O.
 //
 //-----------------------------------------------------------------------------
+//
+//  === WHAT THIS LAYER IS (and is NOT) ========================================
+//
+//  This is the LEGACY seq24 MIDI layer.  It is NOT the routing authority any
+//  more.  MIDI actually reaches sound through the modular patch graph
+//  (src/engine/patch); the ONLY part of this file that is on that path is
+//
+//      mastermidibus::play()  ->  PatchKnob::app::audio_app_route_midi()
+//
+//  which is the single bridge from the sequencer into the audio engine.  Read
+//  the contract on mastermidibus::play below before touching it.
+//
+//  LIVE (affects MIDI that reaches the engine / has real side effects):
+//    * mastermidibus::play()            -- THE bridge (see its contract).
+//    * mastermidibus::init()            -- enumerates ports for the names the
+//                                          config writer prints.  It no longer
+//                                          OPENS output ports: see set_hw_output.
+//    * midibus::m_clock_mod             -- persisted config value, single-sourced
+//                                          from optionsfile [midi-clock-mod-ticks].
+//
+//  NON-AUTHORITATIVE / DORMANT (state that is kept but drives nothing unless
+//  the legacy hardware path is explicitly switched on with set_hw_output(true),
+//  which nothing in the shipping app does):
+//    * every midibus RtMidi send        -- play/sysex/start/stop/clock/
+//                                          continue_from/init_clock.
+//    * m_init_clock[] / m_init_input[]  -- per-bus clock + input enables.
+//    * the whole mastermidibus INPUT path (poll_for_midi/get_midi_event/
+//      set_sequence_input): no input port is ever opened, because the only
+//      caller of set_input() is the config reader, which nothing constructs.
+//      Live MIDI input arrives through the patcher's MidiIn nodes instead.
+//
+//  TEMPO IS NOT HERE.  The audio engine's tempo map owns BPM
+//  (PatchKnob::app::audio_app_tempo / _set_tempo); perform::get_bpm reads it.
+//  This class used to keep a second copy, which could silently disagree.
+//
+//-----------------------------------------------------------------------------
 
 class midibus;
 class mastermidibus;
@@ -64,6 +100,12 @@ class midibus
     clock_e m_clock_type;
     bool m_inputing;
 
+    /* MIDI-clock modulus, in 16th notes.  SINGLE SOURCE OF TRUTH: the
+       [midi-clock-mod-ticks] section of the options file, read/written by
+       optionsfile.cpp and ONLY by optionsfile.cpp.  (userfile.cpp used to
+       carry a second, identical parser inside an #if 0 block; it was deleted
+       so load order can never decide this value again.)  Consumed by
+       midibus::init_clock, i.e. only by the dormant hardware clock path. */
     static int m_clock_mod;
 
     /* address of client (kept for API compatibility; meaning is backend
@@ -156,8 +198,15 @@ class midibus
     int get_client( void ) {  return m_dest_addr_client; };
     int get_port( void ) { return m_dest_addr_port; };
 
+    /* The ONE writer/reader pair for the MIDI-clock modulus.  Values outside
+       [c_clock_mod_min, c_clock_mod_max] are rejected (the previous value is
+       kept) instead of poisoning init_clock's modulo arithmetic. */
     static void set_clock_mod( int a_clock_mod );
     static int get_clock_mod( void );
+
+    static const int c_clock_mod_min = 1;
+    static const int c_clock_mod_max = 1024;
+    static const int c_clock_mod_default = 16 * 4;
 
 };
 
@@ -185,7 +234,11 @@ class mastermidibus
     int m_queue;
 
     int m_ppqn;
-    double m_bpm;      /* fractional BPM survives end-to-end (nerf: int truncation) */
+
+    /* NOTE: there is deliberately no m_bpm here.  The audio engine's tempo map
+       is the single tempo authority (audio_app_set_tempo / audio_app_tempo);
+       perform::get_bpm reads it directly.  A mirror here could -- and did --
+       silently disagree with the clock the audio thread actually renders. */
 
     /* for dumping midi input to sequence for recording */
     bool m_dumping_input;
@@ -211,10 +264,21 @@ class mastermidibus
     int get_num_out_buses();
     int get_num_in_buses();
 
-    void set_bpm(double a_bpm);
     void set_ppqn(int a_ppqn);
-    double get_bpm(){ return m_bpm;}
     int get_ppqn(){ return m_ppqn;}
+
+    /* LEGACY HARDWARE MIDI OUTPUT -- off, and off is the shipping state.
+       While it is off this class opens no WinMM output port (opening one is
+       EXCLUSIVE on Windows: it would lock the patcher's own hardware MIDI-out
+       node, and every other app, out of the device) and emits no bytes of its
+       own -- no notes, no 0xF8 clock, no start/stop/SPP.  The patcher's
+       MIDI-out nodes are the hardware path.
+
+       set_hw_output(true) opts back into the seq24 behaviour for THIS bus set:
+       it opens the enumerated output ports and un-gates the sends.  It is the
+       one switch; nothing else may open these ports. */
+    void set_hw_output( bool a_on );
+    static bool hw_output( void );
 
     std::string get_midi_out_bus_name( int a_bus );
     std::string get_midi_in_bus_name( int a_bus );
@@ -241,9 +305,22 @@ class mastermidibus
     void port_start( int a_client, int a_port );
     void port_exit( int a_client, int a_port );
 
-    /* a_tick: absolute due-time in sequencer ticks (-1 = "now"), forwarded to
-       the audio engine for sample-accurate delivery */
-    void play( unsigned char a_bus, event *a_e24, unsigned char a_channel,
+    /*  THE BRIDGE from the sequencer into the audio engine.  Everything the
+        sequencer plays leaves through here; see the contract block above the
+        definition in midibus.cpp.
+
+        a_bus   : destination TRACK index.  The convention is
+                  bus index == master-mixer track == MIDI plug (audio_app.h:10).
+                  Valid range [0, c_maxBuses) == [0, 32) == AUDIO_APP_MAX_TRACKS.
+                  Declared int -- NOT unsigned char -- precisely so a negative
+                  sequence::m_bus (it is a signed char, and both the .midi
+                  reader and the project loader can write >127 into it) arrives
+                  as a visible -1 instead of a plausible-looking 255.
+                  Out-of-range values are CLAMPED into the valid range, never
+                  dropped: dropping would strand note-offs and hang notes.
+        a_tick  : absolute due-time in sequencer ticks (-1 = "now"), forwarded
+                  to the audio engine for sample-accurate delivery. */
+    void play( int a_bus, event *a_e24, unsigned char a_channel,
                long a_tick = -1 );
 
     void set_clock( unsigned char a_bus, clock_e a_clock_type );

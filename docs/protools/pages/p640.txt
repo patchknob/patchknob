@@ -1,0 +1,49 @@
+      The Transport Record button indicates Track-         To TrackPunch enable or disable all selected audio
+      Punch and Record status as follows:                  tracks:
+
+                                                              Option-Control-Shift-click (Mac) or
+      When TrackPunch mode is enabled:                         Alt-Start-Shift-click (Windows) a track’s
+        A “T” appears in the Record button in the             Record Enable button.
+      Transport.
+                                                           When TrackPunch enabled, Track record enable
+       If at least one track is TrackPunch-enabled, the   buttons light solid blue.
+      Record button lights solid blue.
+                                                                 Create track groups for each stem or set of
+                                                                 tracks on which you plan to punch, then use
+                                                                 the Groups List to quickly select all tracks in
+                                                                 the group.
+
+      TrackPunch mode, with at least one TrackPunch-       Track Record Status Display
+      enabled track
+                                                           Each track’s Record Enable button indicates its
+      When TrackPunch mode is enabled and the
+      transport is armed for recording:                    TrackPunch and record enable status as follows:
+
+        If no tracks are TrackPunch-enabled, the Re-      • When a track is TrackPunch-enabled but not re-
+      cord button in the Transport flashes gray and red.     cord-enabled, its Record Enable button lights
+                                                             solid blue.
+       If at least one track is TrackPunch-enabled, the
+      Record button flashes blue and red.
+       If at least one TrackPunch-enabled track is also
+
+      record-enabled, the Record button flashes blue and
+      red, and the record LED lights.
+        Whenever at least one audio track is recording,
+      the Transport Record button lights solid red.
+
+      TrackPunch Enabling Tracks
+      Before each pass, you must TrackPunch enable all
+      tracks that you intend to punch (you can Track-
+      Punch enable tracks without record enabling
+      them).
+                                                           Record Enable button, enabled
+
+      To TrackPunch enable one audio track:                • When a track is both TrackPunch-enabled and
+         Control-click (Mac) or Start-click (Windows)       record-enabled, its Record enable button flashes
+          the track’s Record Enable button.                  blue and red.
+                                                           • When a track is record-enabled only, its Record
+      To TrackPunch enable or disable all audio tracks:      Enable button flashes red.
+         Option-Control-click (Mac) or Alt-Start-click    • While a track is recording (in any mode), its Re-
+          (Windows) a track’s Record Enable button.          cord Enable button lights solid red.
+
+608   Pro Tools Reference Guide

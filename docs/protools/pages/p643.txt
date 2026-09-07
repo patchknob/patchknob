@@ -1,0 +1,43 @@
+DestructivePunch Setup                                 Transport Display of DestructivePunch
+(Pro Tools Ultimate Software Only)                     Status
+
+Before using DestructivePunch in a record pass         When DestructivePunch mode is enabled:
+you must configure Pro Tools, session, and track         The letters “DP” appear in the Record button in
+settings.                                              the Transport.
+Configuring Pro Tools for                                If at least one track is DestructivePunch-en-
+DestructivePunch                                       abled, the Record button in the Transport lights
+                                                       solid blue.
+To configure Pro Tools:
+1   Configure tracks, voicing, and other settings as
+    needed (see “Guidelines for Punch Recording”
+    on page 601).
+2   Make sure Pro Tools is not recording or playing    Transport Record Enable button with
+                                                       DestructivePunch mode enabled
+    back (the Transport is stopped).
+                                                       When DestructivePunch mode is enabled and the
+                                                       transport is armed for recording:
+Enabling DestructivePunch
+Mode                                                     If no tracks are DestructivePunch-enabled, the
+                                                       Record button in the Transport flashes gray and
+To enable DestructivePunch mode:
+                                                       red.
+   Do one of the following:
+                                                         If at least one track is DestructivePunch-en-
+• Select Options > DestructivePunch.                   abled, the Record button flashes blue and red.
+• Right-click the Record button in the Transport          If at least one DestructivePunch-enabled track
+  and select DestructivePunch.                         is also record enabled, the Record button flashes
+• Control-click (Mac) or Start-click (Windows)         blue and red, and the record LED lights.
+  the Record button in the Transport to cycle
+                                                         Whenever at least one audio track is recording,
+  through available Record modes until Destruc-
+                                                       the Record button lights solid red.
+  tivePunch mode is indicated by “DP” in the
+  Transport Record Enable button.
+
+      Power waveform view is not available in
+      Destructive Punch mode.
+
+
+
+
+                                                                          Chapter 27: Punch Recording Modes   611

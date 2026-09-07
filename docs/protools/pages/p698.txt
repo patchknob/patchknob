@@ -1,0 +1,47 @@
+                                                             Although you can Undo a Pencil tool edit, it is rec-
+      Using the Pencil Tool                                  ommended that you create a backup copy of the
+      The Pencil tool lets you draw several types of         target audio before using the Pencil tool. You can
+      Pro Tools data:                                        do this by using the AudioSuite Duplicate plug-in.
+
+      • Audio waveforms (see “Waveform Repair with                 The Pencil tool is a destructive editing tool
+        the Pencil Tool” on page 666)                              that permanently modifies the audio file on
+      • MIDI data (see “Using the Pencil Tool” on                  disk and should be used with caution.
+        page 788)
+      • Tempo changes (see “Editing Tempo Events in                For information about the AudioSuite Du-
+        the Tempo Editor” on page 893)                             plicate plug-in, see the Audio Plug-Ins
+      • Automation (see “Drawing Automation” on                    Guide.
+        page 1215).                                          To destructively edit an audio waveform with the
+                                                             Pencil tool:
+           When editing automation or MIDI control
+           data with the Pencil tool, you can switch be-     1   Locate the area you want to edit.
+           tween the current Pencil Tool shape (such as      2   Using the Zoomer tool or the Zoom buttons,
+           Line) and Free Hand pencil editing using the          zoom down to the sample level so the waveform
+           Command key (Mac) or the Control key (Win-            appears as a continuous thin line. Adjust the
+           dows). When editing with the selected Pencil          Track Height, as necessary, to edit the wave-
+           shape, the Pencil cursor angles to the left.          form with greater precision. You can also use
+           When editing in Free Hand with the key mod-           vertical zoom for greater visual resolution.
+           ifier, the Pencil cursor angles to the right.
+                                                                   You can recall zoom levels with the Zoom
+      Waveform Repair with the Pencil                              Preset buttons (see “Zooming Options” on
+      Tool                                                         page 643), or with Memory Locations (see
+                                                                   “Recalling Memory Locations” on
+      On audio tracks, the Pencil tool lets you destruc-
+                                                                   page 927). The default setting for Zoom Pre-
+      tively “redraw” waveform data. This tool is most
+                                                                   set 5 is at the sample level for Pencil editing.
+      commonly used to repair a pop or click in an audio
+      file. A pop or click appears as a sudden sharp spike   3   Select the Pencil tool.
+      in a waveform. This tool only becomes active
+      when the Edit window is zoomed in to the sample
+      level.
+
+
+                                                             Pencil tool
+
+                                                             4   Carefully draw with the Pencil tool by dragging
+                                                                 over the area of the waveform.
+
+
+
+
+666   Pro Tools Reference Guide

@@ -1,0 +1,49 @@
+Zoom Toggle                                              For MIDI Editing, set the Zoom Toggle pref-
+                                                         erences as follows: Vertical Zoom to Last
+Zoom Toggle lets you define and toggle between
+                                                         Used, Horizontal Zoom to Last Used, Track
+zoom states in the Edit window.
+                                                         View to Waveform/Notes, and Track Height
+                                                         to Fit to Window.
+Zoom Toggle Parameters
+The Zoom Toggle stores and recalls the following         For audio editing, set the Zoom Toggle
+parameters:                                              preferences as follows: Vertical Zoom to
+• Vertical Zoom                                          Selection, Horizontal Zoom to Selection,
+                                                         Track Height to Fit to Window, and Track
+• Horizontal Zoom
+                                                         View to No Change.
+• Track Height
+                                                   4   Click OK.
+• Track View
+• Grid setting                                     Vertical Zoom
+
+                                                   Selection When selected, zoom toggling in zooms
+Zoom Toggle Preferences                            vertically to the current Edit Selection.
+The Zoom Toggle preferences determine how          Last Used When selected, zoom toggling in
+Zoom Toggle works. Adjust the Zoom Toggle          zooms vertically to the last stored Zoom Toggle
+preferences to fit your workflow.                  state for MIDI notes in Notes view only.
+To change the Zoom Toggle preferences:
+                                                   Horizontal Zoom
+1   Choose Setup > Preferences.
+                                                   Selection When selected, zoom toggling in zooms
+2   Click the Editing tab.                         horizontally to the current selection. This is espe-
+                                                   cially useful for audio editing.
+3   Change the Zoom Toggle settings and options.
+                                                   Last Used When selected, zoom toggling in
+                                                   zooms horizontally to the last stored Zoom Toggle
+                                                   state. This option can emulate a separate editor
+                                                   window. This is especially useful for editing MIDI
+                                                   notes.
+
+                                                   Remove Range Selection After Zooming In
+
+                                                   When the Remove Range Selection After Zoom-
+                                                   ing In option is selected, the current Edit selection
+                                                   collapses into an insertion point after zoom tog-
+Zoom Toggle preferences
+                                                   gling in.
+
+
+
+
+                                                                          Chapter 29: Edit Modes and Tools   649

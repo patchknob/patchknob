@@ -31,14 +31,28 @@ class perform;
 #include <unistd.h>
 #include <pthread.h>
 #include <vector>
+#include <atomic>
 
 
-/* if we have jack, include the jack headers */
-#ifdef JACK_SUPPORT
-#include <jack/jack.h>
-#include <jack/transport.h>
-#endif
 
+
+/*  SCHEDULER TRACE -- diagnostics for the transport LOOP.
+    perform::output_func appends one row per poll when g_loop_trace_on is set,
+    so a headless harness can prove WHICH branch ran and with what numbers.
+    branch: 0 = normal advance, 1 = loop wrap (tail + head scheduled),
+            2 = wrap branch suppressed by the tail_done latch,
+            3 = nothing scheduled (horizon still behind last_scheduled).      */
+struct loop_trace_rec {
+    long long ms;            /* wall ms since the trace was armed            */
+    long long transport_tick;
+    long long horizon;
+    long long left, right;
+    long long last_scheduled;
+    unsigned long long wrap_gen;
+    int  branch;
+};
+extern bool                        g_loop_trace_on;
+extern std::vector<loop_trace_rec> g_loop_trace;
 
 /* class contains sequences that make up a live set */
 
@@ -96,7 +110,19 @@ class perform
     
     bool m_sequence_state[  c_max_sequence ];
 
-    /* our midibus */
+    /*  The LEGACY seq24 MIDI layer.  It is NOT the routing authority -- MIDI
+        routing lives in the modular patch graph (src/engine/patch).  What this
+        member is still good for:
+
+          * mastermidibus::play(), which every sequence calls and which is THE
+            bridge into the audio engine (audio_app_route_midi).  Read the
+            contract in midibus.cpp before changing anything about bus indices.
+          * enumerating MIDI port names for the config writer.
+
+        Everything else on it is dormant: it opens no hardware port and emits
+        no bytes unless set_hw_output(true) is called, which nothing does.  It
+        holds NO tempo (the engine tempo map does; see set_bpm/get_bpm) and no
+        authoritative bus assignment.  See the map at the top of midibus.h. */
     mastermidibus m_master_bus;
 
     /* pthread info */
@@ -114,12 +140,41 @@ class perform
 
     int thread_trigger_width_ms; 
 
-    long m_left_tick;
-    long m_right_tick;
-    long m_starting_tick;
-    
-    long m_tick;
-   
+    /*  TRANSPORT TICK FIELDS -- genuinely SHARED, hence atomic (bug R8).
+        They were plain longs, which is undefined behaviour and, in practice,
+        torn or indefinitely stale playhead/loop-marker readouts:
+
+          m_tick          written by the SCHEDULER thread (output_func, both
+                          the engine-paced and the fallback scheduler, plus
+                          perform::play) AND by the MESSAGE/UI thread via
+                          set_tick(); read by the UI playhead
+                          (ArrangeView::playhead -> get_tick) and by the MIDI
+                          INPUT thread (input_func timestamps recorded events
+                          with it).  Three threads.
+          m_left_tick     the loop markers.  Written by the UI (ruler drags,
+          m_right_tick    project load, "set loop to selection"); read every
+                          poll by the scheduler, which republishes them to the
+                          engine, and read again by the UI to draw them.
+          m_starting_tick written by the UI (rewind, punch-in, loop-left drag,
+                          project load) and by set_left_tick/set_right_tick;
+                          read by inner_start and by both schedulers as the
+                          position playback resumes from.
+
+        ORDERING: relaxed, everywhere.  Each of these is a self-contained
+        scalar readout -- no other memory is published *through* them, so
+        there is nothing for an acquire/release pair to order.  The one place
+        an ordering edge genuinely matters (the UI parking the playhead, then
+        pressing PLAY) already gets it from m_condition_var's lock/signal in
+        inner_start, which the scheduler blocks on before it reads
+        m_starting_tick.  Relaxed also keeps the 1ms scheduler poll free of
+        barriers: on x86-64 and AArch64 a relaxed load/store compiles to the
+        same plain mov/ldr the raw long did.  See BUG R8. */
+    std::atomic<long> m_left_tick;
+    std::atomic<long> m_right_tick;
+    std::atomic<long> m_starting_tick;
+
+    std::atomic<long> m_tick;
+
     void set_running( bool a_running );
     bool is_running();
 
@@ -139,20 +194,7 @@ class perform
 
     std::map<long,long> key_events;
 
-#ifdef JACK_SUPPORT
     
-    jack_client_t *m_jack_client;
-    jack_nframes_t m_jack_frame_current,
-                   m_jack_frame_last;
-    jack_position_t m_jack_pos;
-    jack_transport_state_t m_jack_transport_state;
-    jack_transport_state_t m_jack_transport_state_last;
-    double m_jack_tick;
-    
-#endif
-    
-    bool m_jack_running;
-    bool m_jack_master;
 
     void inner_start( bool a_state );
     void inner_stop();
@@ -183,8 +225,6 @@ class perform
     
     void launch_input_thread( void );
     void launch_output_thread( void );
-    void init_jack( void );
-    void deinit_jack( void );
     
     void add_sequence( sequence *a_seq, int a_perf );
     void delete_sequence( int a_num );
@@ -197,7 +237,19 @@ class perform
     void clear_sequence_triggers( int a_seq  );
 
 
-    long get_tick( ) { return m_tick; };
+    /* signatures unchanged on purpose -- callers in sdlui/ keep compiling */
+    long get_tick( ) { return m_tick.load( std::memory_order_relaxed ); };
+    void set_tick( long tick )
+    { m_tick.store( tick < 0 ? 0 : tick, std::memory_order_relaxed ); }
+
+    /* Public, READ-ONLY view of the transport run-state (is_running() itself is
+       private and is the internal write-side pair of set_running()).  The shell
+       needs it because perform -- not the engine transport -- is what PLAY and
+       STOP actually drive: the transport bar used to light its PLAY button from
+       the engine alone, which rolls during a metronome count-in while perform is
+       still stopped, and does not roll at all when there is no audio device.
+       Either way the button disagreed with what the button did. */
+    bool running( void ) const { return m_running; }
 
     void set_left_tick( long a_tick );
     long get_left_tick( void );
@@ -213,6 +265,7 @@ class perform
     
     void push_trigger_undo( void );
     void pop_trigger_undo( void );
+    void pop_trigger_redo( void );
 
     void print();
 
@@ -231,9 +284,6 @@ class perform
     void start( bool a_state );
     void stop();
 
-    void start_jack();
-    void stop_jack();
-    void position_jack( bool a_state );
 
     void off_sequences( void );
 
@@ -253,7 +303,7 @@ class perform
 
     sequence * get_sequence( int a_sequence );
 
-    void reset_sequences( void );
+    void reset_sequences( long release_tick = -1, bool loop_boundary = false );
 
     /* SCALE-MASTER / SCALE-FOLLOW.
        set_scale_master enforces a single master: it clears the previous
@@ -263,8 +313,9 @@ class perform
     int  get_scale_master( void );
     void set_follows_master( int a_seq, bool a_follow );
 
-    /* fractional BPM survives end-to-end; the engine tempo map is the
-       authority (set_bpm funnels every write into it) */
+    /* Fractional BPM, end to end.  The engine tempo map is the ONE authority:
+       set_bpm is the only write path into it and get_bpm reads it straight
+       back -- there is no second copy anywhere to fall out of sync. */
     void   set_bpm(double a_bpm);
     double get_bpm( );
 
@@ -299,14 +350,6 @@ class perform
     friend class midifile;
     friend class optionsfile;
 
-#ifdef JACK_SUPPORT
-
-    friend int jack_sync_callback(jack_transport_state_t state, 
-                              jack_position_t *pos, void *arg);
-    friend void jack_shutdown(void *arg);
-    friend void jack_timebase_callback(jack_transport_state_t state, jack_nframes_t nframes, 
-                                       jack_position_t *pos, int new_pos, void *arg);
-#endif
 
 };
 
@@ -316,15 +359,6 @@ extern void *input_thread_func(void *a_p);
 
 
 
-#ifdef JACK_SUPPORT
-
-int jack_sync_callback(jack_transport_state_t state, 
-					   jack_position_t *pos, void *arg);
-void print_jack_pos( jack_position_t* jack_pos );
-void jack_shutdown(void *arg);
-void jack_timebase_callback(jack_transport_state_t state, jack_nframes_t nframes, 
-                            jack_position_t *pos, int new_pos, void *arg);
-#endif
 
 
 #endif

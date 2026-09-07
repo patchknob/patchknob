@@ -1,0 +1,49 @@
+                                                                MIDI Clips Created on Barlines
+
+                                                                When recording MIDI, or when manually entering
+                                                                MIDI notes, the beginning and ending of resulting
+                                                                MIDI clips are constrained to bar boundaries. This
+                                                                facilitates arranging MIDI clips in a musically
+                                                                meaningful way, in whole bar lengths.
+
+                                                                The beginning of a recorded MIDI clip always
+                                                                starts on the barline immediately before the first
+                                                                MIDI note (Note On) of the clip. Likewise, the
+                                                                MIDI clip ends on the barline immediately follow-
+                                                                ing the last note (Note Off) of the clip.
+
+                                                                MIDI Clips and Continuous Controller
+                                                                Events
+      Cutting a MIDI clip with note overlap
+                                                                Continuous controller events reside in MIDI clips
+        Similar rules also apply when MIDI clips or clip
+                                                                and not in tracks. This means that when dragging
+      groups containing MIDI clips are trimmed with
+                                                                clips that contain controller data from either a track
+      any of the Trim tools. If the MIDI clip’s start point
+                                                                or the Clips List, the controller data is written to
+      is moved beyond a note’s start point, the note is re-
+                                                                the destination track.
+      moved. If the clip’s end point is trimmed so that a
+      note’s start point is within the clip but its end point   You can edit continuous controller events by
+      is not, the note remains and overlaps the edge of         switching track views or by revealing the control-
+      the clip.                                                 ler lanes under the track.
+
+      When moving and placing MIDI clips with over-                  For more information on editing MIDI con-
+      lapping notes, the notes always move with the                  troller data, see Chapter 35, “MIDI Editing.”
+      clips. When placing MIDI clips with overlapping
+      notes next to or near another clip, the overlapping       MIDI Mute Automation
+      notes extend into the next clip on the track.
+                                                                Unlike continuous controller events, which repre-
+           To separate MIDI notes, rather than leave            sent nuances that are part of a MIDI performance,
+           them hanging, when separating, cutting or            Mute in Pro Tools is an automation playlist that ac-
+           copying clips, make the Edit selection you           tually mutes the MIDI engine. Mute automation
+           want, switch to Notes view and use the               does not correspond to actual MIDI events and is
+           Separate At Selection command, then switch           therefore not exported when saving as a Standard
+           back to Clips view and make the edit                 MIDI File.
+           (separating, cutting, or copying).
+
+
+
+
+628   Pro Tools Reference Guide

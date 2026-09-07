@@ -1,0 +1,57 @@
+      Voice Requirements for                                 If the required number of voices for the record-en-
+      Punch Recording                                        abled tracks is not available when switching to
+                                                             QuickPunch, TrackPunch, or DestructivePunch
+      The maximum number of tracks that can be
+                                                             mode, you are prompted to free up the necessary
+      punched depends on the type of system you are us-
+                                                             voices.
+      ing, as well as the number of available voices. The
+      following topics provide guidelines for voice us-      To make more voices available for punch
+      age with punch recording that can be useful when       recording:
+      managing resources during sessions.
+                                                                Identify tracks that are not record-enabled, and
+      Pro Tools                                                  do not need to be heard while recording, and do
+                                                                 any of the following:
+      (QuickPunch Only)
+                                                             • Set voice assignments for tracks to Off.
+      QuickPunch capabilities for Pro Tools depends on
+                                                             • Make tracks inactive.
+      the total number of voices available. This will vary
+      depending on the number of tracks and plug-ins in      • Group all Native plug-ins before DSP plug-ins.
+      use in the current session (which affects the num-
+                                                             Voices that are in use by other tracks, but not
+      ber of available voices).
+                                                             record-enabled, may be “stolen” during punch re-
+            QuickPunch uses CPU processing power,            cording as necessary.
+            and may reduce the number of tracks and
+                                                             When any punch recording mode is enabled, voice
+            plug-ins you can use.
+                                                             playback priority is as follows (from highest to
+                                                             lowest playback priority):
+            For details on voice capabilities, see           • Tracks with assigned voices that are not
+            “Pro Tools Artist Capabilities with Different      record-enabled.
+            Hardware Configurations” on page 39.
+                                                             • Tracks with assigned voices that are record-en-
+      To make more voices available for punch                  abled.
+      recording:
+                                                             • Tracks with Dynamically Allocated Voicing that
+      1   Identify tracks that are not record-enabled, and     are not record-enabled.
+          do not need to be heard while recording.
+                                                             • Tracks with Dynamically Allocated Voicing that
+      2   Make those tracks inactive.                          are record-enabled.
+
+      Pro Tools Ultimate                                     If a session has plenty of available voices, you
+                                                             should have no trouble punch recording tracks us-
+      (QuickPunch, TrackPunch, and
+      DestructivePunch)
+                                                             ing Dynamically Allocated Voicing. However, if
+                                                             you are running out of voices, and want to ensure
+      When using any punch recording mode with               that a track is heard when punch recording, be sure
+      Pro Tools Ultimate, two voices are required for        to set the voicing tracks that you don’t need to
+      each record-enabled mono track. This means that        punch into to Off.
+      you can punch record up to half the total number of
+      voices available on your system.
+
+
+
+602   Pro Tools Reference Guide

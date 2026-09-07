@@ -1,0 +1,47 @@
+Changing a Selection Length                             Nudging a Selection Range
+The selection range can be shortened or length-         The selection range (not the material within the se-
+ened. This does not affect the material within the      lection) can be moved by the Nudge value.
+selection.
+                                                        To nudge a selection range:
+To change the length of a selection, do one of the      1   Configure the Nudge value. For details, see
+following:
+                                                            “Defining the Nudge Value” on page 700.
+   With the Selector tool, position the cursor over
+                                                        2   Make the initial selection with the Selector tool.
+    one end of the current selection and Shift-click,
+    or Shift-drag left or right.                        3   While pressing Shift, press Plus (+) or Minus (–
+                                                            ) on the numeric keypad to move the selection
+   In the Main Timebase ruler, drag the Timeline
+                                                            range by the Nudge value.
+    Selection Marker for the selection’s start or end
+    point.
+                                                        Nudging Selection Start/End
+                                                        Points
+                                                        Start and end points for selections can be moved by
+                                                        nudging them.
+
+Dragging a Timeline Selection Marker                    To move a selection start or end point by the
+                                                        Nudge value:
+   If Link Timeline and Edit Selection is disabled,
+    drag the Edit Marker to change the selection        1   Configure the Nudge value. For details, see
+    length.                                                 “Defining the Nudge Value” on page 700.
+                                                        2   Make the initial selection with the Selector tool.
+                                                        3   Do one of the following:
+Edit Markers                                            • While pressing Option+Shift (Mac) or Alt+Shift
+To make a long-length selection:                          (Windows), press Plus (+) or Minus (–) on the
+                                                          numeric keypad to move the selection’s start
+1   With the Selector tool, click at where you want       point by the Nudge value.
+    the selection to start.
+                                                        • While pressing Command+Shift (Mac) or Con-
+2   Scroll to the end point and Shift-click at the        trol+Shift (Windows), press Plus (+) or
+    point where you want the selection to end.            Minus (–) on the numeric keypad to move the
+                                                          selection’s end point by the Nudge value.
+To verify the start and end points of a long selec-
+tion, press the Left Arrow key to scroll to the be-
+ginning of the selection, or press the Right Arrow
+key to scroll to the end.
+
+
+
+
+                                                                                  Chapter 30: Making Selections   675

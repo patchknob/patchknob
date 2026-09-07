@@ -26,6 +26,7 @@ endif()
 # AutomationLane/AutomationTrack are header-only; AutomationPlayer has a .cpp.
 add_library(PatchKnob_automation STATIC
     automation_player.cpp
+    automation_ops.cpp
 )
 
 # The parent engine dir is on the include path to match the other engine
@@ -37,10 +38,16 @@ target_include_directories(PatchKnob_automation PUBLIC
 
 target_compile_options(PatchKnob_automation PRIVATE -Wall -Wextra)
 
-# --- test executable --------------------------------------------------------
+# --- test executables -------------------------------------------------------
 add_executable(automation_test automation_test.cpp)
 target_link_libraries(automation_test PRIVATE PatchKnob_automation)
 target_compile_options(automation_test PRIVATE -Wall -Wextra)
 
+# Range-process layer: invariant + determinism sweep over every op.
+add_executable(automation_ops_test automation_ops_test.cpp)
+target_link_libraries(automation_ops_test PRIVATE PatchKnob_automation)
+target_compile_options(automation_ops_test PRIVATE -Wall -Wextra)
+
 enable_testing()
-add_test(NAME automation_test COMMAND automation_test)
+add_test(NAME automation_test     COMMAND automation_test)
+add_test(NAME automation_ops_test COMMAND automation_ops_test)

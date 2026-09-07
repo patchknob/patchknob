@@ -71,6 +71,18 @@ public:
     //! Remove all lanes.
     void clear() { lanes_.clear(); }
 
+    //! Every lane as a pointer vector, in track order. This is the bridge to
+    //! the range-process layer: autoops::applyMulti() takes exactly this shape,
+    //! and the multi-lane ops read entry 0 as their source. Pointers are
+    //! invalidated by addLane()/removeLane() like any other lane reference, so
+    //! build the vector immediately before the call.
+    std::vector<AutomationLane*> allLanes() {
+        std::vector<AutomationLane*> out;
+        out.reserve(lanes_.size());
+        for (auto& l : lanes_) out.push_back(&l);
+        return out;
+    }
+
 private:
     std::vector<AutomationLane> lanes_;
 };

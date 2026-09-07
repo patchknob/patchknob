@@ -78,7 +78,7 @@ void test_throwing_callback() {
     AudioEngine engine;
 
     engine.setRenderCallback(
-        [](float** out, int numChannels, int nframes, double) {
+        [](const float* const*, int, float** out, int numChannels, int nframes, double) {
             // Dirty the buffers first so the catch path provably zeroes them.
             for (int c = 0; c < numChannels; ++c)
                 for (int i = 0; i < nframes; ++i) out[c][i] = 1.0f;
@@ -87,7 +87,7 @@ void test_throwing_callback() {
 
     const int frames = 256;
     FakeBlock blk(2, frames, /*fill=*/123.0f);   // sentinel: must not survive
-    const int rc = engine.render_into(blk.data(), (unsigned long)frames, 0);
+    const int rc = engine.render_into(nullptr, blk.data(), (unsigned long)frames, 0);
 
     check(rc == paContinue, "render_into returned paContinue after a throw");
 
@@ -99,11 +99,11 @@ void test_throwing_callback() {
 
     // The engine must remain callable: a well-behaved callback still renders.
     engine.setRenderCallback(
-        [](float** out, int numChannels, int nframes, double) {
+        [](const float* const*, int, float** out, int numChannels, int nframes, double) {
             for (int c = 0; c < numChannels; ++c)
                 for (int i = 0; i < nframes; ++i) out[c][i] = 0.5f;
         });
-    const int rc2 = engine.render_into(blk.data(), (unsigned long)frames, 0);
+    const int rc2 = engine.render_into(nullptr, blk.data(), (unsigned long)frames, 0);
     check(rc2 == paContinue && blk.storage[0][0] == 0.5f && blk.storage[1][frames - 1] == 0.5f,
           "engine still renders normally on the next block");
 }
@@ -123,14 +123,14 @@ void test_denormal_modes() {
 
     std::atomic<bool> ftzOn{false}, dazOn{false};
     engine.setRenderCallback(
-        [&ftzOn, &dazOn](float**, int, int, double) {
+        [&ftzOn, &dazOn](const float* const*, int, float**, int, int, double) {
             const unsigned int csr = _mm_getcsr();
             ftzOn.store((csr & 0x8000u) != 0);   // bit 15: flush-to-zero
             dazOn.store((csr & 0x0040u) != 0);   // bit  6: denormals-are-zero
         });
 
     FakeBlock blk(2, 64, 0.0f);
-    engine.render_into(blk.data(), 64, 0);
+    engine.render_into(nullptr, blk.data(), 64, 0);
 
     check(ftzOn.load(), "MXCSR FTZ (bit 15) set inside the render callback");
     check(dazOn.load(), "MXCSR DAZ (bit 6) set inside the render callback");
@@ -160,7 +160,7 @@ void test_swap_stress() {
     std::thread rt([&] {
         FakeBlock blk(2, 128, 0.0f);
         while (!stop.load(std::memory_order_relaxed)) {
-            engine.render_into(blk.data(), 128, 0);
+            engine.render_into(nullptr, blk.data(), 128, 0);
             renders.fetch_add(1, std::memory_order_relaxed);
         }
     });
@@ -170,7 +170,7 @@ void test_swap_stress() {
         const unsigned expect = 0xC0FFEE00u + (unsigned)(k & 0xFF);
         auto magic = std::make_shared<unsigned>(expect);
         engine.setRenderCallback(
-            [magic, expect, &torn](float** out, int numChannels, int nframes, double) {
+            [magic, expect, &torn](const float* const*, int, float** out, int numChannels, int nframes, double) {
                 if (*magic != expect) torn.store(true, std::memory_order_relaxed);
                 for (int c = 0; c < numChannels; ++c)
                     for (int i = 0; i < nframes; ++i) out[c][i] = 0.25f;
@@ -186,7 +186,7 @@ void test_swap_stress() {
 
     // Always-callable: the last installed callback must still run intact.
     FakeBlock blk(2, 64, 0.0f);
-    engine.render_into(blk.data(), 64, 0);
+    engine.render_into(nullptr, blk.data(), 64, 0);
     check(blk.storage[0][0] == 0.25f && blk.storage[1][63] == 0.25f,
           "engine callable with the last swapped-in callback");
 }
@@ -222,7 +222,7 @@ int smoke_test_device() {
 
     SineState sine;
     engine.setRenderCallback(
-        [&sine](float** out, int numChannels, int nframes, double sampleRate) {
+        [&sine](const float* const*, int, float** out, int numChannels, int nframes, double sampleRate) {
             if (sine.phaseInc == 0.0)
                 sine.phaseInc = kTwoPi * kFreqHz / sampleRate;
             for (int i = 0; i < nframes; ++i) {

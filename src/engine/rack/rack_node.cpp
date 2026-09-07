@@ -55,7 +55,9 @@ void RackNode::process(const NodeProcessContext& ctx) {
     }
 
     engine_.processMulti(n, insL, insR, numIns, outsL, outsR, numOuts,
-                         midi, nMidi, (float)ctx.transport.tempoBpm, ctx.transport.isPlaying);
+                         midi, nMidi, (float)ctx.transport.tempoBpm,
+                         ctx.transport.isPlaying,
+                         ctx.transport.playPositionSamples);
 }
 
 }}} // namespace PatchKnob::engine::patch

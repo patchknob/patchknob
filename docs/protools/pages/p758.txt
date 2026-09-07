@@ -1,0 +1,48 @@
+      2   Move the clip selection by doing one of the fol-   Moving Clips Adjacent to
+          lowing:                                            Crossfades
+      • Drag the clip selection with the Grabber tool to a   When you move either of the clips that contributes
+        new location on the track.                           to a crossfade, the clips separate. The status of the
+      • Nudge the clip selection by pressing Plus (+) or     fade depends on the Preserve Fades when Editing
+        Minus (–) on the numeric keypad to move the          preference (in the Editing Preferences page).
+        clip forward or backward on the track.
+                                                             To separate crossfaded clips and retain the
+                                                             corresponding fades:
+                                                             1   Choose Setup > Preferences and click the
+                                                                 Editing tab.
+
+                                                             2   Select Preserve Fades when Editing.
+      Dragging a clip with its fade
+                                                             3   Click OK to close the Preferences dialog.
+      Nudging Clips Adjacent to
+                                                                 Use the Time Grabber or Separation Grabber
+      Fade-Ins or Fade-Outs                                  4
+                                                                 tool to select one of the contributing clips to a
+      When you nudge a clip selection adjacent to a              crossfade.
+      fade-in or fade-out, but do not select the fade, the
+      adjacent fade stretches or shrinks to maintain the
+      fade start or end point. The amount of change de-
+      pends on the amount of audio material outside the
+      fade start or end point.
+
+      To a nudge clip without its fade:                      Selecting a clip with a crossfade
+
+      1   Select the clip, but not the fade.                 5   Drag the selected clip with the Grabber.
+
+
+
+
+      Selecting a clip without its fade
+                                                             Separating clips while preserving fades
+      2   Nudge the clip by pressing Plus (+) or Minus (–
+          ) on the numeric keypad.                           To separate crossfaded clips and remove the fade:
+                                                             1   Choose Setup > Preferences and click the
+                                                                 Editing tab.
+
+                                                             2   Deselect Preserve Fades when Editing.
+                                                             3   Click OK to close the Preferences dialog.
+      Nudging a clip without its fade
+
+
+
+
+726   Pro Tools Reference Guide

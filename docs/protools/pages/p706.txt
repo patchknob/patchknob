@@ -1,0 +1,47 @@
+      3   Shift-click each clip you want to include in the    To change a Time selection to an Object selection:
+          selection. The clips can even reside on different   1   Drag with the Selector tool in any track to de-
+          tracks.                                                 fine a selection, or select in a Timebase ruler to
+                                                                  select across all tracks.
+
+
+
+
+      Noncontiguous selection
+
+      Each clicked clip is surrounded by a dark border,       Selected clips
+      indicating it is selected.
+                                                              2   With the Object Grabber tool selected, double-
+      The Object Grabber tool ignores Edit Groups when            click the Grabber icon in the toolbar. Clips fall-
+      making selections. For instance, selecting a clip on        ing within the selection range become selected
+      a grouped track does not cause clips in the other           as objects. Clips that were partially selected be-
+      tracks in the group to become selected.                     come deselected.
+
+
+      Object to Time Selection
+      You can convert between Time- and Object-based
+      selections. Time selections are made with the Se-
+      lector and Time Grabber tools. Object selections
+      are made with the Object Grabber tool.
+                                                              Clips selected as objects
+      Converting to an Object selection is useful when
+      you are working with large selections, especially       To select clips that were partially selected, press
+      across multiple tracks, and you want to remove          Control (Mac) or Start (Windows) while double-
+      certain clips from the selection.                       clicking the Grabber icon.
+
+      Converting to a Time selection is useful if you         To change an Object selection to a Time selection:
+      want to select all clips between a noncontiguous
+                                                              1   Select any number of clips with the Object
+      Object selection.
+                                                                  Grabber tool.
+                                                              2   Double-click the Selector tool in the toolbar.
+                                                                  The time range between the first and last clip
+                                                                  becomes selected.
+
+                                                              When using the Object Grabber tool on tracks that
+                                                              belong to an Edit Group, clips in the other grouped
+                                                              tracks are selected if they fall within the range of
+                                                              the selected clip.
+
+
+
+674   Pro Tools Reference Guide

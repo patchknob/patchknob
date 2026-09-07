@@ -43,6 +43,14 @@
 //     * { / } (Shift+[ /]) -> rescale: time-stretch selection x0.5 / x2
 //     * Ctrl+Left / Right  -> timeshift selection by one beat
 //     * B                  -> toggle note-name labels on wide bars
+//
+//  Per-clip loop window (the grey band on the ruler, sequence::m_loop_start):
+//     * drag empty ruler   -> select a new window   (a bare CLICK changes nothing)
+//     * drag the band      -> move it; drag an edge -> resize that edge
+//     * Shift+L            -> loop on / one-shot (same as the ruler's chip)
+//     * Ctrl+L             -> loop the selected notes
+//     * Ctrl+Shift+L       -> clear the window (back to the whole pattern)
+//  (same three keys and the same LOOP / 1-SHOT labels as the tracker view)
 //----------------------------------------------------------------------------
 #ifndef PATCHKNOB_SDLUI_PIANOROLL_H
 #define PATCHKNOB_SDLUI_PIANOROLL_H
@@ -62,6 +70,12 @@ public:
     void set_sequence(sequence* seq);
     sequence* get_sequence() const { return m_seq; }
 
+    // Fired whenever the bound sequence's loop_start/loop_end actually
+    // change (drag-select, move, or edge-resize on the ruler).  The widget
+    // has no access to perform/ArrangeView itself, so the host wires this to
+    // push the loop onto wherever this pattern is placed in the arrangement.
+    std::function<void()> on_loop_changed;
+
     // editor parameters -------------------------------------------------------
     void set_snap(int ticks);          // grid snap in MIDI ticks (c_ppqn based)
     void set_note_length(int ticks);   // length of a freshly painted note
@@ -73,6 +87,7 @@ public:
     bool on_mouse(App& app, const MouseEv& e) override;
     bool on_wheel(App& app, int dx, int dy) override;
     bool on_key(App& app, SDL_Keycode k) override;
+    void cancel_interaction(App& app) override;
 
 private:
     // --- geometry (recomputed from rect every draw / event) -----------------
@@ -96,6 +111,20 @@ private:
     long visible_ticks() const;
     void clamp_scroll();
     void set_sequence_length_ticks(long ticks);
+    void set_sequence_loop_start_ticks(long ticks);
+    void set_sequence_loop_end_ticks(long ticks);
+    // Sets BOTH bounds together, writing whichever one must move out of the
+    // way first (each setter clamps against the other's CURRENT value) --
+    // used by marquee select/move.  Independent of the pattern's own length
+    // -- see sequence::m_loop_start.
+    void set_sequence_loop_range_ticks(long start_ticks, long end_ticks);
+
+    // The END marker's flag+stem on the ruler, in screen pixels.  ONE
+    // definition shared by draw_ruler and the ruler hit-test: they used to
+    // disagree (a ~15 px wide flag was drawn but only +/-6 px around the stem
+    // was grabbable), so pressing the visible flag started a loop marquee and
+    // wiped the loop instead of grabbing END.
+    SDL_Rect end_marker_rect() const;
 
     // --- drawing pieces ------------------------------------------------------
     void draw_grid(App& app);
@@ -140,6 +169,7 @@ private:
     void open_context_menu(int x, int y);
     void open_dropdown(int kind, int x, int y);
     void layout_popup(int x, int y);
+    int  popup_rows() const;      // rows the (capped) popup actually shows
     void draw_popup(App& app);
     int  popup_hit(int y);
 
@@ -171,8 +201,27 @@ private:
     // result selected.  Rebuild-style ops go through add_notes() because the
     // engine's add_note() hardcodes velocity 100.
     struct NoteRec { long ts, tf; int note, vel; };            // one linked note
+    // The data lane edits what the pointer is over: point the engine's
+    // "selected events only" filter at that span instead of fighting it.
+    void retarget_data_selection(long ts, long tf,
+                                 unsigned char status, unsigned char cc);
+    void widen_data_span(long& ts, long& tf) const;   // click -> bar-wide window
+
     void collect_selected(std::vector<NoteRec>& out) const;    // selected+linked notes
     void add_notes(const std::vector<NoteRec>& notes, bool select);
+
+    /*  One selected event that is NOT part of a note pair -- a CC, pitch-bend,
+        aftertouch, channel-pressure or program change.  The rebuild ops below
+        delete the whole selection and re-add only notes, so these have to be
+        carried across that round-trip or "Select All" + any transform silently
+        wipes every controller lane in the pattern. */
+    struct RawEvent { long tick; unsigned char status, d0, d1; };
+    void collect_selected_non_notes(std::vector<RawEvent>& out) const;
+    void readd_events(const std::vector<RawEvent>& evs, bool select);
+    /*  mark_selected() + remove_marked() + add_notes(), with every selected
+        non-note event preserved.  Every rebuild-style transform goes through
+        this instead of open-coding the round-trip. */
+    void replace_selected_notes(const std::vector<NoteRec>& out);
     bool move_selection(long dt, int dn);       // drag/arrows with range clamping
     void grow_selection(long delta, bool stretch);
     void duplicate_selection();   // Ctrl+D : clone shifted right by selection span
@@ -222,7 +271,13 @@ private:
 
     // --- interaction ---------------------------------------------------------
     enum Mode { M_NONE, M_ADDPEND, M_SELECT, M_MOVE, M_GROW, M_DATA, M_SBAR, M_KEYS,
-                M_PAN, M_HBAR, M_ERASE, M_ZOOM, M_END };
+                M_PAN, M_HBAR, M_ERASE, M_ZOOM,
+                // Ableton-style loop brace on the ruler: drag an empty stretch to
+                // SELECT a fresh [start,end) region, drag inside the shaded band to
+                // MOVE it (span preserved), drag right at either edge to resize just
+                // that edge.  No separate draggable "marker" widgets.
+                M_LOOP_SELECT, M_LOOP_MOVE, M_LOOP_EDGE_L, M_LOOP_EDGE_R,
+                M_LENGTH_EDGE };
     int  m_mode = M_NONE;
     bool m_down = false, m_dragging = false;
     int  m_drop_x = 0, m_drop_y = 0, m_cur_x = 0, m_cur_y = 0;
@@ -231,6 +286,24 @@ private:
     long m_sel_ts = 0, m_sel_tf = 0;  int m_sel_nh = 0, m_sel_nl = 0;
     int  m_keying_note = -1;
     int  m_prev_note   = -1;   // grid interaction preview note (sounding until release)
+
+    // M_LOOP_MOVE drag anchor: the loop bounds AT PRESS TIME and the tick under
+    // the cursor at press time, so motion computes one clean delta instead of
+    // drifting from repeated incremental deltas.
+    long m_loop_drag_anchor_start = 0, m_loop_drag_anchor_len = 0, m_loop_drag_press_tick = 0;
+
+    // M_LENGTH_EDGE drag anchor: the loop window AT PRESS TIME.  sequence::
+    // set_length() CLAMPS the loop into the new (shorter) pattern and never
+    // restores it when the pattern grows back, so a single exploratory
+    // drag of the END marker leftwards used to destroy the loop window for
+    // good.  Remembering it here lets the same gesture put it back.
+    long m_len_drag_loop_start = 0, m_len_drag_loop_end = 0;
+    bool m_len_drag_loop_valid = false;
+
+    // "LOOP" / "1-SHOT" chip on the right of the ruler; click toggles
+    // sequence::set_loop_enabled for THIS pattern.  Painted by draw_ruler,
+    // hit-tested by on_mouse, so both must read the same rect.
+    SDL_Rect m_loopchip{ 0, 0, 0, 0 };
 };
 
 } // namespace ui

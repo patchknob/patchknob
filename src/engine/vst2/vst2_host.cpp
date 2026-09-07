@@ -7,16 +7,45 @@
 #include "aeffectx.h"
 #include "seh_guard.h"
 
+#ifdef _WIN32
 #include <windows.h>
+#else
+#include <dlfcn.h>
+#include <sched.h>
+#endif
 
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <cmath>
 #include <algorithm>
+#include <atomic>
 #include <mutex>
-#include <unordered_map>
+#include <string>
 
 namespace PatchKnob { namespace engine {
+
+// ---------------------------------------------------------------------------
+// Module loading. Windows VST2 plugins are .dll (LoadLibrary); Linux/macOS
+// VST2 plugins are .so/.dylib (dlopen) -- same ABI (VSTPluginMain/main entry
+// point returning an AEffect*), different OS loader.
+// ---------------------------------------------------------------------------
+#ifdef _WIN32
+static void* pk_dlopen(const char* path)
+{
+    // LOAD_WITH_ALTERED_SEARCH_PATH so the plugin finds sibling resource
+    // DLLs relative to its own directory.
+    HMODULE mod = LoadLibraryExA(path, nullptr, LOAD_WITH_ALTERED_SEARCH_PATH);
+    if (!mod) mod = LoadLibraryA(path);
+    return mod;
+}
+static void* pk_dlsym(void* mod, const char* name) { return (void*)GetProcAddress((HMODULE)mod, name); }
+static void  pk_dlclose(void* mod) { FreeLibrary((HMODULE)mod); }
+#else
+static void* pk_dlopen(const char* path) { return dlopen(path, RTLD_NOW | RTLD_LOCAL); }
+static void* pk_dlsym(void* mod, const char* name) { return dlsym(mod, name); }
+static void  pk_dlclose(void* mod) { dlclose(mod); }
+#endif
 
 // ---------------------------------------------------------------------------
 // Opcodes the clean-room header does not declare but that we use. These are
@@ -41,6 +70,23 @@ static constexpr size_t kVstMaxProductStrLen = 64;
 // rather than allowed to size buffers (or index arrays) with garbage.
 static constexpr int kMaxPluginChannels = 64;
 static constexpr int kMaxPluginParams   = 100000;
+
+// Parse the sub-plugin selector out of a descriptor uid. probe_vst2 writes
+// "shell:0x........" for a VST2 shell's sub-plugin and a plain "0x........"
+// (the file's own uniqueID, which selects nothing) for everything else -- so
+// only the prefixed form yields a non-zero id, and an old cache or a
+// hand-written descriptor keeps the previous "give me your default" behaviour.
+static int32_t parseShellSubPluginId(const std::string& uid)
+{
+    static const char kPrefix[] = "shell:";
+    const size_t n = sizeof(kPrefix) - 1;
+    if (uid.size() <= n || uid.compare(0, n, kPrefix) != 0) return 0;
+    const std::string v = uid.substr(n);
+    char* end = nullptr;
+    unsigned long long parsed = std::strtoull(v.c_str(), &end, 0);
+    if (end == v.c_str() || (end && *end != '\0')) return 0;
+    return (int32_t)(uint32_t)parsed;
+}
 
 // Bounded string copy: never writes more than `cap` bytes, always terminates.
 static void copyBounded(char* dst, const char* src, size_t cap)
@@ -141,15 +187,89 @@ static thread_local Vst2PluginInstance* g_loadingInstance = nullptr;
 // clean-room header is unverified for x64 and writing the wrong slot corrupts
 // the plugin (observed: total silence from otherwise-working synths). A side
 // table keyed on the AEffect* (which we read, not write) is offset-independent.
+//
+// LOOKUP RUNS ON THE AUDIO THREAD. Plugins call audioMasterGetTime from inside
+// processReplacing (often more than once per block), and the trampoline has to
+// map the AEffect* back to us before it can answer. The old table was a
+// std::unordered_map behind a process-global std::mutex -- the SAME mutex
+// load()/release() hold on the message thread -- so adding or removing any
+// plugin during playback blocked the audio thread inside a host callback. That
+// is precisely what plugin_api.h:18 ("lock-free, allocation-free") forbids.
+//
+// So: a fixed-capacity table of atomic slots. Readers (any thread) do a
+// wait-free linear scan bounded by a high-water mark; the mutex now only
+// serialises WRITERS against each other, and writers are message-thread only.
+// Capacity is above kMaxNodes (patch_graph.h) so a full graph of VST2 nodes
+// still fits.
+static constexpr int kRegistrySlots = 1024;
+
+struct RegistrySlot {
+    std::atomic<AEffect*> key{nullptr};   // null == free
+    Vst2PluginInstance*   value = nullptr;
+};
+static RegistrySlot     g_registry[kRegistrySlots];
+static std::atomic<int> g_registryHigh{0};   // only slots [0, high) can be live
+
 static std::mutex& registryMutex()
 {
     static std::mutex m;
     return m;
 }
-static std::unordered_map<AEffect*, Vst2PluginInstance*>& registry()
+
+// Message thread. False if the table is full (the plugin is then refused
+// rather than loaded with no route back to its host callbacks).
+static bool registryInsert(AEffect* eff, Vst2PluginInstance* inst)
 {
-    static std::unordered_map<AEffect*, Vst2PluginInstance*> r;
-    return r;
+    if (!eff) return false;
+    std::lock_guard<std::mutex> lk(registryMutex());
+    for (int i = 0; i < kRegistrySlots; ++i)
+    {
+        if (g_registry[i].key.load(std::memory_order_relaxed) != nullptr)
+        {
+            if (g_registry[i].key.load(std::memory_order_relaxed) == eff)
+            {
+                g_registry[i].value = inst;   // re-registration of the same AEffect
+                return true;
+            }
+            continue;
+        }
+        // Publish the value BEFORE the key: a reader that sees the key (acquire)
+        // is guaranteed to see the matching value.
+        g_registry[i].value = inst;
+        g_registry[i].key.store(eff, std::memory_order_release);
+        if (i >= g_registryHigh.load(std::memory_order_relaxed))
+            g_registryHigh.store(i + 1, std::memory_order_release);
+        return true;
+    }
+    return false;
+}
+
+// Message thread. Callers must already have quiesced the audio thread (as
+// release() does) so no in-flight callback can be mid-lookup for `eff`.
+static void registryErase(AEffect* eff)
+{
+    if (!eff) return;
+    std::lock_guard<std::mutex> lk(registryMutex());
+    int high = g_registryHigh.load(std::memory_order_relaxed);
+    for (int i = 0; i < high; ++i)
+        if (g_registry[i].key.load(std::memory_order_relaxed) == eff)
+            g_registry[i].key.store(nullptr, std::memory_order_release);
+    // Pull the high-water mark back down so the reader's scan stays short over
+    // a long session of load/unload cycles.
+    while (high > 0 && g_registry[high - 1].key.load(std::memory_order_relaxed) == nullptr)
+        --high;
+    g_registryHigh.store(high, std::memory_order_release);
+}
+
+// ANY thread, including the audio thread. Wait-free: no lock, no allocation.
+static Vst2PluginInstance* registryLookup(AEffect* eff)
+{
+    if (!eff) return nullptr;
+    const int high = g_registryHigh.load(std::memory_order_acquire);
+    for (int i = 0; i < high; ++i)
+        if (g_registry[i].key.load(std::memory_order_acquire) == eff)
+            return g_registry[i].value;
+    return nullptr;
 }
 
 // ---------------------------------------------------------------------------
@@ -238,7 +358,11 @@ void Vst2PluginInstance::quiesceProcessing()
 {
     alive_.store(false, std::memory_order_seq_cst);
     while (processing_.load(std::memory_order_acquire))
+#ifdef _WIN32
         Sleep(0);   // an audio block is a few ms at most
+#else
+        sched_yield();
+#endif
 }
 
 // ---------------------------------------------------------------------------
@@ -252,13 +376,7 @@ intptr_t VST_CALL_CONV Vst2PluginInstance::hostCallbackStatic(
     // During the entry() call (before we can store `this`), opcodes like
     // audioMasterVersion arrive with effect==null or user==null. Answer the
     // load-time essentials without an instance.
-    Vst2PluginInstance* self = nullptr;
-    if (effect)
-    {
-        std::lock_guard<std::mutex> lk(registryMutex());
-        auto it = registry().find(effect);
-        if (it != registry().end()) self = it->second;
-    }
+    Vst2PluginInstance* self = registryLookup(effect);
     if (!self)
         self = g_loadingInstance;  // during entry()/effOpen, before registration
 
@@ -287,7 +405,12 @@ intptr_t Vst2PluginInstance::hostCallbackImpl(int32_t opcode, int32_t index,
         return 2400;                      // VST 2.4
 
     case audioMasterCurrentId:
-        return 0;                         // first/default sub-plugin
+        // A SHELL plugin (one file, many effects) asks this during entry() to
+        // decide which of its sub-plugins to construct. Answering a flat 0
+        // always got the shell's default, whichever effect the descriptor
+        // actually named. shellSubPluginId() returns the id the scanner
+        // recorded, or 0 for an ordinary plugin (which ignores this opcode).
+        return (intptr_t)shellSubPluginId();
 
     case audioMasterGetSampleRate:
         return (intptr_t)sampleRate_;
@@ -362,7 +485,10 @@ intptr_t Vst2PluginInstance::hostCallbackImpl(int32_t opcode, int32_t index,
         return 1;
 
     case audioMasterSizeWindow:
-        // index = width, value = height requested by the plugin.
+        // index = width, value = height requested by the plugin.  Accept: the
+        // UI-side container polls effEditGetRect from its idle pump (see
+        // sdlui/plugin_editor_window.cpp editor_idle) and refits the frame to
+        // the plugin's new rect on the next frame, so the resize really lands.
         return 1;
 
     case audioMasterIOChanged:
@@ -392,24 +518,21 @@ intptr_t Vst2PluginInstance::hostCallbackImpl(int32_t opcode, int32_t index,
 bool Vst2PluginInstance::load(const PluginDescriptor& desc)
 {
     desc_ = desc;
+    // Decode BEFORE entry(): a shell reads audioMasterCurrentId from inside its
+    // constructor, so the selector has to be in place first.
+    shellId_ = parseShellSubPluginId(desc_.uid);
 
-    // LOAD_WITH_ALTERED_SEARCH_PATH so the plugin finds sibling resource DLLs
-    // relative to its own directory.
-    HMODULE mod = LoadLibraryExA(desc.path.c_str(), nullptr,
-                                 LOAD_WITH_ALTERED_SEARCH_PATH);
-    if (!mod)
-        mod = LoadLibraryA(desc.path.c_str());
+    void* mod = pk_dlopen(desc.path.c_str());
     if (!mod)
         return false;
     module_ = mod;
 
-    VstEntryProc entry =
-        (VstEntryProc)(void*)GetProcAddress(mod, "VSTPluginMain");
+    VstEntryProc entry = (VstEntryProc)pk_dlsym(mod, "VSTPluginMain");
     if (!entry)
-        entry = (VstEntryProc)(void*)GetProcAddress(mod, "main");
+        entry = (VstEntryProc)pk_dlsym(mod, "main");
     if (!entry)
     {
-        FreeLibrary(mod);
+        pk_dlclose(mod);
         module_ = nullptr;
         return false;
     }
@@ -436,16 +559,23 @@ bool Vst2PluginInstance::load(const PluginDescriptor& desc)
     if (!eff || eff->magic != kEffectMagic)
     {
         g_loadingInstance = nullptr;
-        FreeLibrary(mod);
+        pk_dlclose(mod);
         module_ = nullptr;
         return false;
     }
     effect_ = eff;
     // Register so the trampoline can map this AEffect* back to us, WITHOUT
     // writing into the AEffect struct (offset of `user` is unverified for x64).
+    if (!registryInsert(effect_, this))
     {
-        std::lock_guard<std::mutex> lk(registryMutex());
-        registry()[effect_] = this;
+        g_loadingInstance = nullptr;
+        effect_ = nullptr;
+        pk_dlclose(mod);
+        module_ = nullptr;
+        std::fprintf(stderr,
+                     "vst2: refusing '%s' — host plugin registry is full (%d)\n",
+                     desc.path.c_str(), kRegistrySlots);
+        return false;
     }
 
     dispatch(effOpen, 0, 0, nullptr, 0.0f);
@@ -489,8 +619,115 @@ bool Vst2PluginInstance::load(const PluginDescriptor& desc)
     desc_.numAudioIn   = numIn_;
     desc_.numAudioOut  = numOut_;
     desc_.isInstrument = (effect_->flags & effFlagsIsSynth) != 0;
+    // Ask how those flat channels are grouped into buses, so a multi-out drum
+    // plugin can expose more than its first pair and a mono-main plugin gets
+    // the mono upmix it was silently missing.
+    refreshBusLayout();
 
     return true;
+}
+
+// ---------------------------------------------------------------------------
+// probePinBuses / refreshBusLayout -- VST2 bus discovery.
+//
+// VST2 has no bus objects: a plugin exposes numInputs/numOutputs FLAT channels
+// and describes their grouping one pin at a time through
+// effGetInputProperties / effGetOutputProperties (VstPinProperties, VST 2.4).
+// kVstPinIsStereo on pin i means "i and i+1 are one stereo pair"; when
+// kVstPinUseSpeaker is also set, arrangementType is authoritative.
+//
+// CONSERVATIVE BY DESIGN: plenty of plugins answer the opcode but never set any
+// grouping flag, and reading that silence as "N mono buses" would split an
+// ordinary stereo effect into two mono buses and collapse it to mono.  So the
+// probe only counts if the plugin said SOMETHING about grouping; otherwise the
+// caller installs one main bus of all N channels, which is byte-for-byte the
+// behaviour this host had before buses existed.
+// ---------------------------------------------------------------------------
+bool Vst2PluginInstance::probePinBuses(int32_t opcode, int numPins,
+                                       std::vector<PluginBusInfo>& buses) const
+{
+    buses.clear();
+    if (!effect_ || numPins <= 0) return false;
+
+    bool sawGrouping = false;
+    for (int i = 0; i < numPins; )
+    {
+        VstPinProperties pp;
+        std::memset(&pp, 0, sizeof(pp));
+        if (!dispatch(opcode, i, 0, &pp, 0.0f))
+            return false;                       // plugin does not implement it
+
+        int width = 1;
+        if (pp.flags & kVstPinIsStereo)   { width = 2; sawGrouping = true; }
+        if (pp.flags & kVstPinUseSpeaker)
+        {
+            sawGrouping = true;
+            if      (pp.arrangementType == kSpeakerArrStereo) width = 2;
+            else if (pp.arrangementType == kSpeakerArrMono)   width = 1;
+        }
+        if (i + width > numPins) width = numPins - i;
+        if (width <= 0) return false;           // malformed answer
+
+        pp.label[kVstMaxLabelLen - 1] = '\0';
+        std::string name = pp.label;
+        if (name.empty())
+        {
+            pp.shortLabel[kVstMaxShortLabelLen - 1] = '\0';
+            name = pp.shortLabel;
+        }
+        if (name.empty())
+            name = buses.empty() ? "Main" : ("Bus " + std::to_string((int)buses.size() + 1));
+
+        PluginBusInfo b;
+        b.name         = std::move(name);
+        b.channelCount = width;
+        b.isMain       = buses.empty();   // VST2 has no bus type: pin 0 is main
+        b.isAux        = false;
+        buses.push_back(std::move(b));
+        i += width;
+    }
+    if (!sawGrouping || buses.empty())
+    {
+        buses.clear();
+        return false;
+    }
+    return true;
+}
+
+void Vst2PluginInstance::refreshBusLayout()
+{
+    desc_.audioInBuses.clear();
+    desc_.audioOutBuses.clear();
+    desc_.numAudioIn  = numIn_;
+    desc_.numAudioOut = numOut_;
+
+    if (!probePinBuses(effGetInputProperties, numIn_, desc_.audioInBuses) && numIn_ > 0)
+        desc_.audioInBuses.push_back(PluginBusInfo{ "Main", numIn_, true, false });
+    if (!probePinBuses(effGetOutputProperties, numOut_, desc_.audioOutBuses) && numOut_ > 0)
+        desc_.audioOutBuses.push_back(PluginBusInfo{ "Main", numOut_, true, false });
+
+    // Rebuild the RT plugin-channel -> caller-channel maps from the layout.
+    auto buildMap = [](const std::vector<PluginBusInfo>& buses, int numChans,
+                       std::vector<int>& map) {
+        map.assign((size_t)std::max(numChans, 0), 0);
+        int chan = 0, slot = 0;
+        for (const PluginBusInfo& b : buses)
+        {
+            for (int c = 0; c < b.channelCount && chan < numChans; ++c, ++chan)
+                map[(size_t)chan] = slot + c;
+            slot += pluginBusSlotWidth(b.channelCount);
+        }
+        // Any channel the layout did not cover keeps flat identity.
+        for (; chan < numChans; ++chan)
+            map[(size_t)chan] = slot++;
+    };
+    buildMap(desc_.audioInBuses,  numIn_,  inCallerChan_);
+    buildMap(desc_.audioOutBuses, numOut_, outCallerChan_);
+
+    rtMainOutChannels_  = desc_.mainOutChannels();
+    rtMainOutSlotWidth_ = desc_.audioOutBuses.empty()
+                            ? 0
+                            : pluginBusSlotWidth(rtMainOutChannels_);
 }
 
 bool Vst2PluginInstance::validateEffectCounts() const
@@ -515,9 +752,10 @@ bool Vst2PluginInstance::adoptEffectForTest(AEffect* eff)
         effect_ = nullptr;
         return false;
     }
+    if (!registryInsert(effect_, this))
     {
-        std::lock_guard<std::mutex> lk(registryMutex());
-        registry()[effect_] = this;
+        effect_ = nullptr;
+        return false;
     }
     dispatch(effOpen, 0, 0, nullptr, 0.0f);
     opened_ = true;
@@ -534,6 +772,7 @@ bool Vst2PluginInstance::adoptEffectForTest(AEffect* eff)
     desc_.numAudioIn   = numIn_;
     desc_.numAudioOut  = numOut_;
     desc_.isInstrument = (effect_->flags & effFlagsIsSynth) != 0;
+    refreshBusLayout();
     return true;
 }
 
@@ -548,6 +787,16 @@ bool Vst2PluginInstance::prepare(double sampleRate, int maxBlockSize)
     // gate out any in-flight block first (no-op on the first prepare).
     quiesceProcessing();
     prepared_ = false;
+
+    // SUSPEND FIRST. effSetSampleRate / effSetBlockSize only take effect across
+    // an effMainsChanged(0) -> effMainsChanged(1) transition: that resume is
+    // where a VST2 plugin reallocates its delay lines and recomputes filter
+    // coefficients for the new rate. This used to dispatch the new rate and
+    // block size while active_ was still true and then call setActive(true),
+    // which early-returns on "already active" -- so the plugin never saw the
+    // transition at all. Raising the buffer size left it processing our larger
+    // blocks through buffers still sized for the old one.
+    setActive(false);
 
     sampleRate_   = sampleRate;
     maxBlockSize_ = maxBlockSize;
@@ -651,6 +900,12 @@ void Vst2PluginInstance::release()
 
     if (effect_)
     {
+        // Close the EDITOR before anything else: release() goes on to effClose
+        // the plugin and dlclose its module, and an editor left open is a live
+        // native window whose window-proc / X11 event handlers live in the code
+        // we are about to unmap. (Order per the VST2 spec: effEditClose, then
+        // suspend, then effClose.)
+        closeEditor();
         if (active_)
         {
             dispatch(effMainsChanged, 0, 0, nullptr, 0.0f);
@@ -662,15 +917,12 @@ void Vst2PluginInstance::release()
             opened_ = false;
         }
         // effClose frees the AEffect; do not touch it afterwards.
-        {
-            std::lock_guard<std::mutex> lk(registryMutex());
-            registry().erase(effect_);
-        }
+        registryErase(effect_);
         effect_ = nullptr;
     }
     if (module_)
     {
-        FreeLibrary((HMODULE)module_);
+        pk_dlclose(module_);
         module_ = nullptr;
     }
     freeChannelBuffers();
@@ -697,12 +949,21 @@ static void zeroCallerOutputs(const ProcessBlock& blk, int n)
             std::memset(blk.audioOut[c], 0, (size_t)n * sizeof(float));
 }
 
-static void normalizeCallerOutputs(const ProcessBlock& blk, int n, int pluginOutputs)
+// Mono -> stereo upmix of the MAIN bus (bus 0).  Keyed on bus 0's channel
+// count, NOT on the flat numOutputs total: a plugin with a mono main bus plus
+// any second bus reports >= 2 flat channels, so the flat test skipped the upmix
+// and caller channel 1 kept whatever the second bus wrote there.  The copy is
+// bounded by the main bus's caller slot so it can never clobber another bus.
+static void normalizeCallerOutputs(const ProcessBlock& blk, int n,
+                                   int mainOutChannels, int mainSlotWidth)
 {
     if (!blk.audioOut || n <= 0) return;
     const int callerOutputs = std::max(0, (int)blk.numAudioOut);
-    if (pluginOutputs == 1 && callerOutputs > 1 && blk.audioOut[0]) {
-        for (int c = 1; c < callerOutputs; ++c)
+    if (mainOutChannels == 1 && callerOutputs > 1 && blk.audioOut[0]) {
+        const int last = std::min(callerOutputs,
+                                  mainSlotWidth > 0 ? std::max(2, mainSlotWidth)
+                                                    : callerOutputs);
+        for (int c = 1; c < last; ++c)
             if (blk.audioOut[c])
                 std::memcpy(blk.audioOut[c], blk.audioOut[0], (size_t)n * sizeof(float));
     }
@@ -797,9 +1058,13 @@ void Vst2PluginInstance::process(const ProcessBlock& blk)
     zeroCallerOutputs(blk, n);
 
     // --- build input pointer array -----------------------------------------
+    // Plugin channel c reads the caller channel its BUS SLOT maps it to (see
+    // inCallerChan_): identity for the usual single-stereo-bus plugin, but
+    // bus-aligned once a mono or multi-bus layout is in play.
     for (int c = 0; c < numIn_; ++c)
     {
-        const float* src = (c < callerIn) ? blk.audioIn[c] : nullptr;
+        const int cc = (c < (int)inCallerChan_.size()) ? inCallerChan_[(size_t)c] : c;
+        const float* src = (cc >= 0 && cc < callerIn) ? blk.audioIn[cc] : nullptr;
         if (src)
             inPtrs_[(size_t)c] = const_cast<float*>(src);
         else
@@ -816,7 +1081,8 @@ void Vst2PluginInstance::process(const ProcessBlock& blk)
     // memory for every output it claims) --------------------------------------
     for (int c = 0; c < numOut_; ++c)
     {
-        float* dst = (c < callerOut) ? blk.audioOut[c] : nullptr;
+        const int cc = (c < (int)outCallerChan_.size()) ? outCallerChan_[(size_t)c] : c;
+        float* dst = (cc >= 0 && cc < callerOut) ? blk.audioOut[cc] : nullptr;
         outPtrs_[(size_t)c] =
             dst ? dst : dump_.data() + (size_t)c * (size_t)maxBlockSize_;
     }
@@ -837,7 +1103,7 @@ void Vst2PluginInstance::process(const ProcessBlock& blk)
             zeroCallerOutputs(blk, n);
         }
     }
-    normalizeCallerOutputs(blk, n, numOut_);
+    normalizeCallerOutputs(blk, n, rtMainOutChannels_, rtMainOutSlotWidth_);
 
     processing_.store(false, std::memory_order_release);
 }
@@ -892,17 +1158,27 @@ bool Vst2PluginInstance::hasEditor() const
 bool Vst2PluginInstance::openEditor(NativeWindowHandle parent)
 {
     if (!hasEditor()) return false;
+    if (editorOpen_) return true;          // already parented; don't open twice
+    if (!parent) return false;             // nothing to parent into
     // effEditOpen returns nonzero on success for most plugins, but some return
     // 0 yet still parent correctly. Treat a successful dispatch (and a valid
     // parent) as success.
     dispatch(effEditOpen, 0, 0, parent, 0.0f);
-    return parent != nullptr;
+    editorOpen_ = true;
+    return true;
 }
 
 void Vst2PluginInstance::closeEditor()
 {
-    if (hasEditor())
-        dispatch(effEditClose, 0, 0, nullptr, 0.0f);
+    // MUST be idempotent. effEditClose is not: a plugin frees its editor object
+    // in it, and a second one is a double free. The UI reaches this from three
+    // directions -- the container's WM_CLOSE handler, editor_close() when the
+    // host reaps the dead handle, and release() -- and they used to overlap, so
+    // the same plugin got effEditClose twice. Clear the flag BEFORE dispatching
+    // so a plugin that calls back into us while closing cannot recurse either.
+    if (!editorOpen_) return;
+    editorOpen_ = false;
+    dispatch(effEditClose, 0, 0, nullptr, 0.0f);
 }
 
 void Vst2PluginInstance::getEditorSize(int& w, int& h) const
@@ -920,17 +1196,40 @@ void Vst2PluginInstance::getEditorSize(int& w, int& h) const
 
 void Vst2PluginInstance::idleEditor()
 {
-    if (hasEditor())
+    // effEditIdle is only meaningful (and only safe) between effEditOpen and
+    // effEditClose.
+    if (editorOpen_)
         dispatch(effEditIdle, 0, 0, nullptr, 0.0f);
 }
 
 // ---------------------------------------------------------------------------
 // state (chunk if supported, else per-parameter fallback)
 // ---------------------------------------------------------------------------
+// The blob format is chosen by ONE predicate -- effFlagsProgramChunks -- and
+// saveState()/loadState() must read it the same way, every time, or the blob a
+// project stores is not the blob the plugin is handed back.
+//
+// It used to be possible for them to disagree: saveState() FELL THROUGH to the
+// per-parameter form when a chunk plugin's effGetChunk returned nothing, while
+// loadState(), looking at the same flag, still took the chunk branch and fed
+// those raw parameter floats to effSetChunk as an opaque bank. Now the chunk
+// branch is terminal on both sides: a chunk plugin that cannot produce a chunk
+// saves nothing (and says so) rather than saving something the restore path
+// will misread.
 std::vector<uint8_t> Vst2PluginInstance::saveState() const
 {
     std::vector<uint8_t> out;
     if (!effect_) return out;
+
+    // effGetChunk walks the very state process() is mutating: gate the audio
+    // thread out for the duration, as prepare()/release() do.
+    Vst2PluginInstance* self = const_cast<Vst2PluginInstance*>(this);
+    const bool wasAlive = alive_.load(std::memory_order_seq_cst);
+    self->quiesceProcessing();
+    struct Reopen {
+        Vst2PluginInstance* p; bool restore;
+        ~Reopen() { if (restore) p->alive_.store(true, std::memory_order_seq_cst); }
+    } reopen{ self, wasAlive };
 
     if (effect_->flags & kEffFlagsProgramChunks)
     {
@@ -941,11 +1240,19 @@ std::vector<uint8_t> Vst2PluginInstance::saveState() const
         {
             out.resize((size_t)size);
             std::memcpy(out.data(), chunk, (size_t)size);
-            return out;
         }
+        else
+        {
+            std::fprintf(stderr,
+                         "vst2: '%s' sets effFlagsProgramChunks but effGetChunk "
+                         "returned nothing — state NOT saved (a parameter dump "
+                         "here would be restored as an opaque chunk)\n",
+                         desc_.name.empty() ? desc_.path.c_str() : desc_.name.c_str());
+        }
+        return out;                       // terminal: never fall through
     }
 
-    // Fallback: serialize every parameter value as a little-endian float.
+    // Per-parameter form: every value as a little-endian float.
     int np = effect_->numParams;
     out.resize((size_t)np * sizeof(float));
     for (int i = 0; i < np; ++i)
@@ -960,6 +1267,19 @@ void Vst2PluginInstance::loadState(const std::vector<uint8_t>& data)
 {
     if (!effect_ || data.empty()) return;
 
+    // effSetChunk makes the plugin rebuild its internal state (voice pools,
+    // delay lines, coefficient tables) — running that into a plugin the audio
+    // thread is concurrently inside processReplacing for is a use-after-free
+    // waiting to happen, and loading a project while the transport rolls does
+    // exactly that. This host already had the gate (quiesceProcessing, used by
+    // prepare() and release()); the restore path simply never used it.
+    const bool wasAlive = alive_.load(std::memory_order_seq_cst);
+    quiesceProcessing();
+    struct Reopen {
+        Vst2PluginInstance* p; bool restore;
+        ~Reopen() { if (restore) p->alive_.store(true, std::memory_order_seq_cst); }
+    } reopen{ this, wasAlive };
+
     if (effect_->flags & kEffFlagsProgramChunks)
     {
         dispatch(effSetChunk, 0, (intptr_t)data.size(),
@@ -967,7 +1287,7 @@ void Vst2PluginInstance::loadState(const std::vector<uint8_t>& data)
         return;
     }
 
-    // Fallback: per-parameter floats.
+    // Per-parameter form: must match saveState() exactly.
     int np = effect_->numParams;
     size_t have = data.size() / sizeof(float);
     int count = (int)std::min((size_t)np, have);
@@ -987,6 +1307,12 @@ IPluginInstance* createVst2Instance(const PluginDescriptor& desc)
     Vst2PluginInstance* inst = new Vst2PluginInstance();
     if (!inst->load(desc))
     {
+        // Say WHY the node stayed empty: a missing file, a 32-bit DLL, a
+        // failed effOpen -- silent nullptrs here made "add instrument" look
+        // like a no-op in the UI.
+        std::fprintf(stderr, "[vst2] failed to load \"%s\" (missing file, wrong "
+                             "architecture, or the plugin refused to open)\n",
+                     desc.path.c_str());
         delete inst;
         return nullptr;
     }

@@ -1,0 +1,44 @@
+Showing the Universe Window                              Click the Show/Hide Universe/Clip Effects
+                                                          view button.
+To show or hide the Universe view in the Edit
+window, do one of the following:
+
+   Select or deselect View > Other Displays > Uni-
+    verse.
+
+   Double-click the divider above the Main Time-
+    base ruler.
+   From the Edit window menu, select or deselect
+    Universe.                                         Show/Hide Universe/Clip Effects view button
+
+                                                         Press Option+7 (Mac) or Alt+7 (Windows).
+
+                                                      Framed Area in the Universe
+                                                      View
+                                                      The framed area in the Universe view represents
+                                                      what is visible in the Tracks pane in the Edit win-
+                                                      dow. If you change what is displayed in the Edit
+                                                      window—by zooming, scrolling horizontally or
+                                                      vertically, hiding or showing tracks, or changing
+                                                      track heights—the framed area in the Universe
+                                                      view relocates and resizes accordingly. During
+                                                      playback, if the Edit window is set to scroll, the
+                                                      framed area in the Universe view also scrolls.
+
+                                                      When all tracks are visible in the Edit window and
+                                                      the session is zoomed all the way out, with all clips
+                                                      visible, the entire Universe window is framed.
+
+
+Selecting Universe view from the Edit window menu
+
+
+
+
+                                                      Framed area representing what part of the session is
+                                                      viewed in the Tracks pane of the Edit window
+
+
+
+
+                                                                                Chapter 30: Making Selections   687

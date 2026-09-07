@@ -88,6 +88,7 @@ public:
     std::function<void(double,double,const std::string&)> on_add_module;   // x, y, category ("" = generic)
     std::function<void(NodeId)>                      on_remove_node;
     std::function<void(NodeId)>                      on_open_editor;   // choose plugin
+    std::function<void(NodeId)>                      on_load_plugin_file;
     std::function<void(NodeId)>                      on_open_gui;      // embedded native VST GUI
     std::function<void(NodeId)>                      on_open_params;   // SDL parameter panel
     // MIDI-source nodes: list input devices in the node menu; pick one.
@@ -100,7 +101,9 @@ public:
     std::function<std::vector<std::string>()>        midi_out_devices;
     std::function<void(double,double,int,int)>       on_add_midi_port;
     std::function<void(NodeId)>                      on_open_mixer;    // mixer channel window
-    std::function<void(NodeId)>                      on_arm_record;    // toggle record arm
+    std::function<void(NodeId,int)>                  on_set_midi_ports;
+    std::function<void(NodeId)>                      on_config_virtual_midi;
+    std::function<std::vector<std::pair<int,int>>(NodeId)> virtual_midi_routes;
     std::function<void(NodeId)>                      on_open_pd;       // Pure Data editor
     std::function<void(NodeId)>                      on_open_rack;     // Rack modular editor
     std::function<void(NodeId)>                      on_open_sampler;  // Buzz sampler editor
@@ -113,6 +116,7 @@ public:
     void draw( ui::App& app ) override;
     bool on_mouse( ui::App& app, const ui::MouseEv& e ) override;
     bool on_wheel( ui::App& app, int dx, int dy ) override;
+    bool on_key  ( ui::App& app, SDL_Keycode k ) override;   // Esc closes the menu
 
 private:
     // ---- camera: pan + zoom.  Node coords are WORLD units; the canvas maps them
@@ -163,12 +167,19 @@ private:
         bool                  enabled   = true;    // defaults so a plain
         bool                  separator = false;   // `MenuItem mi;` is a live item
         std::function<void()> action;
+        std::function<void(ui::App&)> submenu;
     };
     void open_add_menu( ui::App& app, int sx, int sy, double cx, double cy );
     void open_midi_menu( ui::App& app, int sx, int sy, double cx, double cy );
+    //! Audio I/O submenu.  The category used to add an OUTPUT unconditionally,
+    //! so there was no way to place a device INPUT node from the canvas at all.
+    void open_audio_io_menu( ui::App& app, int sx, int sy, double cx, double cy );
     void open_node_menu( ui::App& app, int sx, int sy, NodeId id );
     void layout_menu( ui::App& app );
     void close_menu();
+    //! Rows a menu of height `h` can actually SHOW -- one definition shared by
+    //! draw, hit-test and scroll clamping so they can never disagree.
+    int  menu_visible_rows( ui::App& app, int h ) const;
 
     // ---- model -------------------------------------------------------------
     std::vector<Node>       m_nodes;
@@ -192,7 +203,12 @@ private:
     bool                  m_menu_open;
     int                   m_menu_x, m_menu_y;   // top-left, SCREEN coords
     int                   m_menu_w, m_menu_h;
+    int                   m_menu_scroll = 0;    // first visible row (long port lists)
     std::vector<MenuItem> m_menu_items;
+    bool                  m_parent_menu_open = false;
+    int                   m_parent_menu_x = 0, m_parent_menu_y = 0;
+    int                   m_parent_menu_w = 0, m_parent_menu_h = 0;
+    std::vector<MenuItem> m_parent_menu_items;
     double                m_menu_cx, m_menu_cy; // canvas coords for Add Module
 };
 

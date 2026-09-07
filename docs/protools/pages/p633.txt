@@ -1,0 +1,40 @@
+Chapter 27: Punch Recording Modes
+
+
+Punch recording is used in many areas of audio         TrackPunch (Pro Tools Ultimate Only) A nonde-
+production for film, video, and music.                 structive Record mode that lets individual tracks
+                                                       be punched in, punched out, and taken out of re-
+                                                       cord enable without interrupting online recording
+Introduction to Punch                                  and playback.
+Recording Modes                                        DestructivePunch (Pro Tools Ultimate Only) A
+Once basic track material has been recorded, it is     destructive Record mode that maintains a single
+often necessary to replace some, but not all, of the   continuous audio file per punch track, and lets in-
+audio that makes up each track. Punch recording        dividual tracks be punched in, punched out, and
+lets you manually punch one or more audio tracks       taken out of record enable without interrupting
+in and out of recording without stopping the Trans-    online recording and playback.
+port.
+                                                            To automatically punch in and out on
+     You do not need to use QuickPunch or any               record-enabled audio tracks over a specific
+     other audio punch recording mode to punch              range, see “Audio Punch Recording Over a
+     record with MIDI tracks. MIDI tracks can be            Specified Range” on page 567.
+     punched while in Normal (Nondestructive)
+     Record mode, and in Destructive Record
+     mode.                                             Guidelines for Punch
+                                                       Recording
+Pro Tools Punch Recording                              This topic lists the basic settings and guidelines for
+Modes                                                  Pro Tools punch recording, including the follow-
+Pro Tools provides three different manual punch        ing:
+recording modes:                                       • “Voice Requirements for Punch Recording” on
+                                                         page 602.
+QuickPunch A nondestructive Record mode that
+lets record-enabled tracks be punched in and           • “Delay Compensation and DestructivePunch
+punched out during playback by clicking the Re-          Mode” on page 603.
+cord button in the Transport. QuickPunch mode is       • “Audio Files, Clips and Takes” on page 603.
+available on all systems.
+                                                       • “Preferences for Punch Recording” on page 604
+                                                         (for crossfades, as well as transport and monitor
+                                                         configuration settings).
+
+
+
+                                                                           Chapter 27: Punch Recording Modes    601

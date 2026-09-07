@@ -1,0 +1,48 @@
+Fade Settings Menu
+                                                        Creating Fades at the
+Use the Fade Settings menu commands to save,            Beginnings and Ends of Clips
+copy, paste, and manage fade settings as presets
+(Fade settings files).                                  Pro Tools lets you create fade-ins and fade-outs at
+                                                        the beginnings and ends of clips.
+
+                                                        With Pro Tools Ultimate, you can also use an au-
+                                                        tomatic fade-in/out option, which applies real time
+                                                        fade-ins/outs to all clips during playback automat-
+                                                        ically. For more information, see “Using Auto-
+                                                        Fades” on page 720.
+
+
+Fade Settings menu
+
+Fades Settings menu commands include:
+
+<factory default> Restores the default settings for     Clip with a fade-in
+the Fades dialog.
+                                                        Creating Fade-Ins and Fade-
+Save Settings Saves the current settings. This          Outs
+command overwrites any previous version of the
+                                                        Depending on how you make the selection, you
+preset.
+                                                        can position a fade-in or fade-out at the exact be-
+Save Settings As Saves the current settings as a        ginning or end of a clip, or position it so it extends
+new preset under a different name.                      into a blank area of the track. The length of the se-
+                                                        lection in the clip determines the length of the
+Import Settings Imports a fade settings file (.fd-      fade-in or fade-out.
+preset) from a location other than the Root Settings
+folder or Session folder.                               You can also fade to the beginning or end of a clip
+                                                        from an insertion point.
+Delete Current Settings File Permanently deletes
+the current fade settings file (.fdpreset) from disk.   Although fades appear to be discrete clips, they
+                                                        cannot be separated from the clips in which they
+Save Fade Settings To Selects the folder where          were created.
+Fades preset files (.fdpreset) are saved. If you se-
+lect Session Folder, the settings are saved in a        When changing tempo in a tick-based audio track,
+folder named “Fades Presets” within the current         fade-ins and fade-outs remain with their parent
+Session folder. If you select Root Settings Folder,     clips. Fades maintain their absolute duration and
+the settings are saved in the Pro Tools Root folder     are consequently recalculated after any tempo
+specified in the Operation preferences.                 changes.
+
+
+
+
+                                                                              Chapter 32: Fades and Crossfades   717

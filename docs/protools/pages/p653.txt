@@ -1,0 +1,37 @@
+Chapter 28: Editing Basics
+
+
+Use the Edit window in Pro Tools to edit and ar-     Nondestructive Editing
+range audio, video, and MIDI. Track material can
+                                                     The vast majority of audio editing in Pro Tools is
+be edited nondestructively and in real time during
+                                                     nondestructive. Whether cutting, pasting, trim-
+playback.
+                                                     ming, separating, or clearing clips, you are only
+The Edit window also lets you graphically edit       performing these functions on a map of the actual
+other data, as follows:                              media (such as audio files). The source files re-
+                                                     main untouched. However, certain processes or
+Editing Clips and Selections See Chapter 31,         tools work destructively (can permanently change
+“Editing Clips and Selections.” Also, see            audio files on your hard disk), as noted in other
+Chapter 41, “Arranging Clips.”                       topics.
+Editing Fades and Crossfades See Chapter 32,         While editing for MIDI tracks is in some instances
+“Fades and Crossfades.”                              destructive, with a few precautions you can keep
+Editing Elastic Audio See Chapter 45, “Elastic       important MIDI tracks and clips safe when per-
+Audio.”                                              forming edits (see “Nondestructive MIDI Editing”
+                                                     on page 630).
+Editing MIDI See Chapter 35, “MIDI Editing.”
+
+Editing Automation See Chapter 53, “Automa-          Editing During Playback
+tion.”                                               Pro Tools lets you perform many editing tasks
+Editing Video See Chapter 63, “Working with          while the session plays. This powerful capability
+Video in Pro Tools.”                                 lets you interactively modify and edit a session,
+                                                     hearing the changes as you make them.
+
+                                                          Use Loop and Dynamic Transport modes for
+                                                          auditioning and editing loops during play-
+                                                          back. See “Playback Modes” on page 522.
+
+
+
+
+                                                                                 Chapter 28: Editing Basics   621

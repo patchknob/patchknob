@@ -106,135 +106,28 @@ userfile::parse( perform *a_perf )
     }
     
 
-#if 0
-    line_after( &file, "[midi-control]" );
+    /*  ------------------------------------------------------------------
+        SCOPE OF THIS FILE.
 
-    int sequences = 0;
-    sscanf( m_line, "%d", &sequences );
-    next_data_line( &file );
+        userfile owns EXACTLY the two sections parsed above:
+            [user-midi-bus-definitions]  and  [user-instrument-definitions]
+        i.e. human-readable naming for buses/instruments.  Nothing here
+        configures MIDI routing, MIDI clock, or transport.
 
-    for ( int i=0; i<sequences; ++i ){
+        Everything else -- [midi-control], [midi-clock], [midi-input],
+        [midi-clock-mod-ticks], [keyboard-control], [jack-transport],
+        [manual-alsa-ports] -- belongs to optionsfile, which is the single
+        reader AND writer for all of it.
 
-        int sequence = 0;
-        
-        sscanf( m_line, "%d [ %d %d %ld %ld %ld %ld ] [ %d %d %ld %ld %ld %ld ] [ %d %d %ld %ld %ld %ld ]",
-                
-                &sequence,
-                
-                &a_perf->get_midi_control_toggle(i)->m_active,
-                &a_perf->get_midi_control_toggle(i)->m_inverse_active,
-                &a_perf->get_midi_control_toggle(i)->m_status,
-                &a_perf->get_midi_control_toggle(i)->m_data,
-                &a_perf->get_midi_control_toggle(i)->m_min_value,
-                &a_perf->get_midi_control_toggle(i)->m_max_value,
-                
-                &a_perf->get_midi_control_on(i)->m_active,
-                &a_perf->get_midi_control_on(i)->m_inverse_active,
-                &a_perf->get_midi_control_on(i)->m_status,
-                &a_perf->get_midi_control_on(i)->m_data,
-                &a_perf->get_midi_control_on(i)->m_min_value,
-                &a_perf->get_midi_control_on(i)->m_max_value,
-                
-                &a_perf->get_midi_control_off(i)->m_active,
-                &a_perf->get_midi_control_off(i)->m_inverse_active,
-                &a_perf->get_midi_control_off(i)->m_status,
-                &a_perf->get_midi_control_off(i)->m_data,
-                &a_perf->get_midi_control_off(i)->m_min_value,
-                &a_perf->get_midi_control_off(i)->m_max_value );
-         
-        next_data_line( &file );
-    }
+        A byte-identical copy of that whole optionsfile parser used to sit
+        here inside an `#if 0`, ending in a second `midibus::set_clock_mod()`
+        call.  It never ran, but it was a loaded gun: enabling it (or copying
+        from it) would have made load order silently decide MIDI clock
+        behaviour, with the last parser to run winning.  Deleted -- do not
+        reintroduce.  If a user-level file ever needs one of those settings,
+        route it through optionsfile rather than parsing it twice.
+        ------------------------------------------------------------------ */
 
-    line_after( &file, "[midi-clock]" );
-    long buses = 0;
-    sscanf( m_line, "%ld", &buses );
-    next_data_line( &file );
-
-    for ( int i=0; i<buses; ++i ){
-
-        long bus_on, bus;
-        sscanf( m_line, "%ld %ld", &bus, &bus_on );
-        a_perf->get_master_midi_bus( )->set_clock( bus, (clock_e) bus_on );
-        next_data_line( &file );
-    }
-
-
-    line_after( &file, "[keyboard-control]" );
-    long keys = 0;
-    sscanf( m_line, "%ld", &keys );
-    next_data_line( &file );
-
-    a_perf->key_events.clear();
-    
-    
-    for ( int i=0; i<keys; ++i ){
-        
-        long key = 0, seq = 0;
-        sscanf( m_line, "%ld %ld", &key, &seq );
-        a_perf->key_events[key] = seq;
-        next_data_line( &file );
-    }
-
-    sscanf( m_line, "%ld %ld", &a_perf->m_key_bpm_up,
-                             &a_perf->m_key_bpm_dn );
-    next_data_line( &file );
-
-    sscanf( m_line, "%ld %ld", &a_perf->m_key_screenset_up,
-                             &a_perf->m_key_screenset_dn );
-    next_data_line( &file );
-
-    sscanf( m_line, "%ld %ld %ld %ld",
-            &a_perf->m_key_replace,
-            &a_perf->m_key_queue,
-            &a_perf->m_key_snapshot_1,
-            &a_perf->m_key_snapshot_2 );
-
-    line_after( &file, "[jack-transport]" );
-    long flag = 0;
-    
-    sscanf( m_line, "%ld", &flag );
-    global_with_jack_transport = (bool) flag;
-    
-    next_data_line( &file );
-    sscanf( m_line, "%ld", &flag );
-    global_with_jack_master = (bool) flag;
-    
-    next_data_line( &file );
-    sscanf( m_line, "%ld", &flag );
-    global_with_jack_master_cond = (bool) flag;
-    
-    next_data_line( &file );
-    sscanf( m_line, "%ld", &flag );
-    global_jack_start_mode = (bool) flag;
-
-
-    line_after( &file, "[midi-input]" );
-    buses = 0;
-    sscanf( m_line, "%ld", &buses );
-    next_data_line( &file );
-
-    for ( int i=0; i<buses; ++i ){
-
-        long bus_on, bus;
-        sscanf( m_line, "%ld %ld", &bus, &bus_on );
-        a_perf->get_master_midi_bus( )->set_input( bus, (bool) bus_on );
-        next_data_line( &file );
-    }
-    
-    /* midi clock mod  */
-    long ticks = 64;
-    line_after( &file, "[midi-clock-mod-ticks]" );
-    sscanf( m_line, "%ld", &ticks );
-    midibus::set_clock_mod(ticks);
-
-
-    /* manual alsa ports */
-    line_after( &file, "[manual-alsa-ports]" );
-    sscanf( m_line, "%ld", &flag );
-    global_manual_alsa_ports = (bool) flag;
-
-#endif
-    
     file.close();
 
     return true;

@@ -1,0 +1,40 @@
+Nudging by Next Nudge Value                          Nudging the Contents of a Clip
+In addition to nudging by the current Nudge value,   Often a clip’s start point will reside at the correct
+you can also nudge by the next larger value in the   location, perhaps at a Timecode frame or barline,
+Nudge pop-up menu.                                   but the material within the clip starts too late or
+                                                     early. You can, in effect, nudge a clip’s audio
+For example, if the Nudge value is set to 1 frame    waveform or MIDI notes without displacing the
+and you want to nudge by a larger value, you can     clip start and end points.
+nudge by the Nudge value of 10 frames.
+
+To nudge forward or back by the next larger Nudge
+value:
+1   Enable Commands Keyboard Focus (see “Key-
+    board Focus” on page 26).
+2   Select the clips or notes you want to nudge.
+3   Do one of the following:
+• Press Forward Slash (/) to nudge the selected
+  material forward by the next Nudge value.
+                                                     Nudging clip contents without changing clip
+• Press M to nudge the selection back by the next    boundaries
+  Nudge value.                                       This “sliding” of clip contents is only possible if
+      When Commands Keyboard Focus is not            there is material residing outside the clip’s start
+      enabled, press Control+Forward Slash (/)       and end points—from the clip having been
+      (Mac) or Start+Forward Slash (/) (Win-         trimmed, or perhaps captured from a larger clip.
+      dows) to nudge the selected material for-
+                                                     To nudge the contents of a clip without changing
+      ward by the next Nudge value, and press        the clip start and end points:
+      Control+M (Mac) or Start+M (Windows)
+      to nudge the selected material back by the     1   Configure the Nudge value (see “Defining the
+      next Nudge value.                                  Nudge Value” on page 700).
+                                                     2   With the Time Grabber tool, select the clip
+                                                         whose contents you want to nudge.
+                                                     3   While pressing the Control (Mac) or Start key
+                                                         (Windows), press Plus (+) or Minus (–) on the
+                                                         numeric keypad to move the material by the
+                                                         Nudge value to the left (+) or right (–).
+
+
+
+
+                                                                      Chapter 31: Editing Clips and Selections   701

@@ -1,0 +1,48 @@
+      Separate Commands                                          2   Do one of the following:
+
+      The Separate commands define a selection within            • Choose Edit > Separate > At Selection.
+      an existing clip, or a partially selected clip, as a       • With an Edit selection, Right-click near the cur-
+      new clip and separate it from surrounding material.          sor position or selection and choose Separate
+      The Separate commands can also be applied to                 from the pop-up menu.
+      MIDI notes (see “Separating MIDI Notes” on
+      page 797).                                                       Press Command+E (Mac) or Control+E
+                                                                       (Windows) for Separate At Selection.
+      New clips appear in the tracks in which they are
+      created, separate from the data surrounding them.          3   If the Editing preference for Auto-Name Sepa-
+      They also appear in the Clips List.                            rated Clips is disabled, type a name for the new
+                                                                     clip when prompted, then click OK.
+      There are three different Separate commands:
+                                                                 To separate clips (or MIDI notes) according to the
+      At Selection (or Edit Cursor) Creates new clip             current grid resolution:
+      boundaries at the selection start and end points. If
+      there is no selection and the edit cursor is placed        1   Make an Edit selection.
+      within the clip, the clip is split into two new clips at   2   Choose Edit > Separate > On Grid.
+      the insertion point. Likewise, MIDI notes can be
+      separated at the selection start and end points (or at     3   In the Pre-Separate Amount dialog, type a
+      the Edit cursor).                                              pre-separate amount in milliseconds. This can
+                                                                     be useful to pad the beginnings of the new clips.
+      On Grid Creates new clips according to the se-
+      lected Grid value (see “Defining the Grid Value”
+      on page 943). Likewise, MIDI notes can be sepa-
+      rated on the grid.
+
+      At Transients Automatically creates clip boundar-
+      ies on detected transients within a selection. This
+      uses the same algorithm for transient detection as         Pre-Separate Amount dialog
+      the Tab to Transients feature (see “Tabbing to
+      Transients” on page 681). On Elastic Audio-en-             4   Click OK.
+      abled tracks, the Separate At Transients command
+                                                                 To separate audio clips at transients:
+      uses the transient events detected by Elastic Audio
+      analysis (see “Elastic Audio Analysis” on                  1   Make an Edit selection.
+      page 1017). Separate At Transients only applies to         2   Choose Edit > Separate > At Transients.
+      audio and is not applicable to MIDI notes or clips.
+                                                                 3   In the Pre-Separate Amount dialog, type a
+      To separate one or more clips (or MIDI notes) at the           pre-separate amount in milliseconds. This can
+      selection (or at the edit cursor):                             be useful to pad the beginnings of the new clips.
+      1   Do one of the following:                               4   Click OK.
+      • With the Selector tool, make an Edit selection.
+      • With the Selector tool, click at the point where
+        you want to separate the clip (or MIDI note).
+
+694   Pro Tools Reference Guide

@@ -1,0 +1,48 @@
+      Punching In on Multiple Tracks                        5   During playback, punch out and back in on in-
+      Simultaneously                                            dividual TrackPunch-enabled tracks by clicking
+                                                                their respective Record Enable buttons.
+      To punch in on multiple tracks simultaneously:
+                                                            6   Stop playback. When you are finished with the
+      1   Enable TrackPunch mode.
+                                                                record pass, track Record Enable status and
+      2   Click the Record Enable button on each track          transport Record Arm status follow the current
+          you want to punch in, so that the track is both       Audio Track RecordLock and Transport Record-
+          TrackPunch- and Record-enabled. The track’s           Lock preference settings.
+          Record Enable button flashes blue and red.
+      3   Do one of the following:
+                                                            DestructivePunch Audio
+      • During playback, click Record in the Transport
+                                                            Recording
+        to punch in and out on all TrackPunch-enabled
+                                                            (Pro Tools Ultimate Software Only)
+        tracks simultaneously.
+      • Click Record in the Transport first, then Option-   DestructivePunch is a destructive recording mode
+        Shift-click (Mac) or Alt-Shift-click (Windows) a    that lets you punch in and out on during playback,
+        track’s Record Enable button to simultaneously      while preserving a contiguous audio file on each
+        punch in and out on all currently selected Track-   punched track. Like TrackPunch mode, Destruc-
+        Punch enabled tracks.                               tivePunch mode lets you punch tracks in and out
+                                                            individually (one at a time) or punch multiple
+      4   Stop playback. When you are finished with the     tracks in and out simultaneously.
+          record pass, track Record Enable status and
+          transport Record Arm status follow the current    Unlike QuickPunch and TrackPunch, Destructive-
+          Audio Track RecordLock and Transport Record-      Punch replaces audio within the target parent file.
+          Lock preference settings.                         DestructivePunch is essentially a destructive ver-
+                                                            sion of TrackPunch mode. Where TrackPunch al-
+      Start Recording on All Tracks                         ways records audio to a new file in the background,
+                                                            DestructivePunch destructively records audio di-
+      You can choose to begin a punch pass in record, to    rectly into the original file, using a fixed 10-milli-
+      punch out and back in as needed.                      second linear crossfade. No additional clips are
+                                                            created when recording in DestructivePunch
+      To punch in on all tracks:
+                                                            mode. Up to 200 “running punches” can be per-
+      1   Enable TrackPunch mode (see “Transport Dis-       formed in a track during a single DestructivePunch
+          play of TrackPunch Status” on page 607).          pass.
+      2   Click the Record Enable button on each track            DestructivePunch recording is not supported
+          you want to punch in, so that the track is both         with AudioSuite rendered clips with handles.
+          TrackPunch- and Record-enabled. The track’s             You can consolidate such clips if you need to
+          Record Enable button flashes blue and red.              use DestructivePunch.
+      3   Click Record in the Transport to enter the
+          TrackPunch Record Ready mode. The Record
+          button flashes blue and red.
+      4   Click Play in the Transport to begin playback.
+610   Pro Tools Reference Guide

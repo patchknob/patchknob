@@ -571,19 +571,27 @@ TempoMap::tempo_at_sample (int64_t sample) const
 	return tempo_at_sclock (sc).bpm_at (sc);
 }
 
-/* Integer sequencer-tick conversions. PatchKnob runs at 192 PPQN; the internal
- * Beats domain is 1920 PPQN, so 192-ticks map EXACTLY (x10) onto Beats ticks
- * with no double quantization (Beats::from_double never enters this path).
+/* Integer sequencer-tick conversions. PatchKnob runs at c_ppqn (768) PPQN; the
+ * internal Beats domain is ticks_per_beat (3840) PPQN, so sequencer ticks map
+ * EXACTLY (x5) onto Beats ticks with no double quantization (Beats::from_double
+ * never enters this path).  The ratio is asserted below rather than spelled as
+ * a literal, so raising either PPQN can never silently desynchronise them --
+ * that would misplace every scheduled event by the ratio error.
  * Both directions round symmetrically (muldiv_round), so
  * sample_to_tick (tick_to_sample (t)) == t for every reachable tick: the
- * half-sample reconstruction error is far below half a 192-tick at any
- * musical tempo (one 192-tick = 30 samples at 500 BPM / 48 kHz).
+ * half-sample reconstruction error is far below half a sequencer tick at any
+ * musical tempo.
  * RT-safe: no locks, no allocation (linear scan of the tiny point vector).
  */
+static_assert (ticks_per_beat % seq_ppqn == 0,
+               "the Beats domain must be an integer multiple of the sequencer "
+               "PPQN or tick<->sample conversion stops being exact");
+static const int64_t kBeatsPerSeqTick = ticks_per_beat / seq_ppqn;   /* 3840/768 == 5 */
+
 int64_t
-TempoMap::tick_to_sample (int64_t tick_192) const
+TempoMap::tick_to_sample (int64_t seq_tick) const
 {
-	const Beats b = Beats::ticks (tick_192 * 10);
+	const Beats b = Beats::ticks (seq_tick * kBeatsPerSeqTick);
 	const superclock_t sc = tempo_at_beats (b).superclock_at (b);
 	return superclock_to_samples (sc, (int64_t) _sr);
 }
@@ -592,9 +600,9 @@ int64_t
 TempoMap::sample_to_tick (int64_t sample) const
 {
 	const superclock_t sc = samples_to_superclock (sample, (int64_t) _sr);
-	const int64_t t1920 = tempo_at_sclock (sc).quarters_at_superclock (sc).to_ticks ();
-	/* nearest 192-PPQN tick, same symmetric rounding */
-	return muldiv_round (t1920, 1, 10);
+	const int64_t tBeats = tempo_at_sclock (sc).quarters_at_superclock (sc).to_ticks ();
+	/* nearest sequencer tick, same symmetric rounding */
+	return muldiv_round (tBeats, 1, kBeatsPerSeqTick);
 }
 
 /* RCU re-anchor for LIVE tempo edits: heap copy keeping tempo history strictly
@@ -654,21 +662,50 @@ Transport::locate (int64_t sample)
 	request_seek (sample);
 }
 
-void
-Transport::process (int nframes)
+int64_t
+Transport::apply_pending_seek ()
 {
-	/* FIRST: apply any pending seek, before anything reads the position for
-	 * this block. exchange() consumes it exactly once. */
+	/* exchange() consumes the mailbox exactly once, so calling this twice in a
+	 * block is harmless (the second call sees -1). */
 	const int64_t seek = _pendingSeek.exchange (-1, std::memory_order_acq_rel);
 	if (seek >= 0) {
 		_sample.store (seek, std::memory_order_relaxed);
 	}
+	return seek;
+}
+
+void
+Transport::advance (int nframes)
+{
 	if (nframes <= 0) {
 		return;
 	}
 	if (_rolling.load (std::memory_order_relaxed)) {
 		_sample.fetch_add ((int64_t) nframes, std::memory_order_relaxed);
 	}
+}
+
+void
+Transport::locate_now (int64_t sample)
+{
+	/* Audio thread only.  Deliberately does NOT clear or write _pendingSeek: a
+	 * UI locate that is still queued must survive this and win on the next
+	 * apply_pending_seek(). */
+	_sample.store (sample < 0 ? 0 : sample, std::memory_order_relaxed);
+}
+
+void
+Transport::process (int nframes)
+{
+	/* FIRST: apply any pending seek, before anything reads the position for
+	 * this block. exchange() consumes it exactly once.
+	 *
+	 * Apply-then-advance is only right for a caller that reads the block-start
+	 * position AFTER this returns.  Callers that sample the playhead at the top
+	 * of the block must use apply_pending_seek()/advance() instead, or the seek
+	 * target's own block is skipped (bug R2). */
+	apply_pending_seek ();
+	advance (nframes);
 }
 
 double

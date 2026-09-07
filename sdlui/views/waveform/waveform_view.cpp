@@ -31,6 +31,22 @@ static inline int64_t clampi64(int64_t v, int64_t lo, int64_t hi) {
     return v < lo ? lo : (v > hi ? hi : v);
 }
 
+// Frames that are safe to read on EVERY channel this view touches.
+//
+// AudioClip's stated invariant is "both channels are always the same length",
+// but a clip is message-thread owned and can be edited (trim, paste, a load in
+// flight) after it was handed here, and clips built by hand are ragged more
+// often than not.  numFrames() is ch[0].size() alone, so a shorter ch[1] used to
+// be read past its end for every column of the waveform -- a heap over-read on
+// an arbitrarily large clip.  The engine already publishes exactly this notion
+// (AudioClip::safeFrames / channelsRagged); the mono case, where ch[1] is
+// legitimately empty and L is mixed with itself, must not be clamped to zero.
+static int64_t readable_frames(const AudioClip* c) {
+    if (!c) return 0;
+    if (c->ch[1].empty()) return (int64_t)c->ch[0].size();
+    return c->safeFrames();
+}
+
 static std::string clip_text(const std::string& s, int cells) {
     if (cells <= 0) return std::string();
     if ((int)s.size() <= cells) return s;
@@ -59,12 +75,25 @@ WaveformView::WaveformView(const AudioClip* clip) : WaveformView() {
 // ===========================================================================
 void WaveformView::set_clip(const AudioClip* clip) {
     clip_ = clip;
-    numFrames_  = clip ? clip->numFrames() : 0;
+    numFrames_  = readable_frames(clip);
     sampleRate_ = (clip && clip->sampleRate > 0.0) ? clip->sampleRate : 48000.0;
     scroll_   = 0;
     playhead_ = -1;
     build_peaks();
     zoom_fit();
+}
+
+// Re-read the bound clip in place: same pointer, new contents.  draw() calls
+// this when the clip's readable length changed under it (an edit, or a load
+// that finished after the bind), so the peak cache cannot be left describing
+// audio that is no longer there.
+void WaveformView::refresh() {
+    const int64_t n = readable_frames(clip_);
+    if (n == numFrames_) return;
+    numFrames_ = n;
+    if (clip_ && clip_->sampleRate > 0.0) sampleRate_ = clip_->sampleRate;
+    build_peaks();
+    clamp_scroll();
 }
 
 void WaveformView::build_peaks() {
@@ -200,6 +229,16 @@ void WaveformView::draw(App& app) {
     if (!visible) return;
     const Theme& t = theme();
 
+    // The shell can hand this view a clip SOURCE instead of pushing binds.  The
+    // WAVE workspace tab had no binding at all and so was permanently empty:
+    // one hook the shell can fill in a single line is the difference between a
+    // dead tab and a live one.
+    if (clip_source) {
+        const AudioClip* c = clip_source();
+        if (c != clip_) set_clip(c);
+    }
+    refresh();                  // same clip, different length -> rebuild peaks
+
     SDL_Rect lane = lane_rect();
     if (lane.w != lastLaneW_) {
         int prevW = lastLaneW_;
@@ -260,7 +299,10 @@ void WaveformView::draw(App& app) {
         }
         // bright cap on the zero line where audio exists, for a little life
     } else if (h2 > 0) {
-        app.mono.draw_centered(app.ren, lane, "no audio clip", t.dim);
+        app.mono.draw_centered(app.ren, lane,
+            clip_ ? "clip is empty"
+                  : "no clip bound -- the shell must call set_clip() "
+                    "or set clip_source", t.dim);
     }
 
     // ---- playhead ----------------------------------------------------------
@@ -346,7 +388,7 @@ bool WaveformView::on_mouse(App& app, const MouseEv& e) {
 
 bool WaveformView::on_wheel(App& app, int dx, int dy) {
     int mx = 0, my = 0;
-    SDL_GetMouseState(&mx, &my);
+    ui::mouse_logical(app, mx, my);   // logical, not window px
     if (!hit(mx, my)) return false;
 
     SDL_Keymod mod = SDL_GetModState();

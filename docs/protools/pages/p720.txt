@@ -1,0 +1,46 @@
+      Navigating with the Universe
+      View
+      By clicking in the Universe view, you can scroll
+      the material displayed in the Edit window horizon-
+      tally, vertically, or both. This provides a conve-
+      nient method of focusing the Edit window any-
+      where in the session.
+
+      To navigate the session using the Universe view:
+
+      1   Ensure that Universe view is shown (View >
+          Other Displays > Universe).                        Resizing the Universe view
+
+      2   Click anywhere in the Universe view to move        Scrolling the Universe View
+          the framed area and the Edit window updates
+          accordingly.                                       If you have more tracks in the session than are vis-
+                                                             ible in the Universe view, you can scroll up or
+                                                             down to show the other tracks.
+
+                                                             To scroll the Universe view up or down:
+
+                                                                Click the Scroll Up or Scroll Down Arrows on
+                                                                 the right of the Universe view.
+
+
+      Resizing the Universe View
+      You can resize the height of the Universe view to
+      fit the total number of tracks in the session, or to
+                                                             Scroll Up and Down Arrows in the Universe view
+      show more of the Edit window.
+
+      To resize the height of the Universe view:
+                                                             Navigating a Pro Tools
+      1   Click the area between the bottom of the Uni-      Session with Keyboard
+          verse window and the top of the Timebase rul-      Shortcuts
+          ers. The cursor changes to show that you can
+          resize the Universe view.                          In addition the Universe view, Pro Tools lets you
+                                                             quickly and easily navigate a session using key-
+      2   Drag up to decrease the height of the Universe     board shortcuts. This topic provides an overview
+          view or drag down to increase the height of the    of the essential key commands for navigating and
+          Universe view.                                     making Edit selections in a session.
+
+
+
+
+688   Pro Tools Reference Guide

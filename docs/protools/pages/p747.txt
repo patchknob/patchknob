@@ -1,0 +1,50 @@
+The Link setting links the selected fade-out and         Linear Crossfade This is a good general purpose
+fade-in curves of a crossfade. If you adjust one         crossfade with a smooth, even transition between
+curve, the corresponding curve is also adjusted.         clip 1 and clip 2.
+This ensures that the resulting crossfade is an
+equal power or equal gain crossfade, depending on               1. Out                        2. In
+which one you select.
+
+Equal Power Recommended for material that is
+not phase coherent, as in the case of a crossfade be-
+tween two completely different types of material.
+Use this option to avoid the volume drop that can
+occur with an Equal Gain crossfade. With this
+fade, you can Option-click (Mac) or Alt-click            Linear Crossfade
+(Windows) the fade curve to reset it to its default
+                                                         Equal Power Crossfade This is a good general
+shape.
+                                                         purpose crossfade useful in cases where a linear
+Equal Gain Recommended for material that is              crossfade seems to create a noticeable drop in vol-
+phase-coherent or nearly phase-coherent, as in the       ume across the splice point.
+case of a crossfade between identical clips/instru-
+ments (for example, a repeated drum loop). Use
+                                                                 1. Out                        2. In
+this option to avoid clipping that can occur when
+using an Equal Power crossfade. With this fade,
+you can Option-click (Mac) or Alt-click (Win-
+dows) the fade curve to reset it to its default shape.
+
+None Disables linking between the fade-out and
+fade-in curves, and lets you freely adjust them sep-
+arately, including start and end points.                 Equal Power Crossfade
+
+     For more information on adjusting the fade          Overlap Fade This combination of curves keeps
+     shape, see “Manually Adjusting Fade Shapes          both clips at full amplitude throughout the cross-
+     in Fade Windows” on page 722.                       fade: clip 2 “jumps in” at the beginning and clip 1
+                                                         “jumps out” at the end.
+     For information on adjusting the start and end
+                                                                 1. Out                        2. In
+     points of fades in a crossfade, see “Adjusting
+     the Start and End Points of a Crossfade” on
+     page 722
+
+Typical Curve Combinations
+Following are the available combinations of fade-
+out and fade-in curves.
+                                                         Overlap Crossfade
+
+
+
+
+                                                                              Chapter 32: Fades and Crossfades   715

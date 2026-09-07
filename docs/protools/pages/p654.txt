@@ -1,0 +1,52 @@
+      Following are just a few examples of editing and         In addition to audio and MIDI clips, tracks provide
+      arranging tasks that can be performed while play-        automation playlists of any automation data (such
+      ing back a Pro Tools session:                            as volume and pan). Automation can be recorded
+      • Capture, separate, cut, copy, paste, and trim clips    and edited in the Mix, Edit, and MIDI Editor win-
+                                                               dows (see Chapter 53, “Automation”).
+      • Place, spot, or rearrange clips
+      • Add fades or crossfades to audio clips                 Clip Types
+      • Quantize MIDI notes and audio events
+                                                               There are different types of audio and MIDI clips,
+      • Transpose and otherwise modify MIDI tracks             based on how they are created:
+      • Nudge audio or MIDI clips
+                                                                    For information on video clips, see
+      • Audition different playlists                                Chapter 63, “Working with Video in
+      • Adjust or scale automation and MIDI                         Pro Tools.”
+        continuous controller data
+                                                               Whole-File Audio Clips These audio clips are cre-
+      • Insert real-time plug-ins                              ated when recording or importing audio, consoli-
+      • Apply Real-Time (and Rendered) Elastic                 dating existing clips, and when nondestructively
+        Audio processing                                       processing with an AudioSuite plug-in. Whole-file
+      • Process audio with an AudioSuite plug-in               audio clips reference an entire audio file that re-
+                                                               sides on your hard drive. Whole-file audio clips are
+      • Automation editing                                     displayed in bold in the Clips List (see Chapter 17,
+      There are a few things that cannot be changed            “The Clips List”). Normal clips often reference
+      while Pro Tools plays, as noted in relevant topics.      only a portion of the parent audio file and are cre-
+                                                               ated in the course of editing and, in some instances,
+                                                               when punch recording or loop recording.
+
+      Track Material                                           User-Defined Clips These are clips that are explic-
+                                                               itly defined, such as when you record or import au-
+      Each time you record or import audio, video, and
+                                                               dio or MIDI; capture, separate, or consolidate a se-
+      MIDI, Pro Tools creates clips for the new track
+                                                               lection; trim a whole-file audio clip; or rename an
+      data, which not only indicate where the material
+                                                               existing clip.
+      begins and ends, but also provides visual feedback
+      on its general character and content. When you re-       Auto-Created Clips These clips are automatically
+      cord additional takes, or “punch in” on a specific       created in the course of editing, and, in some in-
+      location within a track, Pro Tools creates addi-         stances, when punch recording over existing clips.
+      tional clips.                                            Since these clips can accumulate rapidly in a ses-
+                                                               sion, you can hide them in the Clips List. Auto-cre-
+      Clips are also created by cutting and pasting, resiz-
+                                                               ated clips can be turned into user-defined clips by
+      ing, separating, and re-capturing existing clips.
+                                                               renaming them.
+      Clips in a session are listed in the Clips List, where
+      they can be dragged to existing tracks. A track can           For more information, see “Naming and Dis-
+      contain any number of clips, in any arrangement.              playing Clips in the Clips List” on page 336.
+      The order and location of clips in a track define its
+      playlist.
+
+622   Pro Tools Reference Guide

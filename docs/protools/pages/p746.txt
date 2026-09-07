@@ -1,0 +1,50 @@
+      The seven presets are as follows:                         Preset Curve 6 fades in even more slowly than
+                                                              the previous curve.
+        Preset Curve 1 fades in at full volume immedi-
+      ately at the beginning of the fade and keeps it there
+      throughout the fade.
+
+
+                                                              Preset Curve 6
+
+                                                                Preset Curve 7 silences any audio until the end
+      Preset Curve 1                                          of the fade.
+        Preset Curve 2 fades in quickly in the begin-
+      ning, reaching full amplitude fairly early in the
+      fade.
+
+                                                              Preset Curve 7
+
+                                                              Fade Slope Settings
+      Preset Curve 2                                          The Fade In and Fade Out dialogs provide two op-
+                                                              tions for the slope of the fade. The Slope setting
+         Preset Curve 3 fades in moderately fast.
+                                                              lets you define the slope of the fade.
+
+                                                              Equal Power Recommended for material that is
+                                                              not phase coherent. With this fade, you can Op-
+                                                              tion-click (Mac) or Alt-click (Windows) the fade
+      Preset Curve 3                                          curve to reset it to its default shape.
+
+       Preset Curve 4 fades in with a linear fade curve.     Equal Gain Recommended for material that is
+      This is the default curve.                              phase-coherent or nearly phase-coherent. With this
+                                                              fade, you can Option-click (Mac) or Alt-click
+                                                              (Windows) the fade curve to reset it to its default
+                                                              shape.
+
+
+      Preset Curve 4                                          Link Settings
+                                                              (Crossfades Only)
+        Preset Curve 5 fades in slowly at the beginning
+      of the fade.
+
+
+
+
+      Preset Curve 5
+
+
+                                                              Fade Link
+
+
+714   Pro Tools Reference Guide

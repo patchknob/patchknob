@@ -1,0 +1,38 @@
+                                                      Making an Edit Selection with
+Using the Selector Tool                               the Selector Tool
+Use the Selector tool to place the edit cursor in a
+                                                      To make an Edit selection with the Selector tool:
+track or Timebase ruler, or to make Timeline selec-
+tions or Edit selections on tracks.                   1   Select the Selector tool in the Edit window.
+                                                      2   Do one of the following:
+Placing the Edit Cursor                               • To make an Edit selection in a single track, drag
+                                                        in the track.
+To place the edit cursor with the Selector tool:
+                                                      • To make an Edit selection across multiple tracks,
+1   Select the Selector tool in the Edit window.
+                                                        drag across the tracks.
+2   Click the location in a track or on a Timebase
+                                                      • If Link Timeline and Edit Selection is enabled,
+    ruler.
+                                                        drag on the Timebase ruler to make an Edit se-
+                                                        lection across all tracks.
+
+
+
+
+Placing the edit cursor with the Selector tool
+
+                                                      Making a selection with the Selector tool
+
+                                                      To select an entire clip with the Selector tool:
+                                                      1   Select the Selector tool in the Edit window.
+                                                      2   Double-click a clip on a track.
+
+                                                      To select an entire track with the Selector tool:
+                                                      1   Select the Selector tool in the Edit window.
+                                                      2   Triple-click in the track.
+
+
+
+
+                                                                              Chapter 29: Edit Modes and Tools   659

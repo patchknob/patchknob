@@ -1,0 +1,41 @@
+When the Layered Editing option is disabled, over-
+lapped clips remain “trimmed” to the start or end          Quantizing Clips to Grid
+time of the overlapping clip. In Figure 2, the clip
+                                                           The Quantize to Grid command adjusts the place-
+“Audio 1_01” (1) is moved to cover the middle of a
+larger clip (2). When that clip (“Audio 1_01”) is
+                                                           ment of selected audio and MIDI clips so that their
+cleared, the overlapped clip has a hole punched in it      start points (or sync points, if present) align pre-
+(3). If Layered Editing is enabled in this case, the un-   cisely to the nearest Grid boundary.
+derlying clip is completely revealed and healed (4).
+                                                           To quantize individual MIDI notes or Elastic Au-
+                                                           dio Events, use the Quantize Event Operations.
+                                                           You can also use the Quantize Event Operation to
+                                              1            quantize audio clips (see “Quantize” on
+                                                           page 1058).
+
+                                                           To quantize one or more clips:
+                       2
+                                                           1   Select the Grid value (see “Defining the Grid
+                                                               Value” on page 943).
+                                                           2   With the Selector or Time Grabber tool, select
+                                                               the clip or clips you want to quantize. The clips
+                       3                                       can be on multiple tracks. Only clips that are en-
+                                                               tirely selected will be quantized.
+                                                           3   Choose Clip > Quantize to Grid. Clip start times
+                                                               (or sync points) are aligned to the nearest
+                       4                                       boundaries for the defined Grid.
+
+                                                                 Press Command+0 (Mac) or Control+0
+Figure 2. Editing with Layered Editing disabled
+                                                                 (Windows) to Quantize to Grid.
+
+                                                           For MIDI clips, only the clips are quantized and all
+                                                           MIDI data contained within the clips (such as
+                                                           notes) are moved equally, thereby retaining their
+                                                           rhythmic relationships.
+
+
+
+
+                                                                             Chapter 31: Editing Clips and Selections   703

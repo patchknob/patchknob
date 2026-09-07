@@ -1,0 +1,50 @@
+If the clips do not heal with Heal Separation, do one    Trim to Insertion Commands
+of the following to return the separated clips to a
+single clip:                                             You can trim a clip or MIDI note by automatically
+                                                         removing the material between the Edit insertion
+   Delete one of the two separated clips (verify
+                                                         point and the start or end point of the clip.
+    that Slip mode is enabled so the gap does not
+    close) and use the Trim tool to expand the re-
+                                                         To trim from a start point to insertion:
+    maining clip to its original length (see “Using
+    the Trim Tools” on page 652).                        1   With the Selector tool, click inside the clip or
+                                                             note where you want the new start point to be.
+   Delete both of the separated clips and drag the
+    original clip from the Clips List to the original    2   Choose Edit > Trim Clip > Start To Insertion. The
+    location (see “Placing Clips from the Clips List         clip’s start point is automatically trimmed to the
+    on to Track Playlists” on page 933).                     insertion point.
+
+                                                               Press Option+Shift+7 (Mac) or Alt+Shift+7
+                                                               (Windows) to Trim Start To Insertion.
+Trimming Clips
+                                                         To trim from an end point to insertion:
+In addition to the Trim tools (see “Using the Trim
+Tools” on page 652), Pro Tools provides several          1   With the Selector tool, click inside the clip or
+options for editing clip and clip group boundaries.          note where you want the new end point.
+                                                         2   Choose Edit > Trim Clip > End To Insertion. The
+Trim to Selection Command                                    clip’s end point is automatically trimmed to the
+                                                             insertion point.
+The Trim to Selection command removes data be-
+fore and after a clip or MIDI note selection, leaving
+only the selection. This command lets you quickly
+remove all data in a clip (and in some instances the
+entire track) except for the current selection.
+
+To trim unwanted data from a clip or note:
+1   With the Selector tool, select a portion of a clip
+    or note (or a range of notes).
+2   Choose Edit > Trim Clip > To Selection to
+    remove material outside of the selection.
+
+
+                                                         Clip end trimmed to insertion
+
+
+                                                               Press Option+Shift+8 (Mac) or Alt+Shift+8
+                                                               (Windows) to Trim Start To Insertion.
+
+
+
+
+                                                                           Chapter 31: Editing Clips and Selections   697

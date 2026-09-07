@@ -1,0 +1,52 @@
+Using the TCE Trim Tool in Grid                         Using the TCE Trim Tool in Slip
+Mode                                                    Mode
+The TCE Trim tool can be used in Grid mode to           To use the TCE Trim tool in Slip mode:
+match a clip to the tempo of a session or a section
+                                                        1   Set the Edit mode to Slip.
+of a session. For example, you might import a one-
+bar drum loop with a tempo of 90 BPM into a ses-        2   Click the Trim tool pop-up menu and select
+sion with a tempo of 120 BPM. In Grid mode, you             TCE.
+can use this tool to simply and quickly “time com-
+                                                        3   With the TCE Trim tool, drag the clip’s start or
+press” the drum loop to the length of one measure,
+                                                            end point to compress or expand the clip freely.
+with no noticeable to minimal loss of audio fidel-
+ity.
+                                                        Using the TCE Trim Tool in Spot
+      Trimming clips while in Relative Grid mode        Mode
+      will trim the clips in grid increments while
+                                                        In Spot mode, clicking with the TCE Trim tool in a
+      maintaining their relative offset (if any) from
+                                                        clip opens the Spot dialog. You can specify the lo-
+      the grid.
+                                                        cation you want the clip to start or end at, or the du-
+To use the TCE Trim tool in Grid mode:                  ration of the clip, and the clip is automatically
+                                                        compressed or expanded as specified.
+1   Set the Edit mode to Grid.
+2   Do one of the following:                            To use the TCE Trim tool in Spot mode:
+
+• Click the Trim tool pop-up menu and select            1   Set the Edit mode to Spot.
+  TCE.                                                  2   Click the Trim tool pop-up menu and select
+                                                            TCE.
+                                                        3   Click the clip near its start or end point. The
+                                                            Spot dialog opens. Using any Time Scale, enter
+                                                            a new start or end time (or duration) for the clip,
+Time Compression/Expansion Trim tool
+                                                            then click OK.
+• Right-click on any track and select Tools >
+  Trim Tools > TCE.
+
+3   With the TCE Trim tool, drag the audio clip’s
+                                                        Scrub Trim Tool
+    start or end point to compress or expand the clip   (Pro Tools Ultimate Software Only)
+    to the Grid (for example, by quarter notes).
+                                                        The Scrub Trim tool is a convenient tool for audi-
+                                                        tioning material (on up to two tracks) to find a trim
+                                                        point. You can drag in a track to hear the audio in-
+                                                        formation, then trim at a specific location by re-
+                                                        leasing the mouse button.
+
+
+
+
+                                                                                Chapter 29: Edit Modes and Tools   655

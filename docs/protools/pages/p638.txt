@@ -1,0 +1,49 @@
+      Pro Tools Ultimate with MachineControl lets you       2   Check or reconfigure the crossfade setting for
+      remotely arm tracks on supported 9-pin decks (or          punch recording (see “QuickPunch/TrackPunch
+      V-LAN for Transport only).                                Crossfade Length” on page 604).
+
+            Choose Setup > Machine Track Arming             3   Click the track Record Enable button to record
+            Profiles to configure your system, and choose       enable each track on which you want to punch
+            Window > Machine Track Arming to display            in.
+            the Machine Track Arming window.
+                                                                  If you cannot record enable tracks due to
+                                                                  voice limitations, see “Voice Requirements
+            For information on remote track arming                for Punch Recording” on page 602.
+            with MachineControl, see Chapter 57,
+            “MachineControl.”                               4   Prepare to record by cueing Pro Tools to an ap-
+                                                                propriate location. To use pre-roll, enable a pre-
+                                                                roll value in the Transport window.
+      QuickPunch Audio Recording                            5   Start playback by clicking Play in the Transport
+      QuickPunch is available on all systems and lets           window.
+      you instantaneously punch in and out all record-      6   Do one of the following:
+      enabled audio tracks during playback by clicking
+                                                            • When you reach the punch-in point, click Re-
+      the Record button in the Transport.
+                                                              cord in the Transport.
+            Many Pro Tools systems also let you use a       • For Pro Tools systems that support using a con-
+            footswitch to punch in and out. See the guide     nected footswitch, step on the footswitch at the
+            that came with your Pro Tools audio inter-        punch-in point.
+            face or control surface.
+                                                            The Record button stops flashing and stays lit
+      Recording with QuickPunch                             during recording.
+                                                            7   To punch out, click Record again (or step on the
+      To punch record with QuickPunch:
+                                                                footswitch).
+      1   Do one of the following:
+                                                            As Pro Tools continues playing, you can perform
+      • Select Options > QuickPunch.
+                                                            additional punches (up to 200). When recording
+      • Right-click the Record button in the Transport      multiple punches during a single pass, a single au-
+        and select QuickPunch.                              dio file is recorded from which Pro Tools creates
+                                                            the appropriate clips.
+      When QuickPunch is enabled, a “P” appears in the
+      Record button in the Transport.                       After a QuickPunch recording pass, the punched
+                                                            track’s playlist in the Edit window displays the
+                                                            clips created by punching. You can use any of the
+                                                            Trim tools after punch recording to open up the
+                                                            head or tail of QuickPunch recorded clips, or to re-
+                                                            veal the parent audio file that was recorded in the
+                                                            background. This lets you compensate for any late
+      QuickPunch enabled                                    or missed punches.
+
+606   Pro Tools Reference Guide

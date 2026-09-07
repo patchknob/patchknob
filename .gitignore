@@ -11,8 +11,7 @@ CMakeCache.txt
 CMakeFiles/
 
 # Vendored third-party sources (cloned locally, not tracked in our history)
-vendor/rtmidi/
-vendor/rtaudio/
+# Upstream Csound manual mirror -- fetched by tools/fetch_csound_manual.py
 spikes/vst3host/vst3sdk/
 run.log
 
@@ -29,3 +28,86 @@ sdlui/*.png
 
 sdlui/views/*/build/
 sdlui/views/*/*.png
+
+# ---------------------------------------------------------------------------
+# Working files that live in the tree but are not part of the source.
+# ---------------------------------------------------------------------------
+# Scratch media, recordings and reference material
+*.mkv
+*.mp4
+*.wav
+*.ogg
+*.flac
+*.mp3
+*.sf2
+*.pdf
+*.s24
+*.s24proj
+*.s24proj.bak
+!Click.wav
+
+# Local caches and logs
+PatchKnob_plugins.cache
+*.log
+run_live*.log
+
+# Platform staging / distribution outputs
+dist/
+Android/
+android/
+Rufus/
+modules/
+
+# ---------------------------------------------------------------------------
+# Vendored third-party source.
+#
+# These trees are FORKS: they carry substantial PatchKnob changes, so they are
+# committed here rather than fetched.  What is excluded below is the part of
+# each upstream tree the build never compiles -- Cardinal ships ~1.8 GB of
+# modules, of which PatchKnob uses four directories.  See THIRD_PARTY.md.
+# ---------------------------------------------------------------------------
+
+# Cardinal: keep ONLY what src/engine/rack actually builds against.
+vendor/Cardinal/*
+!vendor/Cardinal/LICENSE
+!vendor/Cardinal/README.md
+!vendor/Cardinal/plugins/
+vendor/Cardinal/plugins/*
+!vendor/Cardinal/plugins/Fundamental/
+!vendor/Cardinal/plugins/GoodSheperd/
+!vendor/Cardinal/src/
+vendor/Cardinal/src/*
+!vendor/Cardinal/src/Rack/
+vendor/Cardinal/src/Rack/*
+!vendor/Cardinal/src/Rack/include/
+!vendor/Cardinal/src/Rack/dep/
+vendor/Cardinal/src/Rack/dep/*
+!vendor/Cardinal/src/Rack/dep/simde/
+
+# Upstream trees the build does not compile at all.
+vendor/ardour/
+vendor/buzz/
+vendor/buzztrax/
+vendor/buzzmachines/
+vendor/buzzmachineloader/
+
+# Build outputs inside vendored trees
+vendor/*/build/
+vendor/*/*/build/
+
+# Nested git metadata from the vendored forks, moved aside so their FILES can
+# be committed (a nested .git makes git record a submodule link instead).
+# Kept so the original clones can be restored; never published.
+.vendor-git-backup/
+
+# Stray working files at the repo root (not part of the source)
+/303.svg
+/rufus.ini
+/protoplug last compile.lua
+/sampler_perf_bench.cpp
+
+# AGPL-3.0 reference source, no longer used.  PatchKnob's compressor is now an
+# original GPL-3.0 implementation (src/engine/native/native_effects.cpp), so
+# this tree must NOT be redistributed -- shipping it would re-impose AGPL on
+# the whole project even though no code derives from it any more.
+vendored/nine50/

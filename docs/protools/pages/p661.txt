@@ -1,0 +1,48 @@
+Notes View for MIDI and                                  To scroll the Notes display up or down for a MIDI or
+Instrument Tracks                                        Instrument track, do one of the following:
+
+When a MIDI or Instrument track’s Track View is             Click either the up or down arrow of the mini-
+set to Notes, MIDI notes are displayed in a                  keyboard.
+“piano roll” format. Each note is displayed as a
+small rectangle with its vertical placement indicat-
+ing pitch and its horizontal placement indicating
+location in time (and duration).
+
+Up Arrow           MIDI note above the current display
+                                                         Scrolling notes with the Up Arrow on mini-keyboard
+
+                                                            With any of the Edit tools (such as the Time
+                                                             Grabber tool) selected, press Command+Op-
+                                                             tion+Control (Mac) or Control+Alt+Start (Win-
+                                                             dows) and drag up or down on the mini-
+                                                             keyboard.
+
+
+
+Down Arrow      Keyboard reference        MIDI note
+
+MIDI track displaying notes
+
+To the left of the MIDI or Instrument track’s play-      Scrolling Notes display by dragging
+list is a vertical mini-keyboard, complete with oc-
+tave numbering, for pitch reference. You can click          If you have a mouse with a scroll wheel, move
+the mini-keyboard to play pitches using the track’s          the cursor over the track and Command-Option-
+selected MIDI output. Arrows at the top and bot-             Control-scroll (Mac) or Control-Alt-Start-scroll
+tom of the mini-keyboard (not available in the               (Windows) up or down to scroll the notes dis-
+smaller track heights) are used to scroll the Notes          play up or down.
+display up and down.
+                                                         Using the Edit tools, notes can be inserted, deleted,
+     Clicking the mini-keyboard clears the cur-          transposed, trimmed, and moved. For more infor-
+     rent Edit selection. For more information,          mation, see “Manually Editing MIDI Notes” on
+     see “Selecting MIDI Notes” on page 792.             page 792.
+
+In Notes view, the pitch range of MIDI notes that
+can be displayed depends on the track height, and
+on the current zoom value. Any time a track’s
+notes do not fit within its current height, notes
+above or below the viewed area are displayed as
+single-pixel lines at the very top and bottom of the
+range.
+
+
+                                                                                      Chapter 28: Editing Basics   629

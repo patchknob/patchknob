@@ -197,7 +197,8 @@ void BrowserView::draw(App& app) {
     // ---- list --------------------------------------------------------------
     // clip rows to the list rect
     SDL_Rect clip = L.list;
-    SDL_RenderSetClipRect(app.ren, &clip);
+    {
+    ui::ScopedClip clipScope(app.ren,clip);
     if (m_scanning) {
         int ty = L.list.y + (L.row_h - app.mono.ch()) / 2;
         app.mono.draw(app.ren, L.list.x + 4, ty,
@@ -240,7 +241,7 @@ void BrowserView::draw(App& app) {
             app.mono.draw(app.ren, tx, ty, io, fg);
         }
     }
-    SDL_RenderSetClipRect(app.ren, nullptr);
+    }
 
     // scrollbar hint on the right edge of the list
     if (!m_filtered.empty() && (int)m_filtered.size() > L.visible && L.visible > 0) {

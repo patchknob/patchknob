@@ -33,6 +33,17 @@ optionsfile::~optionsfile( )
 
 
 
+/*  optionsfile is the SINGLE owner of the legacy MIDI/transport config
+    sections: [midi-control], [midi-clock], [midi-clock-mod-ticks],
+    [midi-input], [keyboard-control], [jack-transport], [manual-alsa-ports].
+    Nothing else may read or write them (userfile.cpp's dead duplicate parser
+    was deleted for exactly this reason).
+
+    HONEST STATUS: nothing in the SDL app constructs an optionsfile, so this
+    parser does not currently run -- the modern config lives in the project
+    file (sdlui/project_io.cpp).  It is kept because it is the persistence
+    format for the legacy sections and the only definition of them.  If it is
+    ever wired back up, it must stay the only wiring. */
 bool
 optionsfile::parse( perform *a_perf )
 {
@@ -96,9 +107,13 @@ optionsfile::parse( perform *a_perf )
 
     for ( int i=0; i<buses; ++i ){
 
-        long bus_on, bus;
-        sscanf( m_line, "%ld %ld", &bus, &bus_on );
-        a_perf->get_master_midi_bus( )->set_clock( bus, (clock_e) bus_on );
+        /* initialised + checked: a short/garbled line used to leave these
+           indeterminate and then index the bus arrays with them */
+        long bus_on = 0, bus = -1;
+        if ( sscanf( m_line, "%ld %ld", &bus, &bus_on ) == 2 &&
+             bus >= 0 && bus < c_maxBuses )
+            a_perf->get_master_midi_bus( )->set_clock( (unsigned char) bus,
+                                                       (clock_e) bus_on );
         next_data_line( &file );
     }
 
@@ -159,17 +174,29 @@ optionsfile::parse( perform *a_perf )
 
     for ( int i=0; i<buses; ++i ){
 
-        long bus_on, bus;
-        sscanf( m_line, "%ld %ld", &bus, &bus_on );
-        a_perf->get_master_midi_bus( )->set_input( bus, (bool) bus_on );
+        long bus_on = 0, bus = -1;
+        if ( sscanf( m_line, "%ld %ld", &bus, &bus_on ) == 2 &&
+             bus >= 0 && bus < c_maxBuses )
+            a_perf->get_master_midi_bus( )->set_input( (unsigned char) bus,
+                                                       (bool) bus_on );
         next_data_line( &file );
     }
-    
-    /* midi clock mod  */
-    long ticks = 64;
-    line_after( &file, "[midi-clock-mod-ticks]" );
-    sscanf( m_line, "%ld", &ticks );
-    midibus::set_clock_mod(ticks);
+
+    /*  midi clock mod -- THE ONLY reader of [midi-clock-mod-ticks] in the
+        tree, matched by the only writer (optionsfile::write below).
+        userfile.cpp used to carry an identical second parser; it was deleted
+        so load order can no longer decide this value.
+
+        line_after() cannot report a missing section (it just runs to EOF and
+        leaves m_line holding whatever was last read), so trust the value only
+        when sscanf actually converted one; otherwise leave midibus's default
+        standing instead of writing a garbage or stale number into the clock. */
+    {
+        long ticks = 0;
+        line_after( &file, "[midi-clock-mod-ticks]" );
+        if ( sscanf( m_line, "%ld", &ticks ) == 1 )
+            midibus::set_clock_mod( (int) ticks );
+    }
 
 
     /* manual alsa ports */
@@ -267,7 +294,8 @@ optionsfile::write( perform *a_perf  )
         file << outs << "\n";
     }
 
-    /* midi clock mod  */
+    /* midi clock mod -- the matching single writer for the single reader in
+       ::parse.  Keep these two the only places that touch this section. */
     file << "\n\n[midi-clock-mod-ticks]\n";
     file << midibus::get_clock_mod() << "\n";
 

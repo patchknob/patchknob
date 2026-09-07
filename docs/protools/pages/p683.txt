@@ -1,0 +1,44 @@
+                                                     To clear the stored Zoom Toggle state:
+                                                     1   Make sure the Zoom Toggle button is lit (en-
+                                                         abled).
+                                                     2   Option-click (Mac) or Alt-click (Windows) the
+                                                         Zoom Toggle button.
+
+Zoom Toggle button in the Edit window                To use Zoom Toggle without changing playlist
+                                                     views:
+If Last Used is selected for any of the following,
+you can adjust the corresponding zoom, height, or    1   Make a selection on one or more tracks.
+view in the Edit window to update the stored zoom
+                                                     2   Do one of the following:
+state:
+                                                     • Press Option+Control+E (Mac) or Alt+Start+E
+• Vertical Zoom
+                                                       (Windows).
+• Horizontal Zoom
+                                                     • With Commands Keyboard Focus enabled (see
+• Track Height                                         “Keyboard Focus” on page 26), press Option+E
+• Track View                                           (Mac) or Alt+E (Windows).
+
+      In Commands Keyboard Focus mode (see
+      “Keyboard Focus” on page 26), press the
+      E key to enable or disable Zoom Toggle.
+
+
+      Press Option+Shift+E (Mac) or Alt+Shift+E
+      (Windows) to cancel Zoom Toggle without
+      reverting to the previous view.
+
+To modify the stored Zoom Toggle state if Last
+Used is selected:
+
+1   Make sure the Zoom Toggle button is lit (en-     Using the Zoom Toggle
+    abled).
+2   Adjust the Track Height, Vertical Zoom, Track
+    View, or the Grid depending on which prefer-
+    ences are set to Last Used. Changes are stored
+    as the new Zoom Toggle state.
+
+
+
+
+                                                                           Chapter 29: Edit Modes and Tools   651

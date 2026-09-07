@@ -45,10 +45,12 @@
 #define PATCHKNOB_SDLUI_RACK_EDITOR_VIEW_H
 
 #include "gui.h"
+#include "platform/platform_ui.h"
 #include "engine/rack/rack_engine.h"     // rackx::RackEngine / RackModule / RackCable
 #include "cardinal_svg_textures.h"
 
 #include <cmath>
+#include <functional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -65,6 +67,17 @@ class RackEditorView : public ui::Widget
 public:
     RackEditorView() {}
     virtual ~RackEditorView() {}
+
+    //! Fired from a scripting (Pd/Csound) module's right-click menu: open its panel
+    //! layout editor / its DSP (patch) editor.  Set by the shell; may be null.
+    std::function<void(int moduleId)> on_edit_panel;
+    std::function<void(int moduleId)> on_edit_dsp;
+    std::function<void()> on_open_file, on_save_file, on_save_file_as;
+    //! A sample-holding module wants a file: the shell runs the picker and
+    //! calls rackx::ISampleSlot::sampleLoad().  May be null.
+    std::function<void(int moduleId)> on_load_sample;
+    //! Open the shared waveform editor + disk browser on this module's slot.
+    std::function<void(int moduleId)> on_edit_sample;
 
     // ========================================================================
     //  Public API the shell uses
@@ -111,9 +124,9 @@ private:
     static const int KNOB_DRAG_PX  = 150;  // px of drag == full param range
     static const int DBLCLK_MS     = 350;  // knob double-click (reset) window
     static const int PAN_STEP      = 24;   // wheel pan / list scroll step
-    static const int PAL_W         = 292;  // docked module browser width
-    static const int PAL_ROWS      = 5;    // visible module card rows
-    static const int PAL_CARD_H    = 104;  // thumbnail card height
+    static int pal_w()      { return ui::platform::rack_palette_width(); }
+    static int pal_rows()   { return ui::platform::rack_palette_rows(); }
+    static int pal_card_h() { return ui::platform::rack_palette_card_height(); }
 
     // ---- per-view zoom ------------------------------------------------------
     // m_zoom scales all rack geometry and labels.  Because m_zoom is a member,
@@ -143,6 +156,7 @@ private:
         return !e || e->tab < 0 || e->tab == active;
     }
     bool tab_bar_at( rackx::RackModule* m, int sx, int sy, int& tabIndex ) const;
+    bool port_tab_visible( rackx::RackModule* m, bool isInput, int port ) const;
 
     // ---- hit testing (SCREEN coords) ---------------------------------------
     rackx::RackModule* module_at( int sx, int sy ) const;   // topmost
@@ -179,11 +193,14 @@ private:
     // ---- view --------------------------------------------------------------
     int   m_ox = 0, m_oy = 0;    // pan offset (screen px)
     float m_zoom = 0.8f;         // geometry scale, clamped [0.5, 2.5] (see zpx)
+    bool  m_mobile_zoom_initialized = false;
     int   m_cw = 8, m_ch = 14;   // cached mono cell metrics (updated each event)
     int   m_sel = -1;            // selected module id (-1 == none)
     mutable std::unordered_map<int, int> m_module_tab;  // module id -> active tab page
     int   m_hover_cable = -1;    // cable id under the pointer (-1 == none)
     bool  m_hover_cable_endpoints = false;
+    int   m_hover_test_x = -100000, m_hover_test_y = -100000;
+    int   m_hover_test_cables = -1, m_hover_test_modules = -1;
     int   m_hover_out_x = 0, m_hover_out_y = 0;
     int   m_hover_in_x = 0, m_hover_in_y = 0;
     mutable CardinalSvgTextures m_cardinalTextures;
@@ -195,7 +212,21 @@ private:
     int   m_ctx_x = 0, m_ctx_y = 0;
     void  draw_ctx_menu( ui::App& app );
     bool  ctx_menu_mouse( ui::App& app, const ui::MouseEv& e );  // true == consumed
+    //! Clamped popup box for `count` rows -- draw and hit-test share it.
+    SDL_Rect ctx_menu_box( int count ) const;
+    //! Drop every interaction reference to a module id that no longer exists
+    //! (selection, context menu, ARMED output jack, move/knob/button/curve
+    //! drags, hover caches).  Call immediately after removeModule().
+    void forget_module( int id );
     int   duplicate_module( int id );   // clone slug + params, offset; -> new id
+    //! Non-null when the module holds a sample; drives its context-menu rows.
+    rackx::ISampleSlot* sample_slot_of( int id ) const;
+    // Inline waveform peaks, cached per module.  samplePeaks() locks and walks
+    // the whole visible span, so refetching it every frame would rescan a long
+    // sample 60x a second for nothing.
+    struct WaveCache { int frames = -1; int buckets = 0;
+                       std::vector<float> mn, mx; };
+    std::unordered_map<int, WaveCache> m_waveCache;
 
     // ---- interaction state -------------------------------------------------
     bool m_ldown = false;        // left button held (edge detect)
@@ -210,6 +241,10 @@ private:
 
     bool  m_button = false;      // holding a momentary panel button
     int   m_button_mod = 0, m_button_param = 0;
+    // Breakpoint-curve editor drag (PanelControlStyle::Curve).  -1 == idle.
+    int   m_curve_mod = 0, m_curve_param = 0;
+    int   m_curve_index = -1, m_curve_point = -1;
+    bool  m_curve_bend = false;   // dragging a segment handle, not a point
 
     bool  m_wire = false;        // dragging a cable from an output jack
     int   m_wire_mod = 0, m_wire_out = 0;

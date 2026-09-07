@@ -1,0 +1,51 @@
+      4   Release the mouse when the fade shape is what         To change the fade shape of any fade in the
+          you want.                                             Edit window:
+                                                                1   Make an edit selection that includes the fade (or
+            Command-click (Mac) or Control-click
+                                                                    fades) you want to change. Only completely se-
+            (Windows) with the Selector Tool to adjust
+                                                                    lected fades will be affected.
+            fades in the same way as with the Smart Tool.
+                                                                2   Do one of the following:
+                                                                    • Press Option+Control+Left Arrow (Mac) or
+            If the Edit selection includes two or more                Alt+Start+Left Arrow (Windows) to change to
+            tracks with more than one fade, hold the Shift            the previous preset fade shape.
+            key while adjusting the shape of a fade to              • Press Option+Control+Right Arrow (Mac) or
+            change all fades in the Edit selection.                   Alt+Start+Right Arrow (Windows) to change
+                                                                      to the next preset fade shape.
+            While adjusting a fade shape in the Fades di-
+            alog or using the Smart Tool in the Edit win-
+            dow, the exact curve and waveform update to         Fades Options in the Edit
+            match. After adjusting the fade curve and see-      Selection Right-Click Menu
+            ing the exact, real-time updates to the curve       Pro Tools lets you set the Fade Shape (Standard or
+            and waveform, the persistent fade drawn in          S-Curve) and the Fade Slope (Equal Power or Equal
+            the Edit window is a more general represen-         Gain) for fades and crossfades from the Right-click
+            tation that may not look exactly like the fade      menu in the Edit window. The corresponding Shape
+            curve when you were adjusting it.                   and Slope for the selected fade are checked in the
+                                                                menu. If the edit selection includes two or more fades
+                                                                with different Shape settings, the Standard and
+      Changing Fade Shapes in the                               S-Curve options appear in italics (and with no check
+                                                                marks). Likewise, if the edit selection includes two or
+      Edit Window                                               more fades with different Slope settings, the Equal
+      Pro Tools lets you change the shape of any selected       Power and Equal Gain options appear in italics (and
+      fade in the Edit window using keyboard shortcuts to       with no check marks).
+      cycle through all available fade shapes in order: Stan-
+                                                                You can also edit Batch Fades from the Right-click
+      dard, S-Curve, and seven parabolic fade shapes (see
+                                                                menu in the Edit window.
+      “Fade-Out Shape Settings” on page 712 and “Fade-
+      In Shape Settings” on page 713).
+                                                                To set the Shape for a fade or crossfade in
+                                                                the Edit window:
+                                                                1   Right-click the fade you want to change.
+                                                                2   Select the desired Shape from Fades submenu:
+                                                                    Standard or S-Curve.
+
+                                                                To set the Slope for a fade or crossfade in the Edit
+                                                                window:
+                                                                1   Right-click the fade you want to change.
+                                                                2   Select the desired Slope from Fades submenu:
+                                                                    Equal Power or Equal Gain.
+
+
+724   Pro Tools Reference Guide

@@ -1,0 +1,50 @@
+The seven presets are as follows:                         Preset Curve 6 drops the volume even more
+                                                        quickly at the beginning of the fade.
+ Preset Curve 1 stays at full volume throughout
+
+the fade, then immediately drops the volume at the
+end of the fade.
+
+
+                                                        Preset Curve 6
+
+                                                          Preset Curve 7 silences any audio at the begin-
+Preset Curve 1                                          ning of the fade.
+ Preset Curve 2 fades out relatively slowly, keep-
+
+ing the volume fairly high throughout the duration
+of the fade.
+
+                                                        Preset Curve 7
+
+                                                        Fade-In Shape Settings
+Preset Curve 2                                          The Shape setting lets you define the shape of the
+                                                        fade-in to a clip for a fade, or to clip 2 for a cross-
+  Preset Curve 3 fades out slightly faster, keeping    fade.
+the volume slightly lower during the fade.
+                                                        Standard Selects a single continuous fade curve.
+                                                        This creates a general-purpose fade that can be ed-
+                                                        ited by clicking and dragging the curve in the curve
+                                                        editor.
+Preset Curve 3
+                                                        S-Curve Selects an S-shaped curve, which inverts
+   Preset Curve 4 fades out with a linear fade. This   its beginning and end characteristics. This makes it
+is the default curve.                                   possible to fade out faster at the curve’s start and
+                                                        slower at its end, for example. S-shaped curves can
+                                                        be useful with material that is difficult to crossfade
+                                                        effectively. S-curves can be edited by clicking
+                                                        dragging the curve in the curve editor.
+Preset Curve 4                                          Preset Curves Seven commonly used preset
+  Preset Curve 5 fades out quickly at the begin-       curves are provided for fast fade creation. These
+ning of the crossfade.                                  cannot be edited by clicking and dragging in the
+                                                        curve editor.
+
+                                                             For more information on adjusting the fade
+                                                             shape, see “Manually Adjusting Fade Shapes
+                                                             in Fade Windows” on page 722.
+Preset Curve 5
+
+
+
+
+                                                                              Chapter 32: Fades and Crossfades    713

@@ -1,0 +1,49 @@
+      3   To compare levels of the input source with au-     Punching In on Multiple Tracks
+          dio on disk, click the TrackInput button. When
+          lit (green), the track is monitoring input. When   To punch in on multiple tracks simultaneously:
+          unlit (gray), the track is monitoring from disk    1   Enable DestructivePunch mode (“Enabling De-
+          (see “Selecting Record Monitor Modes with              structivePunch Mode” on page 611).
+          TrackInput Monitoring” on page 554).
+                                                             2   Click the Record Enable button on each track
+      When you are satisfied with your levels, you are           you want to punch in, so that the track is both
+      ready to start punch recording.                            DestructivePunch-enabled and Record-enabled.
+                                                                 Each track’s Record Enable button flashes blue
+                                                                 and red.
+      Using DestructivePunch                                 3   Click Play in the Transport to begin playback.
+      After you have configured Pro Tools, tracks, and       4   During playback, click Record in the Transport
+      levels, you can use DestructivePunch to record in          to punch in and out on all DestructivePunch-en-
+      several ways.                                              abled tracks simultaneously.
+                                                             5   Stop playback. When you are finished with the
+      Punching In On Single Tracks                               record pass, track Record Enable status and
+      To punch in on single tracks:
+                                                                 transport Record Arm status follow the current
+                                                                 Audio Track RecordLock and Transport Record-
+      1   Enable DestructivePunch mode (“Enabling De-            Lock preference settings.
+          structivePunch Mode” on page 611).
+      2   Control-click (Mac) or Start-click (Windows)       Starting Recording Immediately
+          the Record Enable button for each track you        on Multiple Tracks
+          want to punch in, so that the track is Destruc-
+          tivePunch-enabled only. The track’s Record En-     To punch in on multiple tracks:
+          able button lights solid blue.                     1   Enable DestructivePunch mode (“Enabling De-
+                                                                 structivePunch Mode” on page 611).
+      3   Click Record in the Transport to enter Record
+          Ready mode. The Record Enable button flashes       2   Click the Record Enable button on each track
+          blue and red.                                          you want to punch in, so that the track is both
+                                                                 DestructivePunch-enabled and Record-enabled.
+      4   Click Play in the Transport to begin playback.
+                                                                 Each track’s Record Enable button flashes blue
+      5   During playback, punch in and out on individ-          and red.
+          ual DestructivePunch-enabled tracks by click-
+                                                             3   Click Record in the Transport to enter Record
+          ing their Record Enable buttons.
+                                                                 Ready mode. The Record button flashes blue
+      6   Stop playback. When you are finished with the          and red.
+          record pass, track Record Enable status and
+                                                             4   Click Play in the Transport to begin playback.
+          transport Record Arm status follow the current
+          Audio Track RecordLock and Transport Record-       5   During playback, punch out and back in on in-
+          Lock preference settings.                              dividual DestructivePunch-enabled tracks by
+                                                                 clicking their respective Record Enable buttons.
+
+
+614   Pro Tools Reference Guide

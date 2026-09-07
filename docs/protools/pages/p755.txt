@@ -1,0 +1,44 @@
+3   Do one or both of the following:
+                                                          Adjusting Fade Shapes with
+• To adjust the start point of either the Fade In or
+                                                          the Smart Tool in the Edit
+  Fade Out of the crossfade, click and drag the
+                                                          Window
+  black square the appears at the beginning of the
+  fade to the right (or to the left if you have already   Pro Tools lets you adjust fade and crossfade shapes in
+  changed the start point from the default loca-          the Edit window using the Smart Tool.
+  tion).
+                                                          To adjust a fade-in, fade-out, or crossfade in
+• To adjust the end point of either the Fade In or        the Edit window:
+  Fade Out of the crossfade, click and drag the
+                                                          1   Select the Smart Tool.
+  black square the appears at the end of the fade to
+  the left (or to the right if you have already           2   Position the cursor over the fade in the vertical
+  changed the end point from the default location).           middle of the clip until the corresponding Fade or
+                                                              Crossfade cursor appears.
+
+
+
+
+                                                          Smart Tool showing Fade-out cursor
+
+
+                                                                If the Smart Tool Fade Adjustment prefer-
+                                                                ence is set to use the Command key (Mac) or
+Adjusting the Fade In start point of a crossfade                the Control key (Windows), press the Com-
+                                                                mand key (Mac) or the Control key (Win-
+4   Once you have set the start and end points of the
+                                                                dows) while positioning the cursor.
+    fades as you like, click OK to close the Cross-
+    fade window and apply your changes.                   3   Click (the fade shape highlights yellow) and drag
+                                                              to the left or right to adjust the fade shape.
+
+
+
+
+                                                          Task Manager Status indicator, tasks in progress
+
+
+
+
+                                                                                 Chapter 32: Fades and Crossfades   723

@@ -1,0 +1,47 @@
+When selecting groups of MIDI notes in Notes           If tracks are grouped, copying and pasting on any
+view with any of the Grabber tools (by drawing a       of the tracks affects each of the other tracks in the
+rectangle around them), only the note data is          group. Tracks that are hidden—even if they are
+placed on the Clipboard. When selecting a time         part of a group being edited—are not affected by
+range of MIDI notes (in Notes view) with the Se-       edits.
+lector tool, all controller data in the track is se-
+lected (similar to selecting with the Selector tool    The Shuffle Clips option affects how material is
+for audio tracks in Waveform view).                    cut and pasted:
+                                                       • When Shuffle Clips is enabled, the Cut com-
+When a track is displaying automation data or con-       mand leaves no empty space, since the clips to
+troller data, only that data is placed on the Clip-      the right of the cut slide over, closing the gap.
+board. Also, whenever you cut or copy automation         Otherwise the Cut command leaves an empty
+data, bounding breakpoints are created at each end       space corresponding to the data removed from
+of the selected area, in order to preserve the slope     the track.
+of the automation both inside and outside the se-
+lection.                                               • When Shuffle Clips is enabled, pasted data
+                                                         causes all clips to slide over to make room for
+                                                         the pasted material. Otherwise, pasted data can
+                                                         overlap an adjacent clip.
+
+                                                             For more information on the Shuffle Clips
+                                                             option, see “Shuffle Mode” on page 639.
+
+                                                       New clips are often auto-created when performing
+Automation data with Cut and Pasted audio clip         edits. For instance, when clearing a selection from
+                                                       a clip, new clips are auto-created from the material
+     Use Command+Control+V (Mac) or Con-               residing outside of the selection.
+     trol+Start+V (Windows) to special paste
+     automation data into another automation           Cut and Copy Commands
+     type. For example, you can copy Pan automa-
+     tion into a Volume automation playlist.           Use the Cut command to remove the selection
+                                                       from the track and place it on the Clipboard.
+
+     You cannot cut or copy automation data            Use the Copy command to place a copy of the se-
+     from an automation playlist unless that           lection on the Clipboard so it can be pasted to an-
+     playlist includes at least one breakpoint in      other track, or to the same track at a different loca-
+     it. The selection you are cutting or copying      tion, while leaving the original intact and in place.
+     does not need to include any breakpoints,
+                                                       To cut or copy a selection or clip:
+     but without at least one breakpoint on an
+     automation playlist, there is no automation       1   If you want to constrain the selection to the cur-
+     data to copy.                                         rent Grid value, enable Snap to Grid.
+                                                       2   Set the Track View for the tracks you want to
+                                                           edit.
+
+
+                                                                                     Chapter 28: Editing Basics   635

@@ -27,6 +27,7 @@
 
 #include <string>
 #include <vector>
+#include <atomic>
 
 namespace PatchKnob { namespace engine {
 
@@ -39,6 +40,7 @@ public:
     // .vst3, plus any extraPaths (each searched for BOTH .dll and .vst3).
     // Each discovered plugin is probed out-of-process to fill the descriptor.
     std::vector<PluginDescriptor> scan(const std::vector<std::string>& extraPaths) override;
+    std::vector<PluginDescriptor> probeFile(const std::string& path) const;
 
     // Dispatch to createVst2Instance / createVst3Instance by desc.format.
     IPluginInstance* instantiate(const PluginDescriptor& desc) override;
@@ -49,6 +51,17 @@ public:
     // exceeds this is skipped.
     void setProbeTimeoutMs(unsigned ms) { probeTimeoutMs_ = ms; }
 
+    // Ask a scan running on another thread to stop queueing further probes and
+    // return early.  scan() had no exit but "finish", so quitting during a cold
+    // full probe left the shell either hanging for minutes or detaching the
+    // thread and racing `delete host`.  The wait is now bounded by ONE in-flight
+    // probe (probeTimeoutMs_) instead of by the whole directory.  Cancelling
+    // does NOT write the cache -- a partial inventory must not be mistaken for
+    // a complete one.  Call resetScanCancel() before starting a new scan.
+    void cancelScan()      { scanCancel_.store(true,  std::memory_order_release); }
+    void resetScanCancel() { scanCancel_.store(false, std::memory_order_release); }
+    bool scanCancelled() const { return scanCancel_.load(std::memory_order_acquire); }
+
     // Optional cache file. If set before scan(), scan() writes a JSON-ish
     // inventory there; loadCache() can read it back without re-probing.
     void setCachePath(const std::string& path) { cachePath_ = path; }
@@ -58,9 +71,23 @@ public:
 private:
     unsigned    probeTimeoutMs_ = 15000;
     std::string cachePath_;
+    std::atomic<bool> scanCancel_{false};
 
     // Locate probe_vst2.exe / probe_vst3.exe (next to this module, then PATH).
     std::string findProbeExe(const char* exeName) const;
+
+    // Deterministic fingerprint of every candidate plugin FILE in the standard
+    // directories (sorted "size|mtime|path" lines; no probing, no loading).
+    // saveCache() stamps it into the cache and loadCache() recomputes and
+    // compares, so a cache written when the disk looked different -- plugins
+    // installed since, removed since, or a scan that ran before any were
+    // installed -- is recognised as STALE and rejected, which makes the caller
+    // re-scan.  Without this, `!loadCache() || res.empty()` could never fire
+    // once a cache existed: an inventory pinned to "nothing but built-ins"
+    // survived any number of plugin installs (that is exactly the state this
+    // machine's PatchKnob_plugins.cache was stuck in).  Platform-specific
+    // implementation (mirrors each platform's scan directories).
+    std::string scanFileSnapshot() const;
 
     // Probe one file; append 0..N descriptors. Returns false if the probe
     // could not run / timed out / reported failure (file then skipped).

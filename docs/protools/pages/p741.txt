@@ -1,0 +1,44 @@
+Chapter 32: Fades and Crossfades
+
+
+You can quickly and easily apply fade-ins, fade-       The type of selection you make determines the
+outs on audio clips, and crossfades between adja-      character of the crossfade.
+cent audio clips. Crossfading is the process of fad-
+ing between two clips of audio to prevent pops,             Since crossfades are created by fading between
+clicks, or sudden changes in sound. Crossfades              overlapping audio material, a crossfade cannot
+have many applications, from smoothing transi-              be performed on clips that do not contain audio
+tions between clips to creating special audio ef-           material beyond their clip boundaries.
+fects. The crossfade duration, position, and shape
+are all user-definable.                                     If a clip references insufficient data to execute
+                                                            a selected fade or crossfade, you are prompted
+                                                            to either skip those fades or to adjust the
+About Crossfades and Curves                                 bounds of the selection to execute those fades.
+
+To create a crossfade between two clips, use the
+Selector tool to select across the end point of the
+                                                       Standard Crossfade (Centered)
+first clip and the start point of the second. The                          splice
+length of the selection determines the length of the        fade-out curve point fade-in curve
+crossfade. Though fades may appear to be discrete
+clips, they cannot actually be separated from the
+clips in which they were created. You can, how-                clip 1                    clip 2
+
+ever, create fade-ins and fade-outs for individual
+clips (see “Creating Fades at the Beginnings and
+Ends of Clips” on page 717).                                            crossfade selection
+
+Use the Fades dialog to select, view, and manipu-      Centered crossfade
+late the curves used to perform fades and cross-
+fades. Different volume curves can be assigned to      This type of selection creates a crossfade on both
+the fade-out and fade-in portions of crossfades.       sides of the splice point, which affects the volume
+The Fades dialog can also be used to audition a        of clip 1 and clip 2. It is the most common type of
+fade or crossfade before applying it.                  crossfade.
+
+                                                       This crossfade type requires that clip 1 contain au-
+                                                       dio material beyond its end point, and clip 2 con-
+                                                       tain audio material before its start point.
+
+
+
+
+                                                                                 Chapter 32: Fades and Crossfades   709

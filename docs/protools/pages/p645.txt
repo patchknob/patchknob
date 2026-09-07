@@ -1,0 +1,55 @@
+DestructivePunch Enabling Tracks                      To simultaneously DestructivePunch enable and
+without Record Enabling Them                          record enable all audio tracks:
+
+This method lets you use the Prepare DPE Tracks          Option-click (Mac) or Alt-click (Windows) a
+command to consolidate files for Destructive-             track’s Record Enable button. All tracks’ Re-
+Punch recording.                                          cord Enable buttons flash blue and red.
+
+                                                      To simultaneously DestructivePunch enable and
+To DestructivePunch-enable an audio track:
+                                                      record enable all selected audio tracks:
+   Control-click (Mac) or Start-click (Windows)
+                                                         Option-Shift-click (Mac) or Alt-Shift-click
+    the track’s Record Enable button to toggle the
+                                                          (Windows) a track’s Record Enable button. The
+    button to solid blue.
+                                                          Record Enable buttons for the selected audio
+To DestructivePunch-enable all audio tracks:
+                                                          tracks flash blue and red.
+
+   Option-Control-click (Mac) or Alt-Start-click     Track Record Status Display
+    (Windows) a track’s Record Enable button to
+    toggle all Record Enable buttons to solid blue.   When Pro Tools is in DestructivePunch mode,
+                                                      each track’s Record Enable button indicates its De-
+To DestructivePunch-enable all selected audio         structivePunch and record enable status as follows:
+tracks:
+                                                      • When a track is both DestructivePunch-enabled
+   Control-Option-Shift-click (Mac) or Alt-Start-      and record-enabled, its Record Enable button
+    Shift-click (Windows) a track’s Record Enable       flashes blue and red.
+    button to toggle the Record Enable buttons for    • When a track is DestructivePunch-enabled but
+    the selected audio tracks solid blue.               not record-enabled, its Record Enable button
+                                                        lights solid blue.
+      Create a VCA group for each stem or set of
+      tracks on which you plan to punch, and use      • When a track is record-enabled only, its
+      the VCA Record Enable button to arm all           Record Enable button flashes red.
+      tracks in the group for DestructivePunch. For   • While a track is recording (in any mode), its
+      more information, see “VCA Master Tracks”         Record Enable button lights solid red.
+      on page 1101.
+
+DestructivePunch-Enabling and                         Monitoring and Levels
+Record-Enabling Tracks
+Simultaneously                                        To complete the setup for DestructivePunch:
+                                                      1   Configure monitoring for record-enabled tracks
+This method can be used when tracks already meet
+                                                          by selecting a mode from the Track menu, as ap-
+the requirements for DestructivePunch recording.
+                                                          propriate. Choices include:
+To simultaneously DestructivePunch enable and         • Set Record Tracks to Auto Input
+record enable an audio track:
+                                                      • Set Record Tracks to Input Only
+   Click the track’s Record Enable button. The
+    track’s Record Enable button flashes blue and     Selecting either monitoring mode only affects
+    red.                                              tracks that are record-enabled.
+                                                      2   Start playback.
+
+                                                                            Chapter 27: Punch Recording Modes   613

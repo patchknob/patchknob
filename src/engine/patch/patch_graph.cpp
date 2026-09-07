@@ -5,6 +5,10 @@
 //----------------------------------------------------------------------------
 #include "patch_graph.h"
 
+// VirtualMidiPortsNode only: the graph applies that node's live route table at
+// render time (see runStep step 4b), so the compiler must be able to recognise
+// the type and read VirtualMidiPortsNode::route(). This is the one built-in the
+// scheduler knows by name; everything else stays behind the abstract Node API.
 #include <algorithm>
 #include <chrono>
 #include <condition_variable>
@@ -174,6 +178,28 @@ int PatchGraph::pruneDanglingConnections() {
     return (int)(before - conns_.size());
 }
 
+int PatchGraph::remapNodePorts(NodeId id, const std::function<int(PortId)>& newPort) {
+    if (!newPort) return 0;
+    std::vector<Connection> kept;
+    kept.reserve(conns_.size());
+    int dropped = 0;
+    for (Connection c : conns_) {
+        bool drop = false;
+        if (c.from.node == id) {
+            const int np = newPort(c.from.port);
+            if (np < 0) drop = true; else c.from.port = (PortId)np;
+        }
+        if (!drop && c.to.node == id) {
+            const int np = newPort(c.to.port);
+            if (np < 0) drop = true; else c.to.port = (PortId)np;
+        }
+        if (drop) { ++dropped; continue; }
+        kept.push_back(c);
+    }
+    conns_.swap(kept);
+    return dropped;
+}
+
 void PatchGraph::disconnectAll(NodeId id) {
     conns_.erase(std::remove_if(conns_.begin(), conns_.end(),
                     [id](const Connection& e) {
@@ -246,6 +272,12 @@ bool PatchGraph::budgetFits(Node* extraNode, const Connection* extraConn) const 
 // ===========================================================================
 // Cycle detection / topological sort (Kahn)
 // ===========================================================================
+bool PatchGraph::edgeIsFeedback(const Connection& c) const {
+    auto it = nodes_.find(c.to.node);
+    if (it == nodes_.end()) return false;
+    return it->second->portIsFeedback(c.to.port);
+}
+
 bool PatchGraph::wouldCycle(const Connection& c) const {
     // Node-level adjacency over conns_ + the tentative edge c.
     std::unordered_map<NodeId, int> indeg;
@@ -257,7 +289,10 @@ bool PatchGraph::wouldCycle(const Connection& c) const {
         indeg[b] += 1;
     };
     for (const Connection& e : conns_)
-        if (e.from.node != e.to.node) addEdge(e.from.node, e.to.node);
+        if (e.from.node != e.to.node && !edgeIsFeedback(e)) addEdge(e.from.node, e.to.node);
+    // A FEEDBACK edge carries no ordering, so it cannot close a cycle -- and a
+    // self-loop through one is legal (a node reading its own previous block).
+    if (edgeIsFeedback(c)) return false;
     // Tentative edge: a self-loop is trivially a cycle.
     if (c.from.node == c.to.node) return true;
     addEdge(c.from.node, c.to.node);
@@ -282,6 +317,7 @@ bool PatchGraph::topoSort(std::vector<NodeId>& order) const {
     for (const auto& kv : nodes_) { indeg[kv.first] = 0; adj[kv.first]; }
     for (const Connection& e : conns_) {
         if (e.from.node == e.to.node) continue;   // self-loops rejected earlier
+        if (edgeIsFeedback(e)) continue;          // one-block return: no ordering
         adj[e.from.node].push_back(e.to.node);
         indeg[e.to.node] += 1;
     }
@@ -427,10 +463,21 @@ bool PatchGraph::buildPlan(RenderPlan* plan) {
 
     int deviceSinkCount = 0;   // >1 sink => additive out[] would race -> stay sequential
 
+    // FEEDBACK inputs are resolved in a SECOND pass: their producer is by
+    // definition scheduled after them, so aoutMap does not have its buffers yet
+    // while the main loop is on this step.  Everything else about the port is
+    // ordinary -- it just points at (or sums) buffers that will be rewritten
+    // later in the same block, i.e. it reads the previous block.
+    struct PendingFeedback { int step; int ain; NodeId node; PortId port; int channels; };
+    std::vector<PendingFeedback> pendingFeedback;
+
     for (NodeId nid : order) {
         Node* n = nodes_.at(nid).get();
         Step& st = plan->steps[plan->nSteps];
         st.node = n;
+        // Resolve the virtual-MIDI patchbay ONCE here (message thread) so the
+        // audio thread never pays for an RTTI query. Only the pointer is
+        // cached — the route table itself is read live, per block, in runStep.
         // Multiple device sinks SUM into the shared out[] buffer; running them in
         // parallel would be a data race, so force the sequential path.
         if (n->isDeviceSink() && ++deviceSinkCount > 1) plan->parallelSafe = false;
@@ -444,6 +491,7 @@ bool PatchGraph::buildPlan(RenderPlan* plan) {
         int level = 0;
         for (const Connection& e : conns_) {
             if (e.to.node != nid || e.from.node == e.to.node) continue;
+            if (edgeIsFeedback(e)) continue;   // reads last block: not a dependency
             auto lv = nodeLevel.find(e.from.node);
             if (lv != nodeLevel.end() && lv->second + 1 > level) level = lv->second + 1;
         }
@@ -486,6 +534,17 @@ bool PatchGraph::buildPlan(RenderPlan* plan) {
                 AudioInPortPlan& ip = st.ain[idx];
                 ip.channels = C;
                 for (int c = 0; c < kMaxBusChan; ++c) ip.ch[c] = nullptr;
+
+                // A feedback input is left silent here and patched up below,
+                // once every node in the plan has its output buffers.
+                if (n->portIsFeedback(pd.id)) {
+                    ip.needsSum = false;
+                    ip.sumFirst = ip.sumCount = 0;
+                    for (int c = 0; c < C; ++c) ip.ch[c] = zeroBuf_.data();
+                    pendingFeedback.push_back(
+                        PendingFeedback{ plan->nSteps, idx, nid, pd.id, C });
+                    continue;
+                }
 
                 // Gather upstream sources feeding this input port.
                 std::vector<AudOut> srcs;
@@ -548,12 +607,78 @@ bool PatchGraph::buildPlan(RenderPlan* plan) {
             }
         }
 
-        // Any MIDI port on any step disqualifies the whole plan from parallel
-        // execution: the shared midiSlotCount_ bookkeeping is not thread-safe.
-        if (st.numMidiIn > 0 || st.numMidiOut > 0) plan->parallelSafe = false;
+        // NOTE (was: "any MIDI port disqualifies the plan").  That blanket rule
+        // made "Enable multi-core processing" a no-op in the shipping app --
+        // MasterMixerNode declares its 24-PPQN MIDI CLOCK OUT unconditionally,
+        // every patch has exactly one master mixer, so parallelSafe was false
+        // for every plan that ever existed and the sequential branch always ran.
+        //
+        // The midiSlotCount_/midiSlots_ tables are in fact partitioned exactly
+        // like the audio pool, which is already run in parallel:
+        //   * every MIDI-OUT port gets its own freshly allocated slot
+        //     (allocMidiSlot), so no two steps ever WRITE the same slot;
+        //   * a MIDI-IN port with >= 2 sources gets its own merge slot, also
+        //     freshly allocated; with exactly one source it ALIASES the
+        //     producer's out slot and only ever reads it; with none it aliases
+        //     the shared slot 0, whose count is zeroed once per block on the
+        //     audio thread and never written by a step (allocMidiSlot starts at
+        //     1), so it is read-only for the whole block;
+        //   * a step only READS slots produced by nodes it is wired to, and a
+        //     data dependency forces a strictly greater level, so the producer
+        //     ran in an earlier wave. The wave barrier
+        //     (levelRemaining_ release / acquire, then levelEnd_ release /
+        //     acquire) is what publishes those writes -- the same edge the audio
+        //     buffers already rely on.
+        // Cases that ARE unsafe keep their disqualification: >1 device sink
+        // (they SUM into the one shared out[] buffer) is handled above.
 
         if (nid == deviceOut_) plan->deviceOutStep = plan->nSteps;
         plan->nSteps++;
+    }
+
+    // ---- resolve FEEDBACK inputs (pass 2b) ---------------------------------
+    // aoutMap is complete now, so a return leg can finally see the buffers of
+    // the node that is scheduled after it.
+    //
+    // PARALLEL SAFETY.  The consumer READS a buffer the producer WRITES in the
+    // same block.  That is safe exactly while the two sit in DIFFERENT waves --
+    // the wave barrier orders them, and the consumer (in the earlier wave)
+    // therefore sees the previous block's samples.  Equal levels would let the
+    // two run concurrently on different cores, so such a plan drops back to the
+    // sequential path (where topo order gives the same one-block semantics).
+    for (const PendingFeedback& pf : pendingFeedback) {
+        Step& st = plan->steps[pf.step];
+        AudioInPortPlan& ip = st.ain[pf.ain];
+        const int C = pf.channels;
+        std::vector<AudOut> srcs;
+        for (const Connection& e : conns_) {
+            if (e.to.node != pf.node || e.to.port != pf.port) continue;
+            auto it = aoutMap.find(outKey(e.from.node, e.from.port));
+            if (it == aoutMap.end()) continue;
+            srcs.push_back(it->second);
+            auto lp = nodeLevel.find(e.from.node);
+            auto lc = nodeLevel.find(e.to.node);
+            if (lp != nodeLevel.end() && lc != nodeLevel.end() && lp->second == lc->second)
+                plan->parallelSafe = false;
+        }
+        if (srcs.empty()) continue;                   // stays on the zero buffer
+        if (srcs.size() == 1 && srcs[0].channels == C) {
+            ip.needsSum = false;
+            for (int c = 0; c < C; ++c) ip.ch[c] = srcs[0].ch[c];
+        } else {
+            ip.needsSum = true;
+            for (int c = 0; c < C; ++c)
+                if (!allocAudioChan(ip.ch[c])) return false;
+            ip.sumFirst = plan->sumUsed;
+            ip.sumCount = 0;
+            for (const AudOut& src : srcs) {
+                if (plan->sumUsed >= kMaxSumSrcs) return false;
+                SumSrc& ss = plan->sumSrc[plan->sumUsed++];
+                ss.channels = src.channels;
+                for (int c = 0; c < kMaxBusChan; ++c) ss.ch[c] = src.ch[c];
+                ip.sumCount++;
+            }
+        }
     }
 
     // ---- bucket step indices by level (wave) for parallel dispatch ----------
@@ -615,6 +740,19 @@ int PatchGraph::acquirePlanSlot() {
 bool PatchGraph::compileAndPublish() {
     lastCompileOk_ = false;
     if (!prepared_) return false;
+
+    // Drain the retirement list FIRST.  removeNode() parks every deleted node in
+    // gc_ and nothing but a unit test ever called collectGarbage(), so a whole
+    // session's worth of deleted rack modules, VSTs, Csound nodes and faders
+    // stayed allocated -- and, worse, never had release() run, holding their
+    // plugin/file/device handles open until the process exited.
+    //
+    // The RCU grace is unaffected by doing it here: collectGarbage() only frees
+    // entries STAMPED by an EARLIER publish whose generation has provably
+    // passed, and this call runs before anything about the new plan is touched.
+    // Nodes retired since the last publish are still unstamped (still reachable
+    // from the live plan) and are correctly left alone until the stamping below.
+    collectGarbage();
 
     // Pick a slot the audio thread can no longer be walking (RCU grace period).
     const int next = acquirePlanSlot();
@@ -707,20 +845,26 @@ void PatchGraph::process(float** out, int numChannels, int nframes,
     // just the designated one -- so every "Audio Out" module in the patch reaches
     // the device (their outputs SUM; see AudioDeviceOutNode::process).
     for (int s = 0; s < plan->nSteps; ++s)
-        if (plan->steps[s].node && plan->steps[s].node->isDeviceSink())
+        if (plan->steps[s].node && plan->steps[s].node->isDeviceSink()) {
+            plan->steps[s].node->setDeviceOutAdditive(true);
             plan->steps[s].node->bindDeviceOut(out, numChannels, nframes);
-    if (Node* din = deviceInNode_.load(std::memory_order_acquire))
-        din->bindDeviceIn(stagedIn_, stagedInCh_, nframes);
+        }
+    // Bind every hardware-input source. Audio Input nodes are independent
+    // patch points; requiring one hidden/designated node left user-created
+    // nodes permanently disconnected from the PortAudio capture buffers.
+    for (int s = 0; s < plan->nSteps; ++s)
+        if (plan->steps[s].node && plan->steps[s].node->isDeviceSource())
+            plan->steps[s].node->bindDeviceIn(stagedIn_, stagedInCh_, nframes);
 
     // ---- choose the execution path ------------------------------------------
     // Multi-threaded dispatch is OPT-IN and only taken when a worker pool exists,
-    // the live plan is purely audio (MIDI slot bookkeeping is shared mutable state
-    // that must stay on one thread), and the graph is big enough to be worth
-    // splitting. The average wave width (nSteps/numLevels) must also make the
-    // per-level barrier pay for itself: a nearly-linear chain has no parallelism
-    // to extract and would pay one barrier per node for nothing. In every other
-    // case the byte-for-byte identical sequential path below runs, exactly as
-    // before.
+    // the live plan is parallelSafe (see buildPlan: today that means at most one
+    // device sink, since several sinks SUM into the one shared out[] buffer), and
+    // the graph is big enough to be worth splitting. The average wave width
+    // (nSteps/numLevels) must also make the per-level barrier pay for itself: a
+    // nearly-linear chain has no parallelism to extract and would pay one barrier
+    // per node for nothing. In every other case the byte-for-byte identical
+    // sequential path below runs, exactly as before.
     const bool parallel =
         multiThreaded_.load(std::memory_order_relaxed) &&
         !workers_.empty() &&
@@ -742,18 +886,27 @@ void PatchGraph::process(float** out, int numChannels, int nframes,
     // barrier that keeps wave L+1 from starting before wave L has fully finished.
     // Only atomics and the pre-built level arrays are used here — no locks, no
     // allocation. (The cv/mutex are touched exactly once, to wake the pool.)
-    jobPlan_   = plan;
-    jobFrames_ = nframes;
-    jobCtx_    = ctx;
-    jobBase_   = workCursor_.load(std::memory_order_relaxed);
-    jobEnd_    = jobBase_ + plan->levelOffset[plan->numLevels];
+    const int64_t base = workCursor_.load(std::memory_order_relaxed);
     {
+        // The job fields are PLAIN members shared with the workers, so they are
+        // written under the very lock the workers snapshot them under.  They
+        // used to be assigned out here, OUTSIDE the mutex: a worker descheduled
+        // between the cv-wait's unlock and its own reads could then mix block
+        // N's plan pointer with block N+1's base/end, index
+        // stepsByLevel[cur - base] outside its window, and over-decrement
+        // levelRemaining_ -- which leaves the audio thread's barrier spin below
+        // waiting for a count that can never reach zero again.  This adds no new
+        // locking on the audio thread: it already took poolMutex_ here to bump
+        // blockGen_.
         std::lock_guard<std::mutex> lk(poolMutex_);
+        jobPlan_   = plan;
+        jobFrames_ = nframes;
+        jobCtx_    = ctx;
+        jobBase_   = base;
+        jobEnd_    = base + plan->levelOffset[plan->numLevels];
         ++blockGen_;
     }
     poolCv_.notify_all();
-
-    const int64_t base = jobBase_;
     for (int L = 0; L < plan->numLevels; ++L) {
         const int     count = plan->levelOffset[L + 1] - plan->levelOffset[L];
         const int64_t end   = base + plan->levelOffset[L + 1];
@@ -893,6 +1046,28 @@ void PatchGraph::runStep(RenderPlan* plan, int stepIndex, int nframes,
         for (int p = 0; p < st.numMidiOut; ++p) moutB[p].count = 0;
     }
 
+    // ---- 4b. virtual MIDI patchbay: apply the node's LIVE route table --
+    // A VirtualMidiPortsNode is a pure endpoint bank: its process() emits
+    // nothing, and its input->output matrix lives in an atomic table the UI
+    // rewrites at any moment (setRoute). Resolving that table HERE — rather
+    // than baking it into the plan at compile time — is what makes a re-route
+    // audible on the very next block with no recompile and no hook for
+    // audio_app/the UI to remember to call.
+    //
+    // Realtime: bounded and allocation-free. One acquire load per MIDI-out
+    // port (route() is a plain std::atomic<int> read), then at most
+    // kNodeMidiCap event copies per port. It runs AFTER process()/bypass and
+    // overwrites their result: the route table is the node's entire function,
+    // so the generic index-identity bypass passthrough would silently deliver
+    // MIDI to the wrong endpoint.
+    //
+    // No feedback hazard, and no need for a route-level cycle check: a route
+    // can only loop if some edge path leads from one of this node's OUTPUTS
+    // back to one of its INPUTS, and that is a node-level cycle (or a
+    // self-loop) — both already rejected by wouldCycle() at connect() time. By
+    // the same argument the source slot can never be one of this node's own
+    // out slots; the pointer test below is a belt-and-braces assertion of that
+    // invariant, degrading to "unrouted" instead of self-copying.
     // ---- 5. publish this node's MIDI-out event counts to their slots ---
     for (int p = 0; p < st.numMidiOut; ++p) {
         int c = moutB[p].count;
@@ -946,6 +1121,14 @@ void PatchGraph::workerLoop() {
         // Sleep until the audio thread publishes a new block (or we're shutting
         // down). The generation predicate also absorbs an early wake if this
         // worker has not yet re-parked from the previous block.
+        // The job snapshot is taken UNDER THE LOCK, together with the generation
+        // it belongs to, so these five values always describe ONE block. Reading
+        // them after unlocking was a race: a worker descheduled right there came
+        // back with a mixture of two blocks' fields.
+        RenderPlan*   plan = nullptr;
+        int64_t       base = 0, bend = 0;
+        int           nf   = 0;
+        RenderContext ctx{};
         {
             std::unique_lock<std::mutex> lk(poolMutex_);
             poolCv_.wait(lk, [&] {
@@ -953,19 +1136,19 @@ void PatchGraph::workerLoop() {
             });
             if (poolStop_.load(std::memory_order_relaxed)) return;
             localGen = blockGen_;
+            plan = jobPlan_;
+            base = jobBase_;
+            bend = jobEnd_;
+            nf   = jobFrames_;
+            ctx  = jobCtx_;
         }
-        // Job fields were written before ++blockGen_, so the lock hand-off above
-        // makes them visible here. The worker gates purely on levelEnd_ (armed
-        // wave by wave on the audio thread) clipped to the job's own [base, end)
-        // window: it never reads plan data outside an armed wave of ITS block,
-        // so a straggler that wakes or resumes after the block finished only
-        // touches atomics — by then the plan slot may legitimately be getting
-        // rewritten by a later compile.
-        RenderPlan*         plan = jobPlan_;
-        const int64_t       base = jobBase_;
-        const int64_t       bend = jobEnd_;
-        const int           nf   = jobFrames_;
-        const RenderContext ctx  = jobCtx_;
+        if (!plan) continue;                      // spurious wake with no job
+        // The worker gates purely on levelEnd_ (armed wave by wave on the audio
+        // thread) clipped to the job's own [base, end) window: it never reads
+        // plan data outside an armed wave of ITS block, so a straggler that
+        // wakes or resumes after the block finished only touches atomics — by
+        // then the plan slot may legitimately be getting rewritten by a later
+        // compile.
 
         for (;;) {
             const int64_t gate = levelEnd_.load(std::memory_order_acquire);

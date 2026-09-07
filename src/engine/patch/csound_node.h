@@ -40,11 +40,16 @@ public:
     // Ports auto-track the compiled CSD.  Csound channels are exposed as STEREO
     // pairs (the last is mono when the count is odd) so a multichannel CSD becomes
     // several wireable out/in ports -- no engine-wide bus-width change needed:
-    //   [ out pair 0 .. N-1 ] [ midi in ] [ in pair 0 .. M-1 ]
+    //   [ out pair 0 .. N-1 ] [ midi in ] [ in pair 0 .. M-1 ] [ midi out ]
     // where N = ceil(nchnls/2) and M = ceil(nchnls_i/2) (0 when there's no input).
+    //
+    // "midi out" carries whatever the orchestra emits with the `midiout` opcode
+    // (midiout kstatus, kchan, kdata1, kdata2) and friends.  It is APPENDED at
+    // the end deliberately: inserting it next to "midi in" would renumber every
+    // audio-in port and silently re-wire existing saved patches.
     int outPairs() const { int n = (nchnls_   + 1) / 2; return n < 1 ? 1 : n; }
     int inPairs()  const { return nchnlsIn_ > 0 ? (nchnlsIn_ + 1) / 2 : 0; }
-    int      numPorts() const override { return outPairs() + 1 + inPairs(); }
+    int      numPorts() const override { return outPairs() + 1 + inPairs() + 1; }
     PortDesc port(int i) const override {
         const int nOut = outPairs();
         if (i < nOut) {                                   // audio-out stereo pair i
@@ -53,6 +58,8 @@ public:
         }
         if (i == nOut) return PortDesc{ (PortId)i, PortKind::Midi, PortDir::In, 1, "midi in" };
         const int pi = i - nOut - 1;                      // audio-in stereo pair
+        if (pi >= inPairs())                              // trailing MIDI out
+            return PortDesc{ (PortId)i, PortKind::Midi, PortDir::Out, 1, "midi out" };
         int w = nchnlsIn_ - pi * 2; w = w > 2 ? 2 : (w < 1 ? 1 : w);
         return PortDesc{ (PortId)i, PortKind::Audio, PortDir::In, (uint16_t)w, "in" };
     }
@@ -83,6 +90,10 @@ public:
 
     //! Called by Csound's host MIDI read callback to pull the block's staged bytes.
     int drainMidi(unsigned char* buf, int nBytes);
+    //! Called by Csound's host MIDI WRITE callback with bytes the orchestra emitted
+    //! (`midiout` et al).  Runs on the audio thread inside csoundPerformKsmps(),
+    //! which process() drives, so it shares process()'s single-threaded context.
+    int writeMidi(const unsigned char* buf, int nBytes);
 
 private:
     void destroyInstance(CSOUND* cs);
@@ -106,6 +117,13 @@ private:
     // host-fed MIDI: bytes staged each block, drained by Csound's read callback.
     std::vector<unsigned char> midiBytes_;
     int                        midiPos_ = 0;
+    // Csound-emitted MIDI (`midiout`): bytes collected during the block's
+    // csoundPerformKsmps() calls, parsed onto the "midi out" port at block end.
+    // A parallel per-byte sample offset keeps ksmps-level timing instead of
+    // flattening everything to the block edge.
+    std::vector<unsigned char> midiOutBytes_;
+    std::vector<int>           midiOutAt_;      // sample offset per byte
+    int                        midiOutCursor_ = 0;   // frames produced so far
 };
 
 }}} // namespace PatchKnob::engine::patch

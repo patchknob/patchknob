@@ -28,6 +28,7 @@
 #include "gui.h"
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <vector>
 
@@ -46,6 +47,20 @@ public:
     //! to the current width. Pass nullptr to clear.
     void set_clip(const PatchKnob::engine::AudioClip* clip);
     const PatchKnob::engine::AudioClip* clip() const { return clip_; }
+
+    //! Optional clip SOURCE, polled once per draw.  When it returns a different
+    //! pointer than the one bound, the view rebinds itself.  This exists so a
+    //! shell that has no natural "push" point -- the WAVE workspace tab, which
+    //! shipped with no binding at all and was therefore permanently empty --
+    //! can go live with one assignment:
+    //!     vWave.clip_source = [&]{ return current_clip(); };
+    //! Leave it unset to keep the pure push model (set_clip).
+    std::function<const PatchKnob::engine::AudioClip*()> clip_source;
+
+    //! Re-read the CURRENTLY bound clip whose contents changed in place (an
+    //! edit, a load that completed after the bind).  Cheap no-op when the
+    //! readable length is unchanged; draw() calls it every frame.
+    void refresh();
 
     // --- zoom -----------------------------------------------------------------
 

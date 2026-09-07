@@ -60,7 +60,16 @@ void RackEngine::rebuildCables() {
     compiledCables_.reserve(cables_.size());
     for (auto& module : mods_) {
         if (!module.mod) continue;
-        for (auto& input : module.mod->inputs) input.connected = false;
+        // Clear the SIGNAL as well as the cable flag.  isConnected() is
+        // `connected || channels > 0`, so an input whose source module was just
+        // deleted (removeModule, setModuleScript's cable pruning, clear())
+        // still read as connected and kept returning the dead module's LAST
+        // sample forever -- delete an envelope mid-performance and the VCA it
+        // fed stayed latched at whatever gain it happened to be at.  Only
+        // removeCable() was doing this, and only for its one endpoint.
+        // Inputs that still have a cable are refilled by the very next
+        // stepSample(), so this costs nothing for live connections.
+        for (auto& input : module.mod->inputs) { input.connected = false; input.setChannels(0); }
         for (auto& output : module.mod->outputs) output.connected = false;
     }
     for (const auto& c : cables_) {
@@ -97,6 +106,39 @@ int RackEngine::ensureDefaultIO() {
 }
 
 // ---- structural edits ------------------------------------------------------
+// Build a default editable panel from a module's ports: knobs in rows near the top,
+// input jacks down the left, output jacks down the right.  Used for scripting
+// modules (Pd/Csound), which have no fixed factory panel.
+static void build_default_panel(rack::engine::Module* d, PanelSpec& panel) {
+    if (!d) return;
+    const int nP = (int)d->params.size(), nI = (int)d->inputs.size(), nO = (int)d->outputs.size();
+    int cols = nP; if (nI > cols) cols = nI; if (nO > cols) cols = nO;
+    int hp = 6 + (cols > 3 ? (cols - 3) * 2 : 0); if (hp > 30) hp = 30;
+    panel = PanelSpec::fromHp(hp);                     // width = hp*HP, height = 380
+    const float W = panel.width;
+    auto mk = [](int id, float x, float y, float r, PanelControlStyle st, std::string lbl) {
+        PanelElement e; e.id = id; e.x = x; e.y = y; e.radius = r; e.style = st;
+        e.label = std::move(lbl); e.labelPlacement = PanelLabelPlacement::Below; return e;
+    };
+    const int perRow = (int)(W / 42.f) < 1 ? 1 : (int)(W / 42.f);
+    for (int i = 0; i < nP; ++i) {
+        const int row = i / perRow, col = i % perRow;
+        float x = 24.f + col * 42.f; if (x > W - 18.f) x = W - 18.f;
+        panel.params.push_back(mk(i, x, 60.f + row * 62.f, 14.f, PanelControlStyle::Knob,
+            i < (int)d->paramQuantities.size() ? d->paramQuantities[i].name : std::string()));
+    }
+    for (int i = 0; i < nI; ++i) {
+        float y = 250.f + i * 34.f; if (y > 360.f) y = 360.f;
+        panel.inputs.push_back(mk(i, 22.f, y, 9.f, PanelControlStyle::Knob,
+            i < (int)d->inputInfos.size() ? d->inputInfos[i] : std::string()));
+    }
+    for (int i = 0; i < nO; ++i) {
+        float y = 250.f + i * 34.f; if (y > 360.f) y = 360.f;
+        panel.outputs.push_back(mk(i, W - 22.f, y, 9.f, PanelControlStyle::Knob,
+            i < (int)d->outputInfos.size() ? d->outputInfos[i] : std::string()));
+    }
+}
+
 int RackEngine::addModule(const std::string& slug, float x, float y) {
     const ModuleType* t = findType(slug);
     if (!t || !t->make) return -1;
@@ -109,6 +151,11 @@ int RackEngine::addModule(const std::string& slug, float x, float y) {
     rm.id = nextId_++;
     rm.slug = t->slug; rm.name = t->name; rm.category = t->category; rm.role = t->role;
     rm.x = x; rm.y = y; rm.mod = std::move(dsp);
+    // scripting modules (Pd/Csound) get an editable per-instance panel from their ports
+    if (auto* sm = dynamic_cast<IScriptModule*>(rm.mod.get())) {
+        build_default_panel(rm.mod.get(), rm.panel);
+        sm->setPolyphony(polyphony_);
+    }
     int id = rm.id;
     mods_.push_back(std::move(rm));
     refreshRoles();
@@ -130,6 +177,54 @@ void RackEngine::removeModule(int moduleId) {
 void RackEngine::moveModule(int moduleId, float x, float y) {
     // position only affects the editor, not audio -> no lock needed.
     if (RackModule* m = moduleById(moduleId)) { m->x = x; m->y = y; }
+}
+
+// ---- scripting modules (Pd / Csound) ---------------------------------------
+// The panel is GUI-thread-only (drawn by the editor, never touched by process()),
+// so these need no lock; setModuleScript does, since it reshapes the port vectors.
+PanelSpec* RackEngine::modulePanel(int moduleId) {
+    RackModule* m = moduleById(moduleId);
+    return (m && m->panel.valid()) ? &m->panel : nullptr;
+}
+bool RackEngine::isScriptModule(int moduleId) const {
+    for (const auto& m : mods_) if (m.id == moduleId)
+        return m.mod && dynamic_cast<const IScriptModule*>(m.mod.get()) != nullptr;
+    return false;
+}
+std::string RackEngine::moduleScript(int moduleId) const {
+    for (const auto& m : mods_) if (m.id == moduleId && m.mod)
+        if (auto* sm = dynamic_cast<const IScriptModule*>(m.mod.get())) return sm->script();
+    return std::string();
+}
+const char* RackEngine::moduleScriptKind(int moduleId) const {
+    for (const auto& m : mods_) if (m.id == moduleId && m.mod)
+        if (auto* sm = dynamic_cast<const IScriptModule*>(m.mod.get())) return sm->scriptKind();
+    return "";
+}
+std::string RackEngine::moduleScriptError(int moduleId) const {
+    for (const auto& m : mods_) if (m.id == moduleId && m.mod)
+        if (auto* sm = dynamic_cast<const IScriptModule*>(m.mod.get())) return sm->lastError();
+    return std::string();
+}
+bool RackEngine::setModuleScript(int moduleId, const std::string& text) {
+    std::lock_guard<std::mutex> lk(mtx_);
+    RackModule* m = moduleById(moduleId);
+    if (!m || !m->mod) return false;
+    auto* sm = dynamic_cast<IScriptModule*>(m->mod.get());
+    if (!sm) return false;
+    // setScript() may resize Module::inputs/outputs. CompiledCable stores direct
+    // pointers into those vectors, so invalidate it before any resize rather
+    // than leaving dangling endpoints during compilation/reconfiguration.
+    compiledCables_.clear();
+    sm->setScript(text);                                  // re-scans; port vectors may resize
+    const int nI = (int)m->mod->inputs.size(), nO = (int)m->mod->outputs.size();
+    cables_.erase(std::remove_if(cables_.begin(), cables_.end(), [&](const RackCable& c){
+        return (c.fromMod == moduleId && c.outPort >= nO) ||
+               (c.toMod   == moduleId && c.inPort  >= nI); }), cables_.end());
+    build_default_panel(m->mod.get(), m->panel);          // fresh layout for the new ports
+    refreshRoles();
+    rebuildCables();
+    return true;
 }
 
 int RackEngine::addCable(int fromMod, int outPort, int toMod, int inPort) {
@@ -213,6 +308,9 @@ void RackEngine::setPolyphony(int n) {
     n = (n < 1) ? 1 : (n > 16 ? 16 : n);
     std::lock_guard<std::mutex> lk(mtx_);
     polyphony_ = n;
+    for (auto& m : mods_)
+        if (m.mod)
+            if (auto* sm = dynamic_cast<IScriptModule*>(m.mod.get())) sm->setPolyphony(n);
     if (rrNext_ >= polyphony_) rrNext_ = 0;
     for (int i = polyphony_; i < 16; ++i) voices_[i] = Voice{};   // silence dropped voices
 }
@@ -230,7 +328,33 @@ int RackEngine::allocVoice() {
     int c = rrNext_; rrNext_ = (rrNext_ + 1) % poly; return c;
 }
 
+void RackEngine::pushHeld(int note, int vel) {
+    // A repeated note-on for an already-held note (no note-off arrived in
+    // between) updates velocity in place rather than pushing a duplicate, so
+    // the stack stays one entry per physically-down key.
+    for (int i = 0; i < heldCount_; ++i)
+        if (heldNote_[i] == note) { heldVel_[i] = vel; return; }
+    if (heldCount_ < kMaxHeld) { heldNote_[heldCount_] = note; heldVel_[heldCount_] = vel; ++heldCount_; }
+}
+
+void RackEngine::popHeld(int note) {
+    for (int i = 0; i < heldCount_; ++i)
+        if (heldNote_[i] == note) {
+            for (int j = i; j + 1 < heldCount_; ++j) { heldNote_[j] = heldNote_[j + 1]; heldVel_[j] = heldVel_[j + 1]; }
+            --heldCount_;
+            return;
+        }
+}
+
+bool RackEngine::noteHasVoice(int note) const {
+    const int poly = polyphony_ < 1 ? 1 : (polyphony_ > 16 ? 16 : polyphony_);
+    for (int c = 0; c < poly; ++c)
+        if (voices_[c].note == note && voices_[c].gateV > 0.f) return true;
+    return false;
+}
+
 void RackEngine::noteOn(int note, int vel) {
+    pushHeld(note, vel);
     int c = allocVoice();
     voices_[c].note   = note;
     voices_[c].pitchV = (note - 60) / 12.f;        // 1V/oct, 0V == C4
@@ -239,9 +363,24 @@ void RackEngine::noteOn(int note, int vel) {
 }
 
 void RackEngine::noteOff(int note) {
+    popHeld(note);
     const int poly = polyphony_ < 1 ? 1 : (polyphony_ > 16 ? 16 : polyphony_);
-    for (int c = 0; c < poly; ++c)
-        if (voices_[c].note == note && voices_[c].gateV > 0.f) voices_[c].gateV = 0.f;
+    for (int c = 0; c < poly; ++c) {
+        if (voices_[c].note != note || voices_[c].gateV <= 0.f) continue;
+        voices_[c].gateV = 0.f;
+        // This voice just freed.  If an earlier note lost its voice to
+        // stealing and is still physically held, re-sound it now (last-note-
+        // priority recovery) instead of leaving it silent until some
+        // unrelated voice happens to free up.
+        for (int i = heldCount_ - 1; i >= 0; --i) {
+            if (noteHasVoice(heldNote_[i])) continue;
+            voices_[c].note   = heldNote_[i];
+            voices_[c].pitchV = (heldNote_[i] - 60) / 12.f;
+            voices_[c].velV   = (heldVel_[i] / 127.f) * 10.f;
+            voices_[c].gateV  = 10.f;
+            break;
+        }
+    }
 }
 
 void RackEngine::stepSample(const Module::ProcessArgs& args) {
@@ -271,7 +410,8 @@ void RackEngine::process(int nframes,
                          const float* inL, const float* inR,
                          float* outL, float* outR,
                          const PatchKnob::engine::MidiEvent* midi, int numMidi,
-                         float hostTempoBpm, bool hostPlaying) {
+                         float hostTempoBpm, bool hostPlaying,
+                         int64_t hostPlayPositionSamples) {
     std::unique_lock<std::mutex> lk(mtx_, std::try_to_lock);
     if (!lk.owns_lock()) {                    // a structural edit is in flight
         if (outL) std::fill(outL, outL + nframes, 0.f);
@@ -290,12 +430,16 @@ void RackEngine::process(int nframes,
     const int poly = polyphony_ < 1 ? 1 : (polyphony_ > 16 ? 16 : polyphony_);
     int ei = 0;
     for (int i = 0; i < nframes; ++i) {
+        args.frame = hostPlayPositionSamples >= 0
+                   ? hostPlayPositionSamples + i : frame_;
         // apply MIDI events landing at/behind this sample -> poly voices
         while (ei < numMidi && midi && midi[ei].sampleOffset <= i) {
             const auto& e = midi[ei++];
             const uint8_t type = e.status & 0xF0;
             if (type == 0x90 && e.data2 > 0)                          noteOn(e.data1, e.data2);
             else if ((type == 0x80) || (type == 0x90 && e.data2 == 0)) noteOff(e.data1);
+            else if (type == 0xB0 && (e.data1 == 120 || e.data1 == 123))
+                for (int n=0;n<128;++n) noteOff(n);
         }
 
         // drive AudioIn + MidiCV module outputs for THIS sample (role modules
@@ -331,7 +475,7 @@ void RackEngine::process(int nframes,
         }
         if (outL) outL[i] = L;
         if (outR) outR[i] = R;
-        args.frame = ++frame_;
+        ++frame_;
     }
 }
 
@@ -339,7 +483,8 @@ void RackEngine::processMulti(int nframes,
                               const float* const* insL, const float* const* insR, int numIns,
                               float* const* outsL, float* const* outsR, int numOuts,
                               const PatchKnob::engine::MidiEvent* midi, int numMidi,
-                              float hostTempoBpm, bool hostPlaying) {
+                              float hostTempoBpm, bool hostPlaying,
+                              int64_t hostPlayPositionSamples) {
     std::unique_lock<std::mutex> lk(mtx_, std::try_to_lock);
     if (!lk.owns_lock()) {                    // structural edit in flight -> silence
         for (int k = 0; k < numOuts; ++k) {
@@ -358,11 +503,15 @@ void RackEngine::processMulti(int nframes,
     const int poly = polyphony_ < 1 ? 1 : (polyphony_ > 16 ? 16 : polyphony_);
     int ei = 0;
     for (int i = 0; i < nframes; ++i) {
+        args.frame = hostPlayPositionSamples >= 0
+                   ? hostPlayPositionSamples + i : frame_;
         while (ei < numMidi && midi && midi[ei].sampleOffset <= i) {
             const auto& e = midi[ei++];
             const uint8_t type = e.status & 0xF0;
             if (type == 0x90 && e.data2 > 0)                          noteOn(e.data1, e.data2);
             else if ((type == 0x80) || (type == 0x90 && e.data2 == 0)) noteOff(e.data1);
+            else if (type == 0xB0 && (e.data1 == 120 || e.data1 == 123))
+                for (int n=0;n<128;++n) noteOff(n);
         }
 
         // each AudioIn module gets its OWN stereo input port
@@ -397,7 +546,7 @@ void RackEngine::processMulti(int nframes,
                 if (outsR && outsR[k]) outsR[k][i] = mr * 0.2f;
             }
         }
-        args.frame = ++frame_;
+        ++frame_;
     }
 }
 

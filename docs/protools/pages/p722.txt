@@ -1,0 +1,48 @@
+      Making an Edit Selection During                         To move the selection up to the next track:
+      Playback                                                   Press Control+P (Mac) or Start+P (Windows).
+      To make an Edit selection during playback:
+                                                                    To extend the Edit selection up across
+      1   Place the Edit cursor in the track or across mul-         tracks, Press Control+Shift+P (Mac) or
+          tiple tracks where you want to make the selec-            Start+Shift+P (Windows).
+          tion.
+                                                              To move the selection forward by the selection
+      2   Start playback.                                     amount:
+
+      3   Press the Down Arrow to place the Edit cursor          Press Command+Control+Option+’ (single
+          at the current playback location and mark the           quote) (Mac) or Control+Alt+Start+’ (single
+          beginning of the Edit selection.                        quote) (Windows).
+      4   Press the Up Arrow to mark the end point of the     To move the selection backward by the selection
+          Edit selection.                                     amount:
+      5   Stop playback.                                         Press Command+Control+Option+L (Mac) or
+                                                                  Control+Alt+Start+L (Windows).
+      6   Do one of the following:
+      • Press the Left arrow to locate the beginning of       To double the Edit selection:
+        the Edit selection.
+                                                                 Press Command+Control+Option+Shift+’ (sin-
+      • Press the Right arrow to locate the end of the            gle quote) (Mac) or Control+Alt+Start+Shift+’
+        Edit selection.                                           (single quote) (Windows).
+
+      Moving the Edit Selection                               To halve the Edit selection:
+
+                                                                 Press Command+Option+Control+Shift+L
+      Pro Tools provides several keyboard shortcuts for
+                                                                  (Mac) or Control+Alt+Start+Shift+L
+      moving and extending or decreasing the range of
+                                                                  (Windows).
+      an Edit (or Timeline) selection.
+                                                              To go to and select the previous clip, do one of the
+      To move the selection down to the next track:
+                                                              following:
+         Press Control+; (semicolon) (Mac) or Start+;
+                                                                 Press Option+Control+Tab (Mac) or
+          (semicolon) (Windows).
+                                                                  Alt+Start+Tab (Windows).
+            To extend the Edit selection down across             Press Command+Control+L (Mac) or
+            tracks, Press Control+Shift+; (semicolon)             Control+Start+L (Windows).
+            (Mac) or Start+Shift+; (semicolon) (Win-
+            dows).
+
+
+
+
+690   Pro Tools Reference Guide

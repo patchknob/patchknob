@@ -60,7 +60,6 @@ public:
 
     //! True once mount() has attached the player to a track.
     bool mounted() const { return trackIndex_ >= 0; }
-    int  track_index() const { return trackIndex_; }
 
     //! Move `clip` into this track's owned store and schedule it at absolute
     //! timeline sample `startSample` with `gain`. Returns the stable stored clip

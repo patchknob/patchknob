@@ -1,0 +1,52 @@
+      Track Height                                           Separate Grid Settings When Zoomed In
+
+      Last Used When selected, zoom toggling in              When this option is selected, the Grid setting
+      changes all tracks containing an Edit Selection to     stored with Zoom toggle is recalled when zoom
+      the last used Track Height.                            toggling in. When this option is deselected, the
+                                                             same (current) grid setting is used whether zoom
+      Medium When selected, zoom toggling in changes
+                                                             toggling in or out.
+      all tracks containing an Edit Selection to the Me-
+      dium Track Height.                                     Zoom Toggle Follows Edit Selection
+      Large When selected, zoom toggling in changes          When selected, this option ensures that zoom tog-
+      all tracks containing an Edit Selection to the Large   gle automatically follows the current Edit selec-
+      Track Height.                                          tion. When disabled, changing the Edit selection
+      Jumbo When selected, zoom toggling in changes
+                                                             has no affect on the currently toggled-in track.
+      all tracks containing an Edit Selection to the
+      Jumbo Track Height.                                    Using Zoom Toggle
+      Extreme When selected, zoom toggling in changes        Depending on the Zoom Toggle preference set-
+      all tracks containing an Edit Selection to the Ex-     tings, the Zoom Toggle button in the Edit window
+      treme Track Height.                                    lets you define a zoom state and toggle between it
+                                                             and the current zoom state, or it zooms to the set-
+      Fit To Window When selected, zoom toggling in          tings in the Zoom Toggle preferences. When
+      changes all tracks containing an Edit Selection to     Zoom Toggle is enabled, the Edit window displays
+      the Fit To Window Track Height.                        the stored zoom state. Additionally, any changes
+                                                             made to the view while Zoom Toggle is enabled
+      Track View
+                                                             are also stored in the zoom state.
+      Waveform/Notes When selected, zoom toggling in
+                                                             When Zoom Toggle is disabled, the Edit window
+      changes the Track View for audio tracks to Wave-
+                                                             reverts to the last zoom state.
+      form view, and changes the Track View for Instru-
+      ment and MIDI tracks to Notes view.                    To store a zoom state using Zoom Toggle:
+      Warp/Notes When selected, zoom toggling in             1   Set the Zoom Toggle preferences.
+      changes the Track View for audio tracks to Warp
+                                                             2   Make an Edit selection.
+      view, and changes the Track View for Instrument
+      and MIDI tracks to Notes view.                         3   Click the Zoom Toggle button. It lights to indi-
+                                                                 cate that Zoom Toggle is enabled and Pro Tools
+      Last Used When selected, zoom toggling in
+                                                                 zoom toggles in based on the settings of the
+      changes the Track View to the last used Track
+                                                                 Zoom Toggle preferences.
+      View that was stored with Zoom Toggle.
+
+      No Change When selected, the track view does not
+      change when zoom toggling in or out.
+
+
+
+
+650   Pro Tools Reference Guide

@@ -3,6 +3,7 @@
 //----------------------------------------------------------------------------
 #include "plugin_picker_view.h"
 #include <algorithm>
+#include <string>
 
 using namespace ui;
 
@@ -39,6 +40,30 @@ std::vector<int> PluginPickerView::visible_indices() const {
 
 int PluginPickerView::row_h(App& app) const { return app.font.ch() + 8; }
 
+// Compact right-hand I/O column.  "2>2" for the ordinary stereo effect, but
+// "0>2x8" for an 8-bus multi-out instrument -- the bus COUNT is the part that
+// tells a user this plugin has more than one output pair to patch, which a flat
+// "0>16" total does not.
+std::string PluginPickerView::io_summary(const PatchKnob::engine::PluginDescriptor& d) {
+    auto side = [](const std::vector<PatchKnob::engine::PluginBusInfo>& buses,
+                   int flatTotal) {
+        if (buses.size() > 1) {
+            // Uniform bus widths (the common multi-out shape) read as WxN.
+            bool uniform = true;
+            for (const auto& b : buses)
+                if (b.channelCount != buses[0].channelCount) { uniform = false; break; }
+            if (uniform)
+                return std::to_string(buses[0].channelCount) + "x" +
+                       std::to_string((int)buses.size());
+            return std::to_string(flatTotal) + "/" +
+                   std::to_string((int)buses.size()) + "bus";
+        }
+        return std::to_string(flatTotal);
+    };
+    return side(d.audioInBuses, d.numAudioIn) + ">" +
+           side(d.audioOutBuses, d.numAudioOut);
+}
+
 void PluginPickerView::draw(App& app) {
     const Theme& t = theme();
     fill_rect(app.ren, rect, t.bg);
@@ -49,9 +74,21 @@ void PluginPickerView::draw(App& app) {
         app.font.draw(app.ren, rect.x + 8, y + 3, fit_text(app.font, status, rect.w - 16), t.dim);
         y += rh;
     }
+    // An EMPTY plugin set is a valid state (a fresh install, or nothing on this
+    // machine's VST paths) -- explain it instead of presenting a blank box, and
+    // say which of the two empties this is: no inventory at all, or an
+    // inventory with nothing that passes the instrument filter.
     std::vector<int> vis = visible_indices();
-    if (vis.empty() && status.empty())
-        app.font.draw(app.ren, rect.x + 8, y + 3, "(no plugins found)", t.dim);
+    if (vis.empty() && status.empty()) {
+        const char* what = plugins.empty()
+            ? "No plugins found."
+            : "No instruments among the scanned plugins.";
+        app.font.draw(app.ren, rect.x + 8, y + 3, what, t.dim);
+        y += rh;
+        app.font.draw(app.ren, rect.x + 8, y + 3,
+                      fit_text(app.font, "Install VST2/VST3 plugins, then View > Rescan Plugins.",
+                               rect.w - 16), t.dim);
+    }
 
     for (int idx : vis) {
         if (y + rh > rect.y && y < rect.y + rect.h) {
@@ -60,8 +97,11 @@ void PluginPickerView::draw(App& app) {
                 ? base_name(plugins[(size_t)idx].path)
                 : base_name(plugins[(size_t)idx].name);
             const char* fmt = plugins[(size_t)idx].format == PatchKnob::engine::PluginFormat::VST3 ? "[VST3] " : "[VST2] ";
+            const std::string io = io_summary(plugins[(size_t)idx]);
+            const int iow = app.mono.text_w(io) + 10;
             app.font.draw(app.ren, rr.x + 6, y + 3,
-                          fit_text(app.font, std::string(fmt) + name, rr.w - 12), t.text);
+                          fit_text(app.font, std::string(fmt) + name, rr.w - 12 - iow), t.text);
+            app.mono.draw(app.ren, rr.x + rr.w - iow + 4, y + 3, io, t.dim);
         }
         y += rh;
     }

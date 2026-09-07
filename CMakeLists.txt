@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(PatchKnob_root CXX)
+project(PatchKnob_root C CXX)
 
 # ---------------------------------------------------------------------------
 # PatchKnob 0.8.7 - SDL2 multi-platform build.
@@ -18,7 +18,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE Debug)
+    # DSP builds must be optimized by default. In particular, Fundamental's
+    # VCO/VCF use Rack float_4 intrinsics whose debug expansion is extremely
+    # expensive at audio rate. Developers can still request Debug explicitly.
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")

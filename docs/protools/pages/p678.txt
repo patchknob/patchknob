@@ -1,0 +1,46 @@
+      Normal Zoomer Tool
+      To zoom around a certain point in a track:
+
+      1   Do one of the following:
+      • Click the Zoomer tool pop-up menu and select
+        Normal Zoom mode.
+
+
+
+
+      Zoomer tool
+
+      • Right-click on any track and select Tools >       Zooming horizontally with Zoomer tool
+        Zoomer Tools > Normal Zoom.                       The zoomed area fills the entire Edit window.
+      2   Click once with the Zoomer tool at a location
+          within the track. All tracks are zoomed in by   Single Zoom Mode
+          one level and the Edit window is centered
+          around the zoomed location.                     Single Zoom mode returns you to the previously
+                                                          selected tool after a zoom has been performed.
+      3   To zoom back to the previous level, Option-
+          click (Mac) or Alt-click (Windows) with the     For example, when using the Smart Tool you can
+          Zoomer tool.                                    click the Single Zoomer tool, and once the Zoom
+                                                          operation has been performed, Pro Tools automat-
+      To zoom into a particular track area:               ically switches back to the Smart Tool.
+      1   Do one of the following:
+                                                          To use Single Zoom mode, do one of the following:
+      • Click the Zoomer tool pop-up menu and select
+                                                             Click the Zoomer tool pop-up menu and select
+        Normal Zoom mode.
+                                                              Single Zoom mode.
+      • Right-click on any track and select Tools >
+        Zoomer Tools > Normal Zoom.                          Right-click on any track and select Tools >
+                                                              Zoomer Tools > Single Zoom.
+      2   Do one of the following:
+                                                             Press the F5 key to toggle to Single Zoom
+      • To zoom horizontally only, drag with the
+                                                              mode.
+        Zoomer tool in the track’s playlist.
+      • To zoom horizontally and vertically, press Com-
+        mand (Mac) or Control (Windows) while drag-
+        ging in the track’s playlist.
+
+
+
+
+646   Pro Tools Reference Guide

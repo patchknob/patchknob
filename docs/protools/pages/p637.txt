@@ -1,0 +1,52 @@
+Transport and Record Settings                          Destructive Recording and Transport
+                                                       RecordLock
+Transport and Record preferences for punch re-
+cording appear on the Operation Preferences page.      As a precaution against accidentally recording
+These preferences specify how track and Transport      over previous material, the Transport RecordLock
+record status respond during, between, and after       option is automatically disabled and grayed out
+punches and passes.                                    when Destructive record mode is enabled.
+
+                                                       Audio Track RecordLock
+
+                                                       This setting lets Pro Tools tracks either emulate a
+                                                       digital dubber, or maintain legacy behavior for
+                                                       track record status.
+                                                         When the Audio Track RecordLock option is en-
+                                                       abled, the record-enabled audio tracks remain
+                                                       armed when playback or recording stops.
+                                                         When the Audio Track RecordLock option is not
+                                                       enabled, record-enabled audio tracks are taken out
+                                                       of record enable when Pro Tools is stopped. This
+                                                       prevents tracks from remaining armed from pass to
+                                                       pass, emulating track record behavior of a digital
+                                                       dubber.
+TrackPunch preferences
+                                                            For examples of how these settings can be ap-
+Transport RecordLock                                        plied, see “Example TrackPunch and De-
+                                                            structivePunch Workflows” on page 615.
+This setting lets the Transport Record be config-
+ured to either emulate a digital dubber, or to main-
+                                                       Synchronization and Track
+tain legacy behavior for the Transport master Re-
+                                                       Arming Options for Punch
+cord.                                                  Recording
+ When not enabled, the Transport Record dis-
+                                                       Synchronization settings for online punch record-
+arms when Pro Tools is manually stopped or stops       ing vary depending on the type and capabilities of
+due to a loss of timecode. This replicates legacy      your Pro Tools system and other devices in your
+Pro Tools recording behavior.                          studio.
+  When enabled, the Transport Record remains
+                                                            For basic timecode and synchronization
+armed when playback or recording stops. This
+                                                            information for Pro Tools, see Chapter 60,
+saves having to re-arm the Transport between
+                                                            “Working with Synchronization.”
+takes, emulating digital dubber behavior.
+
+     Punching out of record by pressing Record
+     on the Transport takes the transport out of re-
+     cord enable.
+
+
+
+                                                                          Chapter 27: Punch Recording Modes   605

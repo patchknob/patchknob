@@ -1,0 +1,49 @@
+      To lock out Shuffle Mode:                                 When Spot mode is enabled, Pro Tools asks you to
+         While in any Edit mode other than Shuffle             specify a destination location when a clip is
+          mode, Command-click (Mac) or Control-click            dragged from the Clips List, a Workspace browser,
+          (Windows) the Shuffle button on-screen. A lock        Windows Explorer, or the Mac Finder.
+          icon appears in the Shuffle button.
+                                                                      Press F3 to enable Spot mode.
+      To unlock Shuffle Mode:
+
+         Command-click (Mac) or Control-click (Win-            Grid Mode
+          dows) the locked Shuffle button on-screen.
+                                                                In Grid mode, clips and MIDI notes that are
+                                                                moved, trimmed or inserted “snap” to the currently
+                                                                selected Grid value, or to precise increments on a
+      Slip Mode                                                 user-definable time grid.
+      In Slip mode, clips can be moved freely within a
+      track or to other tracks. In this mode, it is possible          Press F4 to enable Grid mode.
+      to place a clip so that there is space between it and
+      other clips in a track. When the track is played          Displaying Grid Lines
+      back, this space is silent. It is also possible to move
+                                                                To show (or hide) the Grid lines in the Edit window
+      a clip so that it overlaps or completely covers an-       or in a MIDI Editor window, do one of the following:
+      other clip.
+                                                                   Select (or deselect) the Grid button.
+      Use Slip mode when you want the Trim, Selector,
+      Grabber, and Pencil tools to work without any re-
+      strictions to placement in time.
+
+            Press F2 to enable Slip mode.
+
+                                                                Grid button selected in the Edit window
+            To temporarily suspend Slip mode and switch
+            to Grid mode while editing, Command-click              Click the Name of the currently selected Time-
+            (Mac) or Control-click (Windows) while mak-             base ruler.
+            ing the edit.
+
+
+
+      Spot Mode
+      Use Spot mode to place clips at precise locations.
+      In Spot mode you can specify a frame location (or
+      a location based on any of the other time formats),
+      capture an incoming Timecode address, or use a
+      clip’s time stamps as reference points for spotting.
+      This can be particularly useful when performing
+                                                                Turning on Grid lines from a Timebase ruler
+      post production tasks around Timecode frame lo-
+      cations.
+
+640   Pro Tools Reference Guide

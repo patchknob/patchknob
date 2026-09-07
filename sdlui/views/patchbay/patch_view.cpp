@@ -2,6 +2,7 @@
 //  sdlui/views/patchbay/patch_view.cpp -- SDL2 patchbay node editor.
 //----------------------------------------------------------------------------
 #include "patch_view.h"
+#include "platform/platform_ui.h"
 
 #include <algorithm>
 #include <cmath>
@@ -429,7 +430,8 @@ void PatchView::draw( ui::App& app )
 
     // Clip to the widget so nodes can't bleed past the canvas edges.
     SDL_Rect clip = rect;
-    SDL_RenderSetClipRect( r, &clip );
+    {
+    ui::ScopedClip clipScope(r,clip);
 
     // Committed connections (behind the nodes).
     for ( std::size_t i = 0; i < m_conns.size(); ++i )
@@ -444,7 +446,7 @@ void PatchView::draw( ui::App& app )
         draw_node( app, m_nodes[i] );
 
     draw_scrollbars( app );          // overlay pan bars + zoom read-out
-    SDL_RenderSetClipRect( r, nullptr );
+    }
 
     if ( m_menu_open )
         draw_menu( app );
@@ -458,30 +460,59 @@ void PatchView::draw_node( ui::App& app, const Node& n )
 
     SDL_Rect box { wsx( n.x ), wsy( n.y ), wsc( NODE_W ), wsc( h ) };
 
-    // Body + outline.  A SELECTED node (clicked, armed for click-to-connect) is
-    // lit: selection-coloured body + a bright accent border and outer ring, so
-    // it's obvious the next node click wires to it.
-    const bool armed = ( n.id == m_link_src );
-    fill_round_rect( r, box, CORNER, armed ? t.sel : t.panel );
-    frame_round_rect( r, box, CORNER, armed ? t.accent : t.hi );
-    if ( armed )
-    {
-   
-    }
+    // Body + outline.  No selection/move highlight -- a node looks the same whether
+    // or not it's selected / being dragged (per user request).
+    fill_round_rect( r, box, CORNER, t.panel );
+    frame_round_rect( r, box, CORNER, t.hi );
 
     // Title strip (top rounded; clip a rounded rect and paint the top band).
     const int th = wsc( TITLE_H );
     SDL_Rect titleClip { box.x, box.y, box.w, th };
-    SDL_RenderSetClipRect( r, &titleClip );
-    SDL_Rect titleFull { box.x, box.y, box.w, th + wsc( CORNER ) };
-    fill_round_rect( r, titleFull, wsc( CORNER ), t.accent );
-    SDL_RenderSetClipRect( r, &rect );   // restore canvas clip
+    {
+        ui::ScopedClip titleScope(r,titleClip);
+        SDL_Rect titleFull { box.x, box.y, box.w, th + wsc( CORNER ) };
+        fill_round_rect( r, titleFull, wsc( CORNER ), t.accent );
+    }
 
     // Title text -- fitted so it scales / clips with the zoomed box.
     app.mono.draw_fitted( r, SDL_Rect{ box.x + wsc(7), box.y, box.w - wsc(14), th },
                           n.name, t.bg, false );
 
     const int pr = wsc( PORT_R );
+    // The virtual MIDI node routes in-N directly to out-N internally.  Show those
+    // invisible routes as compact, colour-coded paths inside the node instead of
+    // requiring misleading external patch cables.
+    if ( n.name == "Instrument Virtual MIDI Ports" )
+    {
+        static const ui::Color pathColors[] = {
+            {239, 83, 80, 255}, {255, 183, 77, 255}, {102, 187, 106, 255},
+            {38, 198, 218, 255}, {66, 165, 245, 255}, {171, 71, 188, 255}
+        };
+        const std::vector<std::pair<int,int>> routes =
+            virtual_midi_routes ? virtual_midi_routes(n.id)
+                                : std::vector<std::pair<int,int>>();
+        for ( std::size_t k = 0; k < routes.size(); ++k )
+        {
+            const int inIndex=routes[k].first, outIndex=routes[k].second;
+            if(inIndex<0||outIndex<0||inIndex>=(int)n.inPorts.size()||
+               outIndex>=(int)n.outPorts.size()) continue;
+            int ix, iy, ox, oy;
+            port_center(n, PortDir::In, (size_t)inIndex, ix, iy);
+            port_center(n, PortDir::Out, (size_t)outIndex, ox, oy);
+            const ui::Color c = pathColors[outIndex % (sizeof(pathColors)/sizeof(pathColors[0]))];
+            SDL_SetRenderDrawColor(r, c.r, c.g, c.b, c.a);
+            const int leftText = app.mono.text_w(n.inPorts[(size_t)inIndex].name);
+            const int rightText = app.mono.text_w(n.outPorts[(size_t)outIndex].name);
+            const int x1=wsx(ix)+pr+6+leftText;
+            const int x2=wsx(ox)-pr-6-rightText;
+            const int y1=wsy(iy), y2=wsy(oy), xm=(x1+x2)/2;
+            if (x2>x1) {
+                SDL_RenderDrawLine(r,x1,y1,xm,y1);
+                SDL_RenderDrawLine(r,xm,y1,xm,y2);
+                SDL_RenderDrawLine(r,xm,y2,x2,y2);
+            }
+        }
+    }
     // Input ports + left-aligned labels.
     for ( std::size_t k = 0; k < n.inPorts.size(); ++k )
     {
@@ -615,9 +646,22 @@ void PatchView::draw_scrollbars( ui::App& app )
 
 bool PatchView::on_wheel( ui::App& app, int dx, int dy )
 {
+    // With a menu up the wheel used to zoom/pan the canvas underneath it, which
+    // left the popup hanging over unrelated nodes.  Scroll the MENU instead --
+    // which is also how the (now capped) long MIDI-port list is reached.
+    if ( m_menu_open ) {
+        m_menu_scroll -= dy;
+        const int visible = menu_visible_rows( app, m_menu_h );
+        const int max_scroll = std::max( 0, int( m_menu_items.size() ) - visible );
+        if ( m_menu_scroll > max_scroll ) m_menu_scroll = max_scroll;
+        if ( m_menu_scroll < 0 ) m_menu_scroll = 0;
+        app.request_redraw();
+        return true;
+    }
+
     const SDL_Keymod mod = (SDL_Keymod)SDL_GetModState();
-    if ( mod & KMOD_CTRL ) {                       // zoom around the pointer
-        int mx = 0, my = 0; SDL_GetMouseState( &mx, &my );
+    if((mod&KMOD_CTRL)||(ui::platform::patcher_plain_wheel_zooms()&&dy!=0)) {
+        int mx = 0, my = 0; ui::mouse_logical( app, mx, my );   // logical px
         const double wx = sw_x( mx ), wy = sw_y( my );
         double z = m_zoom * ( dy > 0 ? 1.1 : ( dy < 0 ? 1.0 / 1.1 : 1.0 ) );
         if ( z < 0.35 ) z = 0.35;
@@ -641,17 +685,45 @@ bool PatchView::on_wheel( ui::App& app, int dx, int dy )
 // ============================================================================
 void PatchView::layout_menu( ui::App& app )
 {
+    const int rowh = app.mono.ch() + 6;
     int wmax = 0;
     for ( std::size_t i = 0; i < m_menu_items.size(); ++i )
         wmax = std::max( wmax, app.mono.text_w( m_menu_items[i].label ) );
-    m_menu_w = wmax + 20;
-    m_menu_h = int( m_menu_items.size() ) * ( app.mono.ch() + 6 ) + 4;
 
-    // keep the menu on-screen
-    if ( m_menu_x + m_menu_w > app.w ) m_menu_x = app.w - m_menu_w;
-    if ( m_menu_y + m_menu_h > app.h ) m_menu_y = app.h - m_menu_h;
-    if ( m_menu_x < 0 ) m_menu_x = 0;
-    if ( m_menu_y < 0 ) m_menu_y = 0;
+    // Clamp to the VIEW, not the window: the menu used to be positioned against
+    // app.w/app.h and could therefore be painted over neighbouring panels.
+    const int availW = std::max( 80, rect.w - 8 );
+    const int availH = std::max( rowh + 4, rect.h - 8 );
+
+    // The width was unbounded -- a long hardware MIDI port name pushed the menu
+    // clean off the right edge (m_menu_x went negative, then snapped to 0 and
+    // the box overflowed instead).
+    m_menu_w = std::min( wmax + 20, availW );
+
+    // The height was unbounded too, so a machine with many MIDI ports drew a
+    // menu taller than the window whose lower entries could never be clicked.
+    // Cap it and scroll instead.
+    const int total_h = int( m_menu_items.size() ) * rowh + 4;
+    m_menu_h = std::min( total_h, availH );
+
+    if ( m_menu_x + m_menu_w > rect.x + rect.w ) m_menu_x = rect.x + rect.w - m_menu_w;
+    if ( m_menu_y + m_menu_h > rect.y + rect.h ) m_menu_y = rect.y + rect.h - m_menu_h;
+    if ( m_menu_x < rect.x ) m_menu_x = rect.x;
+    if ( m_menu_y < rect.y ) m_menu_y = rect.y;
+
+    const int visible = menu_visible_rows( app, m_menu_h );
+    const int max_scroll = std::max( 0, int( m_menu_items.size() ) - visible );
+    if ( m_menu_scroll > max_scroll ) m_menu_scroll = max_scroll;
+    if ( m_menu_scroll < 0 ) m_menu_scroll = 0;
+}
+
+// Rows the box can actually show -- draw, hit-test and scroll clamping all use
+// this one definition so they cannot disagree.
+int PatchView::menu_visible_rows( ui::App& app, int h ) const
+{
+    const int rowh = app.mono.ch() + 6;
+    if ( rowh <= 0 ) return 0;
+    return std::max( 0, ( h - 4 ) / rowh );
 }
 
 void PatchView::open_add_menu( ui::App& app, int sx, int sy, double cx, double cy )
@@ -660,19 +732,30 @@ void PatchView::open_add_menu( ui::App& app, int sx, int sy, double cx, double c
     m_menu_cx = cx; m_menu_cy = cy;
 
     static const char* cats[] =
-        { "Instrument", "Sampler", "Effect", "MIDI", "Audio I/O", "Mixer", "Record", "Pure Data",
+        { "Instrument", "Sampler", "Effect", "MIDI", "Audio I/O", "Mixer", "Pure Data",
           "Modular (Rack)", "Csound" };
     for ( unsigned i = 0; i < sizeof(cats)/sizeof(cats[0]); ++i )
     {
         std::string cat = cats[i];
         MenuItem mi;
         mi.enabled = true; mi.separator = false;
-        if ( cat == "MIDI" ) {
+        if ( cat == "Audio I/O" ) {
+            // Audio I/O is two different nodes; picking the category alone can
+            // only ever mean one of them, and it always meant Out.
+            mi.label = "Audio I/O";
+            const int msx = sx, msy = sy; const double mcx = cx, mcy = cy;
+            mi.submenu = [this, msx, msy, mcx, mcy](ui::App& a) {
+                open_audio_io_menu( a, msx, msy, mcx, mcy );
+            };
+        } else if ( cat == "MIDI" ) {
             // MIDI opens a submenu of virtual + hardware in/out ports.
-            mi.label = "MIDI Ports  >";     // opens the port submenu
-            int msx = m_menu_x, msy = m_menu_y; double mcx = cx, mcy = cy;
-            mi.action = [this, msx, msy, mcx, mcy, &app]() {
-                open_midi_menu( app, msx, msy, mcx, mcy );
+            mi.label = "MIDI Ports";        // opens a persistent child menu
+            // Open the submenu where THIS menu is (m_menu_x/y aren't assigned until
+            // after this loop, so capturing them here gave a stale/zero position that
+            // scattered the submenu across the canvas).
+            const int msx = sx, msy = sy; const double mcx = cx, mcy = cy;
+            mi.submenu = [this, msx, msy, mcx, mcy](ui::App& a) {
+                open_midi_menu( a, msx, msy, mcx, mcy );
             };
         } else {
             mi.label = std::string( "Add " ) + cat;
@@ -693,6 +776,30 @@ void PatchView::open_add_menu( ui::App& app, int sx, int sy, double cx, double c
     }
 
     m_menu_x = sx; m_menu_y = sy;
+    m_menu_scroll = 0;
+    m_menu_open = true;
+    layout_menu( app );
+}
+
+// Audio device in / out.  Both are plain builtin nodes; the shell decides which
+// engine node each label maps to (see on_add_module).
+void PatchView::open_audio_io_menu( ui::App& app, int sx, int sy, double cx, double cy )
+{
+    m_menu_items.clear();
+    m_menu_cx = cx; m_menu_cy = cy;
+    auto add = [this]( const std::string& label, const std::string& cat ) {
+        MenuItem mi; mi.label = label; mi.enabled = true; mi.separator = false;
+        mi.action = [this, cat]() {
+            if ( on_add_module ) on_add_module( m_menu_cx, m_menu_cy, cat );
+        };
+        m_menu_items.push_back( mi );
+    };
+    add( "Add Audio In",  "Audio In"  );
+    add( "Add Audio Out", "Audio Out" );
+    add( "Add Mono to Stereo", "Mono to Stereo" );
+
+    m_menu_x = sx; m_menu_y = sy;
+    m_menu_scroll = 0;
     m_menu_open = true;
     layout_menu( app );
 }
@@ -730,6 +837,7 @@ void PatchView::open_midi_menu( ui::App& app, int sx, int sy, double cx, double 
     }
 
     m_menu_x = sx; m_menu_y = sy;
+    m_menu_scroll = 0;
     m_menu_open = true;
     layout_menu( app );
 }
@@ -746,11 +854,11 @@ void PatchView::open_node_menu( ui::App& app, int sx, int sy, NodeId id )
     const bool isMidiSource = nd && nd->category == "MIDI";
     const bool isPlugin     = nd && ( nd->category == "Instrument" || nd->category == "Effect" );
     const bool isMixer      = nd && nd->category == "Mixer";
-    const bool isRecord     = nd && nd->category == "Record";
     const bool isPd         = nd && nd->category == "Pure Data";
     const bool isRack       = nd && nd->category == "Modular (Rack)";
     const bool isSampler    = nd && nd->category == "Sampler";
     const bool isCsound     = nd && nd->category == "Csound";
+    const bool isVirtualMidi = nd && nd->name == "Instrument Virtual MIDI Ports";
     if ( isCsound ) {
         MenuItem mi; mi.label = "Edit CSD";
         mi.action = [this, id]() { if ( on_open_csound ) on_open_csound( id ); };
@@ -780,15 +888,23 @@ void PatchView::open_node_menu( ui::App& app, int sx, int sy, NodeId id )
             mi.action = [this, id, p]() { if ( on_set_rack_poly ) on_set_rack_poly( id, p ); };
             m_menu_items.push_back( mi );
         }
-    } else if ( isRecord ) {
-        MenuItem mi; mi.label = "Arm / Disarm Record";
-        mi.action = [this, id]() { if ( on_arm_record ) on_arm_record( id ); };
-        m_menu_items.push_back( mi );
     } else if ( isMixer ) {
         MenuItem mi; mi.label = "Open Mixer";
         mi.action = [this, id]() { if ( on_open_mixer ) on_open_mixer( id ); };
         m_menu_items.push_back( mi );
+    } else if ( isVirtualMidi ) {
+        MenuItem mi; mi.label = "Configure MIDI Ports...";
+        mi.action = [this,id](){ if(on_config_virtual_midi) on_config_virtual_midi(id); };
+        m_menu_items.push_back(mi);
     } else if ( isMidiSource ) {
+        { MenuItem hdr; hdr.label = "Virtual ports:"; hdr.enabled = false; m_menu_items.push_back(hdr); }
+        const int counts[] = { 1, 2, 4, 8, 16 };
+        for (int n : counts) {
+            MenuItem mi; mi.label = "  " + std::to_string(n);
+            mi.action = [this, id, n]() { if (on_set_midi_ports) on_set_midi_ports(id, n); };
+            m_menu_items.push_back(mi);
+        }
+        { MenuItem sep; sep.separator = true; sep.enabled = false; m_menu_items.push_back(sep); }
         // MIDI-In node: pick a hardware MIDI input device (no instrument options).
         std::vector<std::string> devs = midi_devices ? midi_devices() : std::vector<std::string>();
         { MenuItem mi; mi.label = "MIDI Input:"; mi.enabled = false; m_menu_items.push_back( mi ); }
@@ -803,6 +919,9 @@ void PatchView::open_node_menu( ui::App& app, int sx, int sy, NodeId id )
         }
         { MenuItem sep; sep.separator = true; sep.enabled = false; m_menu_items.push_back( sep ); }
     } else if ( isPlugin ) {
+        { MenuItem mi; mi.label = "Load Plugin from Disk...";
+          mi.action = [this, id]() { if ( on_load_plugin_file ) on_load_plugin_file( id ); };
+          m_menu_items.push_back( mi ); }
         // Instrument / Effect node: plugin chooser + editor.
         { MenuItem mi; mi.label = "Choose Plugin...";
           mi.action = [this, id]() { if ( on_open_editor ) on_open_editor( id ); };
@@ -822,6 +941,7 @@ void PatchView::open_node_menu( ui::App& app, int sx, int sy, NodeId id )
     }
 
     m_menu_x = sx; m_menu_y = sy;
+    m_menu_scroll = 0;
     m_menu_open = true;
     layout_menu( app );
 }
@@ -830,6 +950,23 @@ void PatchView::close_menu()
 {
     m_menu_open = false;
     m_menu_items.clear();
+    m_menu_scroll = 0;
+    m_parent_menu_open = false;
+    m_parent_menu_items.clear();
+}
+
+// The context menu was mouse-only: nothing on the keyboard dismissed it, so Esc
+// went to the canvas (clearing a pending link) while the popup stayed up.
+bool PatchView::on_key( ui::App& app, SDL_Keycode k )
+{
+    if ( m_menu_open ) {
+        if ( k == SDLK_ESCAPE ) { close_menu(); app.request_redraw(); return true; }
+        return true;                       // a popup is modal; swallow the rest
+    }
+    if ( k == SDLK_ESCAPE && m_link_src != 0 ) {
+        m_link_src = 0; app.request_redraw(); return true;
+    }
+    return false;
 }
 
 void PatchView::draw_menu( ui::App& app )
@@ -838,31 +975,37 @@ void PatchView::draw_menu( ui::App& app )
     const ui::Theme& t = theme();
     const int rowh = app.mono.ch() + 6;
 
-    SDL_Rect frame { m_menu_x, m_menu_y, m_menu_w, m_menu_h };
-    ui::fill_rect( r, frame, t.panel );
-    ui::frame_rect( r, frame, t.hi );
+    // Hover must be tested in LOGICAL coords: SDL_GetMouseState() answers in raw
+    // window pixels, so on any scaled display the highlight sat on a different
+    // row than the one a click would take.
+    int mx = 0, my = 0; ui::mouse_logical( app, mx, my );
 
-    // hover row (from current mouse position)
-    int mx, my; SDL_GetMouseState( &mx, &my );
-
-    for ( std::size_t i = 0; i < m_menu_items.size(); ++i )
-    {
-        const MenuItem& mi = m_menu_items[i];
-        int ry = m_menu_y + 2 + int(i) * rowh;
-        if ( mi.separator )
-        {
-            ui::hline( r, m_menu_x + 4, m_menu_x + m_menu_w - 4,
-                       ry + rowh/2, t.dim );
-            continue;
+    auto draw_level=[&](const std::vector<MenuItem>& items,int x,int y,int w,int h,
+                        int scroll) {
+        SDL_Rect f{x,y,w,h}; ui::fill_rect(r,f,t.panel); ui::frame_rect(r,f,t.hi);
+        const int visible = menu_visible_rows( app, h );
+        for(int vr=0;vr<visible;++vr) {
+            const int idx=scroll+vr;
+            if(idx<0||idx>=(int)items.size()) break;
+            const MenuItem& mi=items[(std::size_t)idx]; const int ry=y+2+vr*rowh;
+            if(mi.separator) { ui::hline(r,x+4,x+w-4,ry+rowh/2,t.dim); continue; }
+            SDL_Rect row{x+1,ry,w-2,rowh};
+            const bool hover=mi.enabled&&mx>=row.x&&mx<row.x+row.w&&my>=row.y&&my<row.y+row.h;
+            if(hover) ui::fill_rect(r,row,t.accent);
+            const Color fg=!mi.enabled?t.dim:(hover?t.bg:t.hi);
+            SDL_Rect tx{x+10,ry+3,w-20-(mi.submenu?app.mono.cw()+8:0),rowh-3};
+            app.mono.draw_fitted(r,tx,mi.label,fg,false);
+            if(mi.submenu) app.mono.draw(r,x+w-app.mono.cw()-8,ry+3,">",fg);
         }
-        SDL_Rect row { m_menu_x + 1, ry, m_menu_w - 2, rowh };
-        bool hover = mi.enabled &&
-                     mx >= row.x && mx < row.x + row.w &&
-                     my >= row.y && my < row.y + row.h;
-        if ( hover ) ui::fill_rect( r, row, t.accent );
-        Color fg = !mi.enabled ? t.dim : ( hover ? t.bg : t.hi );
-        app.mono.draw( r, m_menu_x + 10, ry + 3, mi.label, fg );
-    }
+        if(scroll>0) app.mono.draw(r,x+w-12,y+2,"^",t.dim);
+        if(scroll+visible<(int)items.size())
+            app.mono.draw(r,x+w-12,y+h-app.mono.ch()-2,"v",t.dim);
+    };
+    if(m_parent_menu_open)
+        draw_level(m_parent_menu_items,m_parent_menu_x,m_parent_menu_y,
+                   m_parent_menu_w,m_parent_menu_h,0);
+
+    draw_level(m_menu_items,m_menu_x,m_menu_y,m_menu_w,m_menu_h,m_menu_scroll);
 }
 
 // ============================================================================
@@ -913,16 +1056,39 @@ bool PatchView::on_mouse( ui::App& app, const ui::MouseEv& e )
         if ( e.pressed )
         {
             const int rowh = app.mono.ch() + 6;
+            const int visible = menu_visible_rows( app, m_menu_h );
             bool inside = e.x >= m_menu_x && e.x < m_menu_x + m_menu_w &&
-                          e.y >= m_menu_y && e.y < m_menu_y + m_menu_h;
+                          e.y >= m_menu_y + 2 && e.y < m_menu_y + 2 + visible * rowh;
             if ( inside )
             {
-                int idx = ( e.y - ( m_menu_y + 2 ) ) / rowh;
+                int idx = m_menu_scroll + ( e.y - ( m_menu_y + 2 ) ) / rowh;
                 if ( idx >= 0 && idx < int( m_menu_items.size() ) )
                 {
                     MenuItem mi = m_menu_items[idx];   // copy: action may mutate list
                     if ( mi.enabled && !mi.separator )
                     {
+                        if(mi.submenu) {
+                            m_parent_menu_items=m_menu_items;
+                            m_parent_menu_x=m_menu_x; m_parent_menu_y=m_menu_y;
+                            m_parent_menu_w=m_menu_w; m_parent_menu_h=m_menu_h;
+                            m_parent_menu_open=true;
+                            mi.submenu(app);
+                            m_menu_scroll=0;
+                            // Size the CHILD first: the side-placement test used
+                            // to run against the parent's width (m_menu_w still
+                            // held the old menu), so a wider submenu was pushed
+                            // off the edge or straight over its parent.
+                            m_menu_x=m_parent_menu_x; m_menu_y=m_parent_menu_y;
+                            layout_menu(app);
+                            m_menu_x=(m_parent_menu_x+m_parent_menu_w+4+m_menu_w
+                                      <=rect.x+rect.w)
+                                ?m_parent_menu_x+m_parent_menu_w+4
+                                :m_parent_menu_x-m_menu_w-4;
+                            m_menu_y=m_parent_menu_y;
+                            layout_menu(app);
+                            app.request_redraw();
+                            return true;
+                        }
                         close_menu();
                         if ( mi.action ) mi.action();
                         app.request_redraw();
@@ -930,7 +1096,35 @@ bool PatchView::on_mouse( ui::App& app, const ui::MouseEv& e )
                     }
                 }
             }
-            close_menu();          // click elsewhere dismisses
+            if(m_parent_menu_open) {
+                const bool pin=e.x>=m_parent_menu_x&&e.x<m_parent_menu_x+m_parent_menu_w&&
+                    e.y>=m_parent_menu_y&&e.y<m_parent_menu_y+m_parent_menu_h;
+                if(pin) {
+                    const int pvis=menu_visible_rows(app,m_parent_menu_h);
+                    const int prow=(e.y-(m_parent_menu_y+2))/rowh;
+                    const int idx=(prow>=0&&prow<pvis)?prow:-1;
+                    if(idx>=0&&idx<(int)m_parent_menu_items.size()) {
+                        MenuItem mi=m_parent_menu_items[(size_t)idx];
+                        if(mi.enabled&&!mi.separator) {
+                            if(mi.submenu) {
+                                mi.submenu(app);
+                                m_menu_scroll=0;
+                                m_menu_x=m_parent_menu_x; m_menu_y=m_parent_menu_y;
+                                layout_menu(app);        // size the child FIRST
+                                m_menu_x=(m_parent_menu_x+m_parent_menu_w+4+m_menu_w
+                                          <=rect.x+rect.w)
+                                    ?m_parent_menu_x+m_parent_menu_w+4
+                                    :m_parent_menu_x-m_menu_w-4;
+                                m_menu_y=m_parent_menu_y; layout_menu(app);
+                                app.request_redraw(); return true;
+                            }
+                            close_menu(); if(mi.action) mi.action();
+                            app.request_redraw(); return true;
+                        }
+                    }
+                }
+            }
+            close_menu();          // click outside both levels dismisses
             app.request_redraw();
             return true;
         }

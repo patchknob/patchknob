@@ -88,6 +88,17 @@ public:
     }
     //! Flush the live pattern's FX edits into its sequence (call before save).
     void commit_fx();
+    //! Push the grid's column layout down onto the sequence's events, so the
+    //! engine can enforce "one column == one voice" for EVERY instrument.
+    //! Previously only the Buzz sampler knew about columns (it was tagged
+    //! separately via audio_app_patch_sampler_set_note_column), so a VST or
+    //! Csound instrument got no retrigger at all.  This is the single source
+    //! of truth now; the grid decides, the engine obeys.
+    void apply_note_columns();
+    //! True when `row` covers notes that do not sit exactly on its tick -- data
+    //! entered at a finer LPB.  Those notes are HIDDEN at this resolution, never
+    //! deleted, and the grid marks the row so they cannot be lost silently.
+    bool row_has_hidden_notes( int row ) const;
     sequence* get_sequence() const { return m_seq; }
 
     // ---- ui::Widget ------------------------------------------------------
@@ -96,6 +107,11 @@ public:
     bool on_wheel( App& app, int dx, int dy )   override;
     bool on_key  ( App& app, SDL_Keycode k )    override;
     bool on_key_up( App& app, SDL_Keycode k )   override;   // key release -> note off
+    void cancel_interaction( App& app ) override
+    {
+        stop_sounding_notes(); commit_fx(); m_sel_drag=false; m_hdr_press=0;
+        m_menu_open=false; m_parent_menu_open=false; app.request_redraw();
+    }
 
     // ---- toolbar-equivalent controls (the shell drives these) ------------
     // LPB (lines per beat) controls the tracker grid resolution.  Valid
@@ -104,6 +120,8 @@ public:
     int  get_lines_per_beat( void ) const { return m_rows_per_beat; }
     void set_rows_per_beat( int rpb );     // legacy alias for LPB
     int  get_rows_per_beat( void ) const { return m_rows_per_beat; }
+    void set_secondary_highlight( int rows );
+    int  get_secondary_highlight() const { return m_secondary_highlight; }
     void set_num_note_cols( int n );       // 1..8 polyphonic stacking columns
     int  get_num_note_cols( void ) const { return m_num_tracks; }
     void set_octave( int o );              // 0..8 base octave for note entry
@@ -144,7 +162,12 @@ public:
     // (lastRow -> curRow].  The shell calls this every frame for every ACTIVE
     // pattern so automation plays regardless of which window is focused and for
     // all patterns on a track -- not only the one shown in the tracker.
-    static void play_pattern_fx( sequence* s, int lastRow, int curRow, int nrows );
+    // Fire this pattern's VST-param FX automation for the span (lastTick, curTick].
+    // TICK-driven, not row-driven: a row grid is LPB-dependent, and the callers
+    // used a hardcoded LPB-4 grid, so values entered at any finer LPB were never
+    // dispatched.  lastTick < 0 means "entering the pattern" (apply the value
+    // sitting exactly on curTick).  Wrapping is handled internally.
+    static void play_pattern_fx( sequence* s, long long lastTick, long long curTick );
 
     long length_measures( void ) const;
 
@@ -175,6 +198,16 @@ private:
     int  ticks_per_row( void ) const;
     int  num_rows( void ) const;
     long row_start_tick( int row ) const;
+    //! Row span [*first_row, *end_row) of the pattern's own loop window.
+    //! False when no window is set (the default full-pattern state).
+    bool loop_row_span( int* first_row, int* end_row ) const;
+    //! Loop on/off for THIS clip (Shift+L / the header's LOOP chip): off makes
+    //! the clip a ONE-SHOT, mirroring the piano roll's chip exactly.
+    void toggle_loop_enabled( void );
+    //! Make the selected (or cursor) row span the pattern's loop window.
+    void set_loop_from_selection( void );
+    //! Drop the window back to "no loop set" (spans the whole pattern).
+    void clear_loop_window( void );
     int  total_subcols( void ) const { return 2 + m_fx_cols; }
 
     static std::string note_name( int note );
@@ -231,6 +264,10 @@ private:
     void set_fx_at_cell( int val );
     void clear_fx_cell( void );
     void fire_fx_row( int row );
+    // Publish the sequence's persistent note-column tags to every sampler node
+    // targeted by this pattern's tracker FX bindings. Automation clips do not
+    // call this path and therefore remain global.
+    void publish_sampler_note_columns();
 
     // --- extended editing features (keyboard-bound; see on_key) -----------
     void collect_all_notes( std::vector<NoteCell>& out );
@@ -278,6 +315,8 @@ private:
     void build_fx_menu_root( App& app );                       // top: None/CC/instruments
     void build_fx_menu_node( App& app, int nodeId,             // one instrument's params
                              const std::string& nodeName );
+    void build_fx_menu_device(App& app,int nodeId,int moduleId,
+                              const std::string& deviceName,int page=-1);
     int  m_fxmenu_track = -1, m_fxmenu_fi = -1;                 // FX menu context
     void layout_menu( App& app );
     void draw_menu( App& app );
@@ -291,10 +330,16 @@ private:
     enum HdrButton { HDR_NONE = 0, HDR_NOTE_MINUS, HDR_NOTE_PLUS,
                      HDR_FX_MINUS, HDR_FX_PLUS,
                      HDR_LPB_MINUS, HDR_LPB_PLUS,
-                     HDR_OCT_MINUS, HDR_OCT_PLUS };
+                     HDR_OCT_MINUS, HDR_OCT_PLUS,
+                     HDR_HILITE_MINUS, HDR_HILITE_PLUS,
+                     HDR_LOOP };                  // LOOP / 1-SHOT chip
     int  hdr_button_at( int px, int py ) const;   // -> HdrButton (0 = miss)
     void ensure_cursor_visible( App& app );
-    void move_cursor( App& app, int drow, int dcol );
+    //! Move the edit cursor.  `wrap` lets plain arrow navigation roll from the
+    //! last sub-column of one note column into the next (and around the ends);
+    //! selection extension passes false so a Shift+arrow at an edge stops there
+    //! instead of jumping to the far side and swallowing the whole width.
+    void move_cursor( App& app, int drow, int dcol, bool wrap = true );
     void set_pattern_lines( int lines );
     int  pattern_lines( void ) const;
     void sync_lines_edit( void );
@@ -305,10 +350,31 @@ private:
     int  m_track;           // explicit track override (-1 => from seq)
 
     int  m_rows_per_beat;
+    int  m_secondary_highlight;
     int  m_num_tracks;      // number of note columns (polyphonic stack)
     int  m_fx_cols;         // FX columns per note column
 
     int  m_cursor_row, m_cursor_track, m_cursor_col;
+
+    //! Hex typing state for an FX cell.
+    //!
+    //! The nibble accumulator used to be seeded by re-READING the cell, and a
+    //! CC-bound FX column round-trips 16 bits through a 7-bit controller value.
+    //! Typing "1" stored 0x0001, which came back as CC 0, which read back as 0
+    //! -- so the accumulator could never climb off zero and every hex key wrote
+    //! nothing.  (CC is the default binding: columns 0 and 1 arrive bound to
+    //! CC74 and CC7.)  Paste and interpolate were unaffected because they hand
+    //! over a whole value instead of building one a nibble at a time.
+    //!
+    //! The digits are accumulated HERE instead, and left-aligned in the 4-digit
+    //! field the cell displays, so a partial entry means what it looks like:
+    //! "8" is 0x8000 (half), "FFFF" is full scale.
+    long m_fx_type_tick  = -1;      //!< cell being typed into (-1 = none)
+    int  m_fx_type_track = -1, m_fx_type_fi = -1;
+    int  m_fx_type_accum = 0, m_fx_type_digits = 0;
+    void reset_fx_typing( void )
+    { m_fx_type_tick = -1; m_fx_type_track = m_fx_type_fi = -1;
+      m_fx_type_accum = m_fx_type_digits = 0; }
     int  m_octave, m_edit_step, m_velocity;
     int  m_top_row;
     int  m_last_progress_row;   // last playhead row painted
@@ -362,6 +428,9 @@ private:
     SDL_Rect m_btn_lpb_plus   { 0,0,0,0 };
     SDL_Rect m_btn_oct_minus  { 0,0,0,0 };
     SDL_Rect m_btn_oct_plus   { 0,0,0,0 };
+    SDL_Rect m_btn_hilite_minus { 0,0,0,0 };
+    SDL_Rect m_btn_hilite_plus  { 0,0,0,0 };
+    SDL_Rect m_btn_loop         { 0,0,0,0 };   // LOOP / 1-SHOT chip (row gutter)
     SDL_Rect m_lines_box      { 0,0,0,0 };
     std::string m_lines_edit;
 
@@ -370,6 +439,11 @@ private:
     int                   m_menu_w = 0, m_menu_h = 0;
     int                   m_menu_scroll = 0;
     std::vector<MenuItem> m_menu_items;
+    bool                  m_parent_menu_open = false;
+    int                   m_parent_menu_x = 0, m_parent_menu_y = 0;
+    int                   m_parent_menu_w = 0, m_parent_menu_h = 0;
+    int                   m_parent_menu_scroll = 0;
+    std::vector<MenuItem> m_parent_menu_items;
 
     // Live keyboard preview: keycode -> the MIDI note it is currently sounding
     // (via m_seq->play_note_on).  Key release (on_key_up) fires play_note_off so

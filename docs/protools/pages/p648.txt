@@ -1,0 +1,53 @@
+      4   Deselect Audio Track RecordLock. This causes         Loading Dailies Using
+          the audio track record to disarm when the trans-     RecordLock
+          port stops.
+                                                               Dailies and similar types of transfers are com-
+            In Remote mode, Audio Track RecordLock             prised of multiple takes or scenes, each recorded
+            has no effect. The synchronizer determines         while locked to unique time-of-day timecode. In
+            the behavior.                                      between each take, timecode does not continue but
+                                                               stops completely. Because of this, the timecode on
+      5   Do one of the following:                             dailies and similar source material is said to be
+      • Select Options > TrackPunch to enable                  “discontinuous” (also known as broken timecode).
+        TrackPunch mode for non-destructive punch              By default, Pro Tools drops out of recording when
+        recording.                                             it goes offline due to broken timecode. However,
+      • Select Options > DestructivePunch to enable            you can change this behavior so that Pro Tools will
+        DestructivePunch recording.                            instead remain armed, waiting to begin recording
+                                                               again when lock is re-established with the time-
+      6   Create 32 new tracks
+                                                               code of the next take.
+      7   Assign the track inputs.
+                                                               To configure RecordLock for loading:
+      8   Group the tracks into groups of eight.
+                                                               1   Choose Setup > Preferences and click the
+      9   Click the record enable buttons in the first eight       Operation tab.
+          tracks to TrackPunch enable the first eight
+          tracks (or, the group for the first pre-dub).        2   Enable Transport RecordLock.
+                                                               3   Enable Audio Track RecordLock.
+            Use the Groups List to quickly select all
+            tracks in the group, and Option-Shift-click        4   Configure synchronization and other settings as
+            (Mac) or Alt-Shift-click (Windows) to record-          required.
+            enable all the tracks in the group.
+                                                               5   Put Pro Tools online, and start the external
+      10 Assign the console paddles to the first eight-
+                                                                   source player.
+          track group in the session.                          6   Whenever timecode drops out or stops,
+      11 Begin the pre-dub pass. Use the console paddles
+                                                                   Pro Tools remains online and waits to receive
+          to arm Pro Tools, and to punch in and out on the         new timecode. The Transport and record-en-
+          first group.                                             abled tracks remain record-enabled. When
+                                                                   timecode resumes, Pro Tools begins recording
+      12 When the first pre-dub is over and all tracks are         to a new audio file (properly time stamped
+          punched out, clear all TrackPunch or Destruc-            based on the incoming code).
+          tivePunch enabled tracks.
+                                                                     Because Pro Tools has a 24-hour Timeline
+      13 Select the next group of tracks and TrackPunch-
+                                                                     limit, you must use multiple sessions to load
+          or DestructivePunch-enable them.
+                                                                     dailies if the span is more than 24 hours.
+      14 Punch in and out on the second group of tracks.
+
+      15 Repeat the preceding steps as necessary.
+
+
+
+616   Pro Tools Reference Guide

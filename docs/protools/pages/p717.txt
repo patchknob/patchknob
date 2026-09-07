@@ -1,0 +1,38 @@
+To scroll the entire contents of the Edit window
+from a ruler:                                            Auto-Scrolling Tracks in the
+   While pressing Command+Option+Control
+                                                         Mix and Edit Windows
+    (Mac) or Control+Alt+Start (Windows), drag           If you are working with more tracks than can be
+    left or right in any of the Timebase rulers.         displayed at one time in the Mix or Edit windows,
+                                                         you can select a track in one window and Pro Tools
+                                                         will automatically scroll to that track in both win-
+                                                         dows.
+
+Scrolling in a ruler                                     To auto-scroll the Mix and Edit windows to show a
+                                                         track, do one of the following:
+Scrolling with a Scroll Wheel                               In the Tracks List, Right-click the track name
+If you have a mouse with a scroll wheel, you can             and select Scroll Into View.
+use the scroll wheel to scroll vertically or horizon-       In the Tracks List, Control-click (Mac) the track
+tally in any Pro Tools window that has a scroll bar          name and select Scroll Into View.
+(such as the MIDI Event List).
+                                                         The track becomes selected, and the Mix and Edit
+To scroll a Pro Tools window vertically:                 windows both scroll to display the selected track.
+1   Place the mouse over the window you want to
+    scroll (for example, in the Edit window you
+    might want to scroll either the track display or
+    the Clips List).
+2   Scroll the scroll wheel up or down to scroll the
+    window up or down.
+
+To scroll a Pro Tools window horizontally:
+1   Place the mouse over the window you want to
+    scroll (for example, in the Edit window you
+    might want to scroll either the track display or
+    the Clips List).
+2   Shift-scroll the scroll wheel up or down to scroll
+    the window to the left or right.
+
+
+
+
+                                                                                   Chapter 30: Making Selections   685

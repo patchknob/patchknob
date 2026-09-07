@@ -1,0 +1,35 @@
+      Layered Editing
+      Pro Tools provides the option to enable layered edit-                                               1
+      ing so that you don’t lose partially overlapped clips
+      while editing. This is true for both audio and MIDI.
+
+      To enable (or disable) layered editing, do one                                               2
+      of the following:
+         Select (or deselect) Options > Layered Editing.
+         Click the Layered Editing button in the Edit Win-
+          dow toolbar so that it is lit (or unlit).
+                                                                                                   3
+
+
+
+
+                                                                                                   4
+
+
+      Layered Editing button (enabled)                        Figure 1. Editing with Layered Editing enabled
+
+      When the Layered Editing option is enabled, any
+      partially overlapped clips are revealed when cut-            Press Command+Delete (Mac) or Control+
+      ting, clearing (deleting), or moving the overlap-            Delete (Windows) to clear all track data
+      ping clip. Note that if any clip is fully overlapped         within the edit selection regardless of whether
+      by another, larger clip, it is removed from the time-        or not Layered Editing is enabled.
+      line. In Figure 1, the clip “Audio 1_01” (1) is
+      moved (2) to fully cover one clip and partially
+      cover another clip (3). When that clip (“Audio
+      1_02-01”) is cleared, the fully covered clip is gone,
+      but the partially covered clip is revealed (4).
+
+
+
+
+702   Pro Tools Reference Guide

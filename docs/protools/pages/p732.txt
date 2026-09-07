@@ -1,0 +1,45 @@
+      Defining the Nudge Value                             To increase the nudge value incrementally:
+
+      The Nudge value determines how far clips and se-        Press Shift+Option+Equal (=) (Mac) or
+      lections are moved when nudging.                         Shift+Alt+Equal (=) (Windows)
+
+      Start and end points for selections can also be      To decrease the nudge value incrementally:
+      moved by the Nudge value (see “Nudging Selec-           Press Shift+Option+Minus (–) (Mac) or
+      tion Start/End Points” on page 675). In addition,        Shift+Alt+Minus (–) (Windows)
+      clips can be trimmed by the Nudge value (see
+      “Trimming with Nudge” on page 699).
+                                                           Nudging Clips by the Nudge
+      To set the Nudge value:                              Value
+      1   Do one of the following:                         To nudge one or more clips:
+      • From the View > Main Counter menu, select the      1   Configure the Nudge value (see “Defining the
+        Time Scale for the Nudge value.                        Nudge Value” on page 700).
+      • To keep the Main Time Scale and use a different    2   With the Time Grabber or Selector tool, select
+        time format for the Nudge value, deselect Follow       the clip, clips, or clip groups you want to nudge.
+        Main Timebase in the Nudge Value pop-up                The clips can reside on multiple tracks. Only
+        menu.                                                  clips that are completely selected are nudged.
+      2   Specify a Nudge value by doing one of the fol-   3   Do one of the following:
+          lowing:
+                                                           • On the numeric keypad, press Plus (+) to move
+      • From the Nudge value pop-up menu in the Edit         the selection forward by the Nudge value.
+        window, select the Nudge value.
+                                                           • Press Minus (–) to move the selection back by
+      • To specify a Nudge value not listed in the Nudge     the Nudge value.
+        Value pop-up menu, click the Nudge Value indi-
+        cator and type in the value.                       The Nudge command works the same regardless of
+                                                           the Edit mode. Adjacent clips are overlapped in
+                                                           Shuffle mode, the Spot dialog does not appear
+                                                           when in Spot mode, and shifted material does not
+                                                           snap to the Grid when in Grid mode.
+
+                                                           Nudging Clips on Multiple
+                                                           Tracks and in Multichannel
+                                                           Tracks
+                                                           When nudging a selection of multiple clips within
+                                                           a single track or across multiple tracks, that also
+                                                           contains silence, any automation data residing
+      Nudge Value pop-up menu showing Timecode             within the silence is also nudged.
+
+
+
+
+700   Pro Tools Reference Guide

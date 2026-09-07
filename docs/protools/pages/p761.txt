@@ -1,0 +1,27 @@
+Trimming to a Selection Across
+Fades or Crossfades                                      Fade Boundaries and Shapes
+                                                         Displayed in Automation
+You can trim clips to selections that include fades      View
+or crossfades.
+                                                         Fade boundaries and fade shapes are shown and
+To trim a clip to a selection that includes fades, do    can be edited in Automation views, allowing for
+one of the following:                                    more precise viewing and editing of automation
+   Make a selection in the track and choose Edit >      data. For more information on Automation and
+    Trim > To Selection. You can Trim across mul-        Automation views, see Chapter 53, “Automation.”
+    tiple clips and fades. Affected fades are adjusted
+    to the new clip boundaries.
+   Click with the Selector in the clip and choose
+    Edit > Trim > Start to Insertion or End to Inser-
+    tion. You can trim to clip or fade boundary in the
+                                                         Fade information in Automation view
+    track.
+
+
+
+
+Trimming to a selection across multiple fades
+
+
+
+
+                                                                              Chapter 32: Fades and Crossfades   729

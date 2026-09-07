@@ -1,0 +1,48 @@
+      Guidelines for Editing                                  Avoiding Clicks and Pops
+      Waveforms
+                                                              If an edited clip begins or ends at a point of high
+      With the Selector tool in the Edit window, you can      amplitude, you may hear a click when Pro Tools
+      select portions of audio waveforms and divide           plays from one clip to another. In order to avoid
+      them into segments called clips, so that you can re-    clicks or pops do any of the following:
+      arrange and manipulate them in tracks.
+                                                                Make sure that the start and end points of your
+      While editing musical material, try to create clips     selection are as close as possible to the point where
+      that let you maintain a consistent beat. If you al-     the amplitude of the waveform tapers down to
+      ways define clips so that they contain a whole          meet the zero-crossing line (the center line of the
+      number of beats, you will be able to string the clips   track’s waveform display). If necessary, use the
+      together and maintain a smooth, steady rhythm.          zooming tools in the Edit window (see “Zooming
+                                                              Options” on page 643) to display waveforms in
+      It is sometimes useful to have a steady, well-de-       greater detail.
+      fined reference waveform (such as a drum track or
+      click track) as a guide when selecting and defining
+      other clips. If you have played in time with the
+      beat, it should be easier to create rhythmically ac-
+      curate clips by referring to the reference wave-
+      form.                                                   Selection that begins and ends at zero crossings
+
+      Some important rules to keep in mind when                 Apply a crossfade between clips where a click
+      defining clips:                                         or pop occurs. See “Creating a Crossfade” on
+                                                              page 719 for details.
+        Whenever possible, begin a clip precisely
+      before a volume peak, and end it immediately be-          With Pro Tools Ultimate, use the AutoFade fea-
+      fore another volume peak.                               ture to apply real-time fade-ins/outs to all clip
+                                                              boundaries that do not touch or overlap other clips.
+       Whenever possible, make sure a clip starts and        See “Using AutoFades” on page 720 for details.
+      ends on exactly the same part of a beat.
+        Use the following Pro Tools features to help         Nondestructive Audio Editing
+      you edit rhythmic material or audio with clear tran-
+      sients into precise clips:                              When editing an audio track’s playlist in
+                                                              Pro Tools, you are not actually cutting and moving
+      • Tab to Transients (see “Tabbing to Transients”        pieces of sound as you would if you were cutting
+        on page 681.)                                         and splicing analog tape. Instead, Pro Tools cre-
+      • Editing to a Grid (see “Grid Mode” on page 640)       ates a map of the audio file on your hard disk,
+      • Beat Detective (see Chapter 34, “Beat Detec-          which describes the order in which to play various
+        tive”)                                                portions of the audio.
+
+                                                              When trimming audio clips with any of the Trim
+                                                              tools, or when editing the placement or order of
+                                                              clips within a track, you can use multiple playlists
+                                                              to easily return to a track’s previous state. For more
+                                                              information, see “Playlists” on page 731.
+
+626   Pro Tools Reference Guide

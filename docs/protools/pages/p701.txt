@@ -1,0 +1,36 @@
+Chapter 30: Making Selections
+
+
+Pro Tools provides many tools for selecting            To link or unlink the Timeline and Edit selections,
+material in the Edit window.                           do one of the following:
+
+                                                          Select or deselect Options > Link Timeline and
+                                                           Edit Selection.
+Linking or Unlinking Timeline                              In the Edit window, a MIDI Editor window, or
+and Edit Selections
+                                                       
+
+                                                           the Score Editor window, click the Link Time-
+Pro Tools lets you link or unlink the Timeline and         line and Edit Selection button so it becomes
+Edit selections.                                           highlighted (selected) or unhighlighted (not se-
+                                                           lected). Enabling or disabling the Link Timeline
+When the Timeline and Edit selections are linked,          and Edit Selection button in any editor window
+selecting in a track’s playlist (making an Edit se-        affects all editor windows.
+lection) also defines the play and record range (the
+Timeline selection).
+
+Unlinking Timeline and Edit selections lets you
+make a selection within a track for editing pur-
+poses that is distinct from the selection in the
+Timeline (which determines the playback and re-
+cording range).                                        Link Timeline and Edit Selection button enabled in the
+                                                       Edit window
+
+
+                                                             Press Shift+Forward Slash (/) to toggle Link
+                                                             Timeline and Edit Selection on and off.
+
+
+
+
+                                                                                 Chapter 30: Making Selections   669

@@ -1,0 +1,51 @@
+                                                              AudioSuite TCE Trim Tool
+      Time Compression/
+      Expansion Trim Tool                                     On audio tracks without Elastic Audio enabled, the
+                                                              Time Compression/Expansion Trim tool works by
+      The Time Compression/Expansion Trim tool                using the Time Compression/Expansion (TCE)
+      (TCE Trim) is a convenient tool for matching an         AudioSuite plug-in selected in the Pro Tools Pro-
+      audio clip to the length of another clip, a tempo       cessing preferences to create a new audio file.
+      grid, a video scene, or to practically any other ref-
+      erence point you want.
+                                                              Time Compression/Expansion
+                                                              Plug-In Preferences
+                                                              You can select which AudioSuite plug-in is used
+                                                              for trimming with the TCE Trim tool on non-Elas-
+                                                              tic Audio-enabled audio tracks.
+
+      Time Compression/Expansion Trim tool over a clip        To set the AudioSuite plug-in for use with the TCE
+                                                              Trim tool:
+           The TCE Trim tool unloops and consolidates         1   Choose Setup > Preferences.
+           looped clips.
+                                                              2   Click the Processing tab.
+                                                              3   From the TC/E Plug-In pop-up menu, select the
+           You can match an Edit selection to the length
+                                                                  AudioSuite plug-in to be used with the Time
+           of a Timeline selection by selecting Edit > TCE
+                                                                  Compression/Expansion Trim tool.
+           Edit to Timeline Selection command (see
+           “TCE (Time Compression and Expansion)
+           Edit To Timeline Selection” on page 706.
+
+
+           When using the TCE or Elastic trimmer, hold
+           Control (Mac) or Start (Windows) to con-
+           strain the trim to the edge of adjacent clips.     TC/E Preferences
+
+                                                              4   From the Default Settings pop-up menu, select
+      Elastic Audio TCE Trim Tool                                 the plug-in setting best suited to the material
+      On Elastic Audio-enabled tracks, the TCE tool               you work with most (such as Stereo Mix De-
+                                                                  fault).
+      uses the track’s selected Elastic Audio plug-in
+      (Real-Time or Rendered) to apply Real-Time or           5   Click OK.
+      Rendered Elastic Audio processing. The resulting
+      clip displays a Warp indicator to indicate Elastic            For more information about AudioSuite
+      Audio processing.                                             plug-ins, see Chapter 43, “AudioSuite
+                                                                    Processing.”
+           For information on Elastic Audio plug-ins,
+           see “Elastic Audio Plug-Ins” on page 1019.
+
+
+
+
+654   Pro Tools Reference Guide

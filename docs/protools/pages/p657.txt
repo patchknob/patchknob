@@ -1,0 +1,52 @@
+To show waveforms rectified (or normally):
+
+   Select (or deselect) View > Waveforms >
+    Rectified.
+
+
+
+                                                     Power Waveform view without Outlines
+
+
+
+Rectified Peak Waveform view with Outlines
+
+
+
+
+                                                     Rectified Peak Waveform view without Outlines
+
+
+
+Rectified Power Waveform view with Outlines
+
+
+      When zoomed in to the sample level,
+      Pro Tools always displays waveforms in Nor-    Rectified Power Waveform view without Outlines
+      mal Peak view.
+                                                     Overlapped Crossfades
+Outlined Waveforms
+                                                     Overlapped Crossfades view (View > Waveforms
+Outlined waveforms provide more visual defini-       > Overlapped Crossfades) lets you see the wave-
+tion of the waveform, especially when viewed         forms for both the end of the first clip and the be-
+from a distance. However, you may want to disable    ginning of the second clip within a crossfade. Use
+Outlines when you need to do precise, detailed ed-   this view option to help visually align crossfaded
+iting in Peak waveform view. Outlines are not dis-   audio.
+played when you are zoomed in to the sample
+level.
+
+To show (or hide) waveform outlines:
+
+   Select (or deselect) View > Waveforms >
+                                                     Overlapped Crossfades view
+    Outlines.
+
+
+
+
+Peak Waveform view without Outlines
+
+
+
+
+                                                                                  Chapter 28: Editing Basics   625

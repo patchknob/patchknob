@@ -1,0 +1,48 @@
+      Extending Selections in Time                              To extend the selection to a Marker or Memory
+                                                                Location:
+      You can extend the Edit selection to clip start and
+                                                                1   With Link Timeline and Edit Selection enabled,
+      end points, to include an adjacent clip, to Markers
+                                                                    do one of the following:
+      and Memory Locations (Edit and/or Timeline se-
+      lections).                                                • Click in a track with the Selector tool at the start
+                                                                  or end point.
+      To extend the selection to a clip start or end point:     • Make a selection with the Selector or Time
+      1   With the Selector tool, select a portion of a clip,     Grabber tool.
+          or click anywhere in the clip.
+                                                                2   Do one of the following:
+      2   Do one of the following:                              • Shift-click a Marker in the Markers ruler.
+      • Press Shift+Tab to extend the selection to the          • Shift-click a Memory Location in the Memory
+        clip’s end point.                                         Locations window.
+      • Press Option+Shift+Tab (Mac) or Con-
+        trol+Shift+Tab (Windows) to extend the selec-           The selection is extended from the original Inser-
+        tion to the clip’s start point.                         tion point to the Marker or Memory Location.
+
+      To extend the selection to include an adjacent clip:      Doubling or Halving the Edit
+      1   Select the first clip with the Time Grabber tool.     Selection
+      2   Do one of the following:                              Pro Tools lets you double or halve the current Edit
+                                                                selection. This can be especially useful for music
+      • With Tab to Transients disabled, press Con-
+                                                                production when working with audio loops and
+        trol+Shift+Tab (Mac) or Start+Shift+Tab (Win-
+                                                                MIDI in Grid mode.
+        dows) to extend the selection to the next clip
+        boundary.                                               To double the Edit selection, do one of the
+      • Press Option+Control+Shift+Tab (Mac) or Con-            following:
+        trol+Start+Shift+Tab (Windows) to extend the               Choose Edit > Selection > Double Selection.
+        selection to include the previous clip boundary.
+                                                                   Press Command+Option+Control+Shift+’
+                                                                    (Mac) or Control+Alt+Start+Shift+’
+                                                                    (Windows).
+
+                                                                To halve the Edit selection, do one of the following:
+
+                                                                   Choose Edit > Selection > Halve Selection.
+                                                                   Press Command+Option+Control+Shift+L
+                                                                    (Mac) or Control+Alt+Start+Shift+L
+                                                                    (Windows).
+
+
+
+
+676   Pro Tools Reference Guide

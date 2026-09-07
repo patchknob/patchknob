@@ -1,0 +1,52 @@
+• To add a breakpoint with the Smart Tool, press        While viewing an audio waveform in Pro Tools
+  Command (Mac) or Control (Windows) to tem-            can be helpful in visually finding an edit point,
+  porarily change the cursor from the trimmer to        sometimes a waveform display (because of its
+  the insertion grabber. When this occurs, other        sonic characteristics) may not reveal the desired
+  command key behaviors such a Grid toggle and          spot in the audio material. By scrubbing back and
+  High Resolution editing are superseded by the         forth in Pro Tools, you can listen and locate an ex-
+  insertion operation.                                  act edit point.
+• For Grabber tools, Command (Mac) or Control           When the Edit Insertion Follows Scrub/Shuttle op-
+  (Windows) for the Grabber tool, then click in on      tion is enabled in the Operation Preferences page,
+  the automation line to create breakpoints.            the edit cursor automatically locates to the point
+• To edit existing breakpoints, move the cursor         where scrubbing stops.
+  near a breakpoint for the Grabber tool.
+                                                        When the Scrolling option is set to Continuous
+• To vertically constrain Grabber tool movement,        (Pro Tools Ultimate and Studio only) or Center
+  press Shift.                                          Playhead (Pro Tools Ultimate and Studio only),
+• To vertically constrain Grabber tool movement         clicking with the Scrubber in a track’s playlist cen-
+  with fine control, press Command+Shift (Mac)          ters the Edit window around that point, and moves
+  or Control+Shift (Windows).                           the Playhead there. With these Scrolling options,
+                                                        scrubbed material moves past the Playhead, which
+The Smart Tool with Stereo and                          remains stationary and centered.
+Multichannel Tracks
+                                                        To scrub a single audio track:
+When using the Smart Tool on stereo and multi-
+                                                        1   Select the Scrubber tool.
+channel tracks, individual channels cannot be inde-
+pendently edited. All edits affect all channels as a    2   Drag within the track: left for reverse or right
+whole.                                                      for forward.
+
+Tool switching for the Smart Tool in stereo and
+multichannel tracks is determined by the position
+within the entire track, and not within individual
+channels.
+
+                                                        Scrubbing an audio track with the Scrubber
+
+Using the Scrubber Tool                                 The distance and speed with which you drag (with
+                                                        either the mouse, or the scrub wheel on a control
+The Scrubber tool lets you “scrub” up to two tracks
+                                                        surface) determine the length and speed of the
+of audio in the Edit Window. Scrubbing is a tech-
+                                                        scrubbed audio. Audio from the scrubbed track is
+nique that originated in tape editing, where the tape
+                                                        routed to its output, along with any effects as-
+was rocked back and forth past the playhead at
+                                                        signed to the track.
+slower than normal speeds to find a particular loca-
+tion (usually for cutting and splicing).
+
+
+
+
+                                                                               Chapter 29: Edit Modes and Tools   663

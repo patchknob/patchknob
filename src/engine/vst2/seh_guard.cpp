@@ -43,6 +43,21 @@ thread_local GuardRec* t_guard = nullptr;
 
 // Hardware faults we contain. C++ exceptions (0xE06D7363), breakpoints and
 // anything else CONTINUE_SEARCH so debuggers and normal unwinding still work.
+//
+// The EXCEPTION_FLT_* family is deliberately NOT here. Every one of them is a
+// MASKABLE IEEE condition, and Windows masks all of them for a new thread. So a
+// raised FLT exception never means "the FPU broke": it means somebody
+// deliberately UNMASKED that condition in MXCSR/the x87 control word -- and
+// code that unmasks a trap does it in order to take the trap itself. Containing
+// them stole faults the plugin was going to handle, and worse: denormals and
+// overflows are ordinary results in a reverb tail or a resonant filter, so a
+// plugin that unmasks FLT_DENORMAL_OPERAND or FLT_UNDERFLOW for its own
+// bookkeeping got permanently killed by this guard the first time its DSP
+// produced one. A plugin that unmasks and then does NOT handle is broken, and
+// its own crash is the honest outcome.
+//
+// What stays is the set of genuinely fatal, non-maskable hardware faults: the
+// plugin is already executing nonsense and there is nothing for it to handle.
 bool isHandledFault(DWORD code)
 {
     switch (code)
@@ -55,13 +70,6 @@ bool isHandledFault(DWORD code)
     case EXCEPTION_INT_OVERFLOW:
     case EXCEPTION_ARRAY_BOUNDS_EXCEEDED:
     case EXCEPTION_DATATYPE_MISALIGNMENT:
-    case EXCEPTION_FLT_DIVIDE_BY_ZERO:
-    case EXCEPTION_FLT_INVALID_OPERATION:
-    case EXCEPTION_FLT_DENORMAL_OPERAND:
-    case EXCEPTION_FLT_INEXACT_RESULT:
-    case EXCEPTION_FLT_OVERFLOW:
-    case EXCEPTION_FLT_STACK_CHECK:
-    case EXCEPTION_FLT_UNDERFLOW:
     case EXCEPTION_STACK_OVERFLOW:
     case 0xC0000409u:   // STATUS_STACK_BUFFER_OVERRUN (fail-fast; best effort)
         return true;

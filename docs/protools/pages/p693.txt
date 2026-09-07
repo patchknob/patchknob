@@ -1,0 +1,54 @@
+To select the Smart Tool, click its icon in the upper        For a crossfade, position the cursor between two
+left of the Edit window, or press F6+F7 (or F7+F8)         adjacent audio clips, near the bottom of the clip.
+simultaneously.                                            Once the Crossfade cursor appears drag left or
+                                                           right to set the crossfade length. The crossfade is
+The Smart Tool in Waveform                                 created automatically with the Default Fade Set-
+View (Audio) or Clips View                                 tings (in the Editing Preferences page).
+(MIDI)                                                       To adjust a fade-in, fade-out, or crossfade (if
+                                                           present), position the cursor over the fade in the
+           Fade In    Selector tool     Fade Out
+                                                           vertical middle of the clip. Once the corresponding
+                                                           Fade or Crossfade cursor appears, drag to the left
+                                                           or right to adjust fade shape.
+  Trim                                              Trim
+  tool                                              tool
+ (start)                                           (end)
+                                                                To temporarily switch the Smart Tool to the
+                                                                Scrubber, place the cursor over the clip so
+                                                                that the Selector tool is enabled, then press
+            Adjust Fade               Crossfade                 Control (Mac) or Start (Windows).
+            (if present)
+                           Grabber tool
+
+                                                           The Smart Tool in Warp View
+Smart Tool in Waveform view
+                                                                   Trim                               Trim
+                                                                   tool       Selector tool           tool
+The following capabilities are available with the                 (start)                            (end)
+Smart Tool when working with audio tracks in
+Waveform or Blocks view, or MIDI or Instrument
+tracks in Clips view:
+  For the Selector tool, position the cursor over
+the middle of the clip, in the upper half of the clip.
+  For the Grabber tool, position the cursor over                             Grabber tool
+the middle of a clip, in the lower half of the clip.
+                                                           Smart Tool in Warp view
+  For the Trim tool, position the cursor near the
+                                                           The following capabilities are available with the
+clip’s start or end point.
+                                                           Smart Tool when working with Elastic Audio-en-
+  For a fade-in or fade-out, position the cursor          abled audio tracks in Warp view, or MIDI or In-
+near an audio clip’s start or end point, near the top      strument tracks in Clips view:
+of the clip. Once the Fade cursor appears, drag into
+                                                             For the Selector tool, position the cursor over
+the clip to set the fade length. The fade is created
+                                                           the middle of the clip, in the upper half of the clip.
+automatically with the Default Fade Settings (in
+the Editing Preferences page).                               For the Grabber tool, position the cursor over
+                                                           the middle of a clip, in the lower half of the clip,
+                                                           but not over an Event marker or Warp marker.
+
+
+
+
+                                                                                  Chapter 29: Edit Modes and Tools   661

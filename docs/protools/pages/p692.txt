@@ -1,0 +1,50 @@
+      Making a Timeline Selection                           Object Grabber Lets you select multiple, noncon-
+      with the Selector Tool                                tiguous clips. For more information, see “Object
+                                                            Selections” on page 673.
+      To make a Timeline selection with the Selector
+      tool:
+
+      1   Select the Selector tool in the Edit window.
+      2   Do one of the following:
+                                                            Object Grabber tool
+      • Drag on a Timebase ruler.
+      • If Link Timeline and Edit Selection is enabled,     To select one of the Grabber tools, do one of the
+                                                            following:
+        drag in a track.
+                                                               Click the Grabber tool in the Edit window and
+                                                                select the Grabber tool from the pop-up menu.
+      Using the Grabber Tools
+      Use the Grabber tools to select, move, separate,
+      and arrange clips on tracks. There are three modes
+      for the Grabber tool: Time Grabber, Separation
+      Grabber, and Object Grabber. For more informa-
+      tion about arranging clips, also see Chapter 41,
+      “Arranging Clips.”
+
+      Time Grabber Selects an entire clip on a track with
+      a single click. For more information on selecting
+      clips, see “Selecting Track Material” on page 671.    Selecting a Grabber tool
+
+                                                               Right-click on any track and select the Grabber
+                                                                tool from Tools > Grabber Tools.
+
+
+      Time Grabber tool
+                                                            Using the Smart Tool
+      Separation Grabber Cuts and pastes an Edit selec-
+      tion from one location to another by dragging. For    With the Smart Tool, you can instantly access the
+      more information, see “Separation Grabber Tool”       Selector, Grabber, and Trim tools, and you can
+      on page 695.                                          also apply and adjust fades and crossfades. The po-
+                                                            sition of the cursor in relation to a clip or note, or
+                                                            within an automation playlist, determines how the
+                                                            Smart Tool functions.
+
+
+      Separation Grabber tool
+
+
+
+                                                            Smart Tool enabled in the Edit window
+
+
+660   Pro Tools Reference Guide

@@ -1,0 +1,39 @@
+      Nondestructive MIDI Editing
+                                                                Naming Clips
+      While editing audio clips is usually nondestruc-
+      tive, this is generally not the case for MIDI clips.      You can rename clips to give them more descrip-
+      For instance, if a MIDI clip resides in just one track    tive names, or to simplify existing names. When
+      at a single location, editing for that clip is destruc-   renaming a clip that was auto-created during edit-
+      tive. This means that altering the pitch, duration, or    ing, the clip becomes a user-defined clip and is dis-
+      placement of notes in Notes view permanently al-          played in the Clips List even when auto-created
+      ters the clip.                                            clips are hidden.
+
+      However, if the Mirror MIDI Editing option is dis-              For more information, see “Renaming
+      abled, when editing a MIDI clip that appears else-              Clips” on page 336.
+      where in the session (either on the same track at an-
+                                                                To rename a clip on a track:
+      other location or in a different playlist, or in
+      another track), editing is nondestructive and cre-        1   Do one of the following:
+      ates a new auto-created clip. To go back to the pre-      • Select the clip you want to rename and then
+      vious material, drag the original clip from the Clips       choose Clip > Rename.
+      List, or return to a previously saved playlist.
+                                                                • With any of the Edit tools, Right-click the clip
+           One way to safely return to a track’s previous         that you want to rename and select Rename
+           state is with playlists. Before you edit notes,        from the pop-up menu.
+           trim clips, or rearrange the order of clips,         • Press Command+Shift+R (Mac) or Con-
+           make a duplicate of the track’s existing play-         trol+Shift+R (Windows).
+           list and then edit the duplicate (see “Play-         • With the Grabber tool, double-click the clip you
+           lists” on page 731).                                   want to rename. For MIDI clips, the Name Dia-
+                                                                  log option must be selected as the Double-Click-
+           To apply edits to all instances of a MIDI clip,        ing a MIDI Clip Opens setting in the MIDI
+           enable Mirrored MIDI Editing mode (see                 Preferences.
+           “Mirrored MIDI Editing” on page 787).                2   In the Name dialog, type a new name for the
+                                                                    clip. If a whole-file audio clip was selected,
+                                                                    specify whether to rename just the clip, or both
+                                                                    the clip and the disk file.
+                                                                3   Click OK to rename the clip.
+
+
+
+
+630   Pro Tools Reference Guide

@@ -1,0 +1,54 @@
+Duplicating and Extending the                         Using the Edit Selection
+Edit Selection                                        Indicators (Start, End, and
+                                                      Length)
+Pro Tools lets you Duplicate and Extend the Edit
+selection. This can be especially useful for music    The Edit Selection indicators at the top of the Edit
+production when working with audio loops and          window can define precise Edit selections. Time
+MIDI in Grid mode.                                    values for the Edit Selection indicators use the
+                                                      time format for the Main Time Scale.
+To duplicate and extend the Edit selection, do one
+of the following:
+
+   Choose Edit > Selection > Duplicate and Extend
+    Selection.
+                                                      Edit Selection indicators
+   Press Command+Option+Control+Shift+D
+    (Mac) or Control+Alt+Start+Shift+D                To make a selection with the Edit Selection
+                                                      indicators:
+    (Windows).
+                                                      1   Click with the Selector tool in the track you
+Any track content in the Edit selection is dupli-         want to select.
+cated and the selection extends from the original
+start time to the end of the duplicate.               2   Click in the Start field at the top of the Edit win-
+                                                          dow.
+
+Moving the Edit Selection in                          3   Type in the start point for the selection and press
+Time                                                      the Forward Slash key (/) to enter the value and
+                                                          automatically move to the end field.
+Pro Tools lets you move the Edit selection earlier
+or later by the selection amount. You can also        4   Type in the end point for the selection and press
+move the Edit selection to the next track above or        Enter to accept the value.
+below the current Edit selection.
+                                                      Numeric Entry Shortcuts for Selection
+To move the Edit selection earlier by the selection   Indicators
+amount, do one of the following:
+                                                      You can use the following shortcuts for entering
+   Choose Edit > Selection > Move Edit Left.         values in the Edit Selection indicators:
+   Press Command+Option+Control+L (Mac) or           • Press the Forward Slash (/) key to cycle through
+    Control+Alt+Start+L (Windows).                      the three Edit Selection indicators.
+                                                      • Use Period (.) or the Left and Right Arrow keys
+To move the Edit selection later by the selection
+amount, do one of the following:
+                                                        to move through the different time fields in each
+                                                        Edit Selection indicator.
+   Choose Edit > Selection > Move Edit Right.
+                                                      • Press the Up or Down Arrow keys to increase or
+   Press Command+Option+Control+’ (Mac) or             decrease numerical values.
+    Control+Alt+Start+’ (Windows).
+                                                      • Move the mouse scroll wheel up or down to in-
+                                                        crease or decrease numerical values.
+
+
+
+
+                                                                                  Chapter 30: Making Selections   677

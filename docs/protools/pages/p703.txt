@@ -1,0 +1,48 @@
+Linking or Unlinking Track                              Selecting Track Material
+and Edit Selections
+                                                        Before audio and MIDI material can be edited, it
+Pro Tools lets you link or unlink Track selection       must first be selected. The Track View determines
+with Edit selections.                                   how the material is viewed and selected.
+
+When Track and Edit selections are linked, you          When you make a selection, it appears as a high-
+can make a selection within a track or across mul-      lighted area of the tracks, and is also indicated by
+tiple tracks for editing and each associated track is   blue start and end arrows (Timeline Selection
+selected (track names automatically highlight).         Markers) in the Main Timebase ruler. If any track
+This lets you quickly apply track-level commands        (audio or MIDI) in the session is record-enabled,
+(such as Track View toggle, change track heights)       even if it is hidden, these markers appear red.
+and have the command apply to all tracks you are
+working on.
+
+When Track and Edit selections are unlinked,
+making an Edit selection does not automatically
+select all associated tracks.
+
+To link or unlink Track and Edit selection, do one of
+the following:
+
+   Select or deselect Options > Link Track and Edit    Timeline Selection Markers indicating Edit selection
+    Selection.
+                                                        If the Timeline and Edit selections are unlinked,
+   In the upper left of the Edit window, under the     the Edit selection range is indicated by Edit Mark-
+    Edit tools, click the Link Track and Edit Selec-    ers in the Main Timebase ruler. See “Linking or
+    tion button so it becomes highlighted (selected)    Unlinking Timeline and Edit Selections” on
+    or unhighlighted (not selected).                    page 669 for details.
+
+                                                        Selections and Edit Groups
+
+                                                        When making selections on tracks that are part of
+                                                        an Edit Group, all tracks within the group become
+                                                        selected.
+
+Link Track and Edit Selection enabled                   Selections and Hidden Tracks
+
+                                                        When editing tracks that are part of an active Edit
+      Press Shift+T to toggle Link Track and Edit       Group, any tracks within the group that are hidden
+      Selection on and off.                             are not affected by the edits. To edit all members of
+                                                        a group, make sure they are visible by highlighting
+                                                        their names in the Tracks List.
+
+
+
+
+                                                                                  Chapter 30: Making Selections   671

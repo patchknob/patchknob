@@ -1,0 +1,54 @@
+      Preparing Tracks for                                      Using the Prepare DPE Tracks
+      DestructivePunch Recording                                Command
+
+      In order for a track to be enabled for Destructive-       To prepare a track for DestructivePunch
+      Punch recording, the track must contain a contigu-        recording:
+      ous audio file that meets the following require-          1   Enable DestructivePunch mode (“Enabling De-
+      ments:                                                        structivePunch Mode” on page 611).
+      • The file must start at the beginning (sample 0) of
+                                                                2   Make sure the tracks you want to prepare are
+        the session.
+                                                                    DestructivePunch-enabled (see “Destructive-
+      • The File Length must be equal to or greater than            Punch Enabling Tracks without Record En-
+        the DestructivePunch File Length setting (see               abling Them” on page 613).
+        “DestructivePunch File Length” on page 612).
+                                                                3   Choose Options > Prepare DPE Tracks.
+      If a track does not contain a file that meets these re-
+      quirements, you can do any of the following to            Pro Tools consolidates audio on all Destructive-
+      meet the requirements:                                    Punch-enabled tracks from the beginning of the
+                                                                session to the value specified in the Destructive-
+      • Move the current file in the track Timeline so          Punch File Length preference.
+        that its beginning aligns with the session start.
+      • Use the Consolidate command to create a con-                  For clips with any clip gain settings other
+        tinuous file of the required length.                          than 0 dB, the Prepare DPE Tracks com-
+                                                                      mand automatically renders all clip gain and
+      • Change the DestructivePunch File Length set-
+                                                                      resets all clip gain to 0 dB.
+        ting so that the current file is equal to or greater
+        than the required length.
+                                                                Enabling Tracks for
+      • Use the Prepare DPE Tracks command to con-              DestructivePunch Recording
+        solidate audio on all DestructivePunch-enabled
+                                                                You can enable tracks for DestructivePunch with-
+        tracks. (See “Using the Prepare DPE Tracks
+                                                                out record enabling them. This lets you punch in on
+        Command” on page 612.)
+                                                                individual tracks at any time after starting play-
+      DestructivePunch File Length                              back by clicking their respective Record Enable
+                                                                buttons.
+      To use DestructivePunch on an audio track, the
+      track must contain a contiguous audio file of a           You can also simultaneously DestructivePunch en-
+      minimum length, which is set in the Pro Tools Op-         able tracks and record enable them. This lets re-
+      eration preferences page.                                 cording begin as soon as the transport is record-
+                                                                armed and playback begins. (See “Destructive-
+      To set DestructivePunch File Length:                      Punch-Enabling and Record-Enabling Tracks Si-
+                                                                multaneously” on page 613.)
+      1   Choose Setup > Preferences and click the
+          Operation tab.
+
+      2   Type a value for DestructivePunch File Length.
+      3   Click OK.
+
+
+
+612   Pro Tools Reference Guide

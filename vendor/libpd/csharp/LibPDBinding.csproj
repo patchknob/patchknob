@@ -1,0 +1,101 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <ProjectGuid>{C452F742-2653-4403-817B-136545EB5F1F}</ProjectGuid>
+	<TargetFrameworks>netstandard2.0;net4.8</TargetFrameworks>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <GeneratePackageOnBuild>False</GeneratePackageOnBuild>
+	<PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/libpd/libpd</RepositoryUrl>
+    <PackageReleaseNotes>- Bugfix for correct activation of instance- Add .NET Standard support</PackageReleaseNotes>
+    <PackageLicenseExpression> BSD-3-Clause</PackageLicenseExpression>
+    <Title> LibPD for .NET and Mono</Title>
+	<FileVersion>0.15.0</FileVersion>
+        <Copyright>Copyright 2012-2025, BSD License</Copyright>
+        <Product>LibPDBinding</Product>
+		<AssemblyTitle>LibPDBinding</AssemblyTitle>
+        <Version>0.15.0</Version>
+        <PackageTags>C# .NET Mono audio sound</PackageTags>
+        <PackageProjectUrl>https://github.com/libpd/libpd</PackageProjectUrl>
+        <Description>Pure Data as an embeddable audio synthesis library.</Description>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|netstandard2.0|AnyCPU'">
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|netstandard2.0|AnyCPU'">
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Update="libpdcsharp.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="libwinpthread-1.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
+  
+  <ItemGroup>
+    <Content Include="$(MSBuildProjectDirectory)/runtimes/win-x64/native/libpdcsharp.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <Link>runtimes\win-x64\native\libpdcsharp.dll</Link>
+      <Pack>true</Pack>
+      <PackagePath>runtimes\win-x64\native</PackagePath>
+    </Content>
+    <Content Include="$(MSBuildProjectDirectory)/runtimes/win-x64/native/libwinpthread-1.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <Link>runtimes\win-x64\native\libwinpthread-1.dll</Link>
+      <Pack>true</Pack>
+      <PackagePath>runtimes\win-x64\native</PackagePath>
+    </Content>
+	
+    <Content Include="$(MSBuildProjectDirectory)/runtimes/win-x86/native/libpdcsharp.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <Link>runtimes\win-x86\native\libpdcsharp.dll</Link>
+      <Pack>true</Pack>
+      <PackagePath>runtimes\win-x86\native</PackagePath>
+    </Content>
+    <Content Include="$(MSBuildProjectDirectory)/runtimes/win-x64/native/libwinpthread-1.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <Link>runtimes\win-x86\native\libwinpthread-1.dll</Link>
+      <Pack>true</Pack>
+      <PackagePath>runtimes\win-x86\native</PackagePath>
+    </Content>  
+    <Content Include="$(MSBuildProjectDirectory)/runtimes/linux-x64/native/libpdcsharp.so">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <Link>runtimes\linux-x64\native\libpdcsharp.so</Link>
+      <Pack>true</Pack>
+      <PackagePath>runtimes\linux-x64\native</PackagePath>
+    </Content>
+    <Content Include="$(MSBuildProjectDirectory)/runtimes/linux-x86/native/libpdcsharp.so">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <Link>runtimes\linux-x86\native\libpdcsharp.so</Link>
+      <Pack>true</Pack>
+      <PackagePath>runtimes\linux-x86\native</PackagePath>
+    </Content>
+    <Content Include="$(MSBuildProjectDirectory)/runtimes/linux-arm/native/libpdcsharp.so">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <Link>runtimes\linux-arm\native\libpdcsharp.so</Link>
+      <Pack>true</Pack>
+      <PackagePath>runtimes\linux-arm\native</PackagePath>
+    </Content>
+    <Content Include="$(MSBuildProjectDirectory)/runtimes/linux-arm64/native/libpdcsharp.so">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <Link>runtimes\linux-arm64\native\libpdcsharp.so</Link>
+      <Pack>true</Pack>
+      <PackagePath>runtimes\linux-arm64\native</PackagePath>
+    </Content>
+  </ItemGroup>
+   <ItemGroup>
+    <Content Include="LibPDBinding.targets">
+      <Pack>true</Pack>
+      <PackagePath>build</PackagePath>
+    </Content>
+  </ItemGroup>  
+</Project>

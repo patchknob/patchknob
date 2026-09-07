@@ -94,8 +94,15 @@ struct AudioHostApiInfo {
 //----------------------------------------------------------------------------
 class AudioEngine {
 public:
+    //! `in` is the device CAPTURE buffer (paNonInterleaved, so one pointer per
+    //! channel) or nullptr when the stream has no input.  It was absent
+    //! entirely: the stream was opened output-only, which left every audio-input
+    //! path in the app -- the patcher's Audio In node, input recording -- wired
+    //! to nothing.
     using RenderCallback =
-        std::function<void(float** out, int numChannels, int nframes, double sampleRate)>;
+        std::function<void(const float* const* in, int numInputChannels,
+                           float** out, int numChannels, int nframes,
+                           double sampleRate)>;
 
     AudioEngine();
     ~AudioEngine();
@@ -119,7 +126,15 @@ public:
     unsigned int defaultOutputDeviceId();
     //! Select the device by id (PaDeviceIndex+1).  0 == use the host-API default.
     void selectDevice(unsigned int deviceId);
+    void selectInputDevice(unsigned int deviceId) { selectedInputDeviceId_ = deviceId; }
+    //! How many capture channels to request when opening.  0 disables input.
+    //! Opening is best-effort: if the device cannot do duplex the stream still
+    //! opens output-only rather than failing, so input support can never cost
+    //! you playback.
+    void setInputChannels(unsigned int n) { wantInputChannels_ = n; }
+    unsigned int inputChannels() const { return numInputChannels_; }
     unsigned int selectedDeviceId() const { return selectedDeviceId_; }
+    unsigned int selectedInputDeviceId() const { return selectedInputDeviceId_; }
 
     // --- buffer size (latency) -----------------------------------------------
     //! Requested frames/block for the next open().  0 == let PortAudio choose.
@@ -172,8 +187,11 @@ public:
     const std::string& lastError() const { return lastError_; }
 
     // Called by the file-static PortAudio trampolines; not for external use.
-    int  render_into(void* output, unsigned long nFrames, unsigned long statusFlags);
+    int  render_into(const void* input, void* output, unsigned long nFrames, unsigned long statusFlags);
     void stream_finished();
+#ifdef __ANDROID__
+    void* androidStream() const;
+#endif
 
 private:
     bool ensureInit();
@@ -195,9 +213,12 @@ private:
 
     int          hostApi_       = -1;        // PaHostApiIndex, -1 == default
     unsigned int selectedDeviceId_ = 0;      // PaDeviceIndex+1, 0 == default
+    unsigned int selectedInputDeviceId_ = 0; // PaDeviceIndex+1, 0 == default
     unsigned int sampleRate_    = 48000;
     unsigned int blockSize_     = 512;       // granted frames/block
     unsigned int numChannels_   = 2;
+    unsigned int wantInputChannels_ = 2;   // requested
+    unsigned int numInputChannels_  = 0;   // actually opened
     unsigned int bufferFrames_  = 512;       // requested frames/block (0 = auto)
 
     std::atomic<float> masterPeak_{0.0f};

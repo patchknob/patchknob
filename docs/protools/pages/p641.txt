@@ -1,0 +1,48 @@
+                                                         2   Control-click (Mac) or Start-click (Windows)
+                                                             the Record Enable button for each track you
+                                                             want to punch in, so that the track is Track-
+                                                             Punch-enabled only. The track’s Record Enable
+                                                             button should light solid blue.
+
+Red (not flashing) indicates recording (all modes)       3   Click Record in the Transport to enter the
+                                                             TrackPunch Record Ready mode. The Record
+Monitoring and Levels                                        button flashes blue and red.
+
+To complete the setup for TrackPunch:                    4   Click Play in the Transport to begin playback.
+
+1   Configure monitoring for record-enabled tracks       5   During playback, punch in and out on individ-
+    by selecting a mode from the Track menu, or us-          ual TrackPunch-enabled tracks by clicking their
+    ing the TrackInput button, as appropriate.               respective Record Enable buttons.
+    Choices include:                                     6   While continuing local or remote playback, do
+    • Set Record Tracks to Auto Input                        any of the following:
+    • Set Record Tracks to Input Only                        • Punch in on other TrackPunch enabled tracks
+                                                               individually.
+Selecting either monitoring mode only affects
+tracks that are record-enabled.                              • After punching out, take tracks out of record
+                                                               enable then record enable different Track-
+2   Start playback and compare levels of the input             Punch enabled tracks.
+    source with audio on disk. Click the TrackInput          • Repeat as needed to punch other stems,
+    button to toggle the track source. When lit                tracks, or takes.
+    (green), the track is monitoring input. When un-
+    lit (gray), the track is monitoring from disk (see   7   Stop playback. When you are finished with the
+    “Selecting Record Monitor Modes with Track-              record pass, track Record Enable status and
+    Input Monitoring” on page 554).                          transport Record Arm status follow the current
+                                                             Audio Track RecordLock and Transport Record-
+3   When you are satisfied with your levels, you are         Lock preference settings.
+    ready to start punch recording.
+                                                         After a TrackPunch recording pass, the punched
+                                                         track’s playlist in the Edit window displays the
+Using TrackPunch                                         clips created by punching. You can use any of the
+                                                         Trim tools after punch recording to open up the
+After you have configured Pro Tools, tracks, and         head or tail of TrackPunch recorded clips, or to re-
+levels, you can record with TrackPunch in several        veal the parent audio file that was recorded in the
+ways.                                                    background. This lets you compensate for any late
+                                                         or missed punches.
+Punching In on Individual Tracks
+                                                         For information on file and clip naming, see “Au-
+To punch in on individual tracks:                        dio Files, Clips and Takes” on page 603.
+1   Make sure Pro Tools is in TrackPunch mode.
+
+
+
+                                                                             Chapter 27: Punch Recording Modes   609

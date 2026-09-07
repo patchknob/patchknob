@@ -1,0 +1,49 @@
+      The Compact command can pad the clips of the
+      compacted file by a selectable amount. If clips in       TCE (Time Compression and
+      your session use crossfades, or if you want to pad       Expansion) Edit To Timeline
+      the clips for the sake of any future trimming, you       Selection
+      should enter an appropriate amount of padding (in        (Pro Tools Ultimate Software Only)
+      milliseconds).
+                                                               When the Edit and Timeline selections are un-
+            The Compact command is destructive and             linked, you can compress or expand an audio se-
+            cannot be undone. It permanently alters the        lection to fit the Timeline selection. On audio
+            original audio files. There is no way to           tracks, TCE Edit to Timeline Selection uses the
+            recover data deleted by this command.              TCE AudioSuite Plug-In selected in the Process-
+                                                               ing preferences (see “Processing Preferences” on
+      To compact an audio file:                                page 137).
+      1   In the Clips List, select the clip or clips you
+                                                                     TCE Edit To Timeline Selection is not available
+          want to compact.
+                                                                     on Elastic Audio and Melodyne–enabled tracks.
+      2   From the Clips List menu, choose Compact.
+                                                               To fit an Edit selection to the Timeline:
+      3   Enter the amount of padding in milliseconds
+                                                               1   Deselect Options > Link Timeline and Edit
+          that you want for each clip in the file.
+                                                                   Selection.
+      4   Click Compact to compact the file or Cancel to
+                                                               2   With the Selector tool, select the audio material
+          cancel the command.
+                                                                   to be compressed or expanded.
+      Once the Compact command has been completed,             3   In any Timebase ruler, select the time range
+      the session is saved automatically.                          where you want to fit the audio material.
+                                                               4   Choose Edit > TCE Edit to Timeline Selection.
+      Processing Audio with                                        The Edit selection is compressed or expanded to
+      AudioSuite Plug-Ins                                          the length of the Timeline selection.
+
+      The AudioSuite plug-ins included with your
+                                                               TCE Edit to Timeline Selection
+      Pro Tools system can be used to process and mod-         on Multiple Tracks and Channels
+      ify audio clips or even entire audio files. Do this in
+      order to apply a specific AudioSuite process (such       The TCE Edit to Timeline command can be used on
+      as Normalization or DC Offset Removal) to any            multichannel selections, and selections across
+      number of audio clips in your session.                   multiple tracks. All clips are compressed or ex-
+                                                               panded equally by the same percentage value,
+            For more information about AudioSuite              based on Edit selection range. This ensures that the
+            plug-ins, see Chapter 43, “AudioSuite Pro-         rhythmic relationship between the different chan-
+            cessing.”                                          nels or tracks is maintained.
+
+
+
+
+706   Pro Tools Reference Guide

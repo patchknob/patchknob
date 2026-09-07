@@ -1,0 +1,46 @@
+      This action creates a new clip. Note that the Scrub
+      Trim tool changes into a “right trim” or “left trim”     Loop Trim Tool
+      shape as it is placed over the right or left side of a   Use the Loop Trim tool to create or trim looped
+      clip. To reverse the direction of the Scrub Trim         clips (see “Clip Looping” on page 959).
+      tool, press Option (Mac) or Alt (Windows) before
+      you click the clip.
+
+
+
+                                                               Loop Trim tool
+
+                                                               Creating Loops with the Loop
+      Scrub Trim tool over a clip                              Trim Tool
+      Scrub playback speed and direction vary with con-        To create loop clips using the Loop Trim tool:
+      troller movement. Scrubbed audio is routed               1   Do one of the following:
+      through the track signal path, so you hear any ef-
+                                                               • Click the Trim tool pop-up menu and select
+      fects in the signal path.
+                                                                 Loop.
+      To scrub trim a track:                                   • Right-click on any track and select Tools >
+      1   Do one of the following:                               Trim Tools > Loop.
+
+      • Click the Trim tool pop-up menu and select             2   Position the cursor over the top half of an un-
+        Scrub.                                                     looped audio or MIDI clip, or clip group. The
+                                                                   cursor changes to indicate that you can loop
+      • Right-click on any track and select Tools >
+                                                                   trim the clip. (Positioning the cursor over the
+        Trim Tools > Scrub.
+                                                                   bottom half of the clip results in the Standard
+      The tool changes to a speaker with a bracket.                Trim cursor.)
+
+      2   Drag within a track to the left or right. Audio
+          from a scrubbed track is routed through the
+          track signal path, including any DSP effects.
+          When you locate the trim point, release the
+          mouse button to trim the clip.
+      • To scrub trim two tracks, drag with the Scrub          Loop Trim cursor
+        Trim tool between two adjacent tracks.
+      • To scrub with finer resolution (without having to
+        zoom in), press Command (Mac) or Control
+        (Windows) while scrubbing.
+
+
+
+
+656   Pro Tools Reference Guide

@@ -1,0 +1,55 @@
+      With MIDI and Instrument tracks when Tab to               Tab to Transients Across Multiple
+      Transients is enabled, pressing Tab moves the Edit        Tracks
+      insertion to the beginning of the next note or clip
+                                                                With the edit cursor inserted across multiple
+      boundary regardless of the track view (just like
+                                                                tracks, you can use Tab to Transients to tab to the
+      with audio transients), but does not make note se-
+                                                                next transient on any of those tracks. When tran-
+      lections.
+                                                                sients on multiple tracks are closely aligned, Tab to
+            For more information, see “Keyboard Short-          Transients tabs to the first transient on any of those
+            cuts for Navigating MIDI” on page 807.              tracks.
+
+      To set the start and end points of a selection with
+      Tab to Transients:
+                                                                Timeline Selections
+      1   In the upper left of the Edit window, click the
+          Tab to Transients button so it becomes selected.      With the Link Timeline and Edit Selection option
+                                                                disabled, selections can be made in the Timeline
+      2   If you will be setting the play range with this se-   that are distinct and separate from Edit selections.
+          lection, enable Options > Link Timeline and Edit
+          Selection.                                            With the Timeline and Edit selections linked, any
+                                                                Edit selections that are made are mirrored in the
+      3   Click in the audio track just before the begin-       Timeline, and any Timeline selection is mirrored
+          ning of the material you want to select.              as an Edit selection across all tracks.
+      4   Press Tab repeatedly until the cursor locates to
+                                                                Whether the Timeline and Edit selections are
+          the transient where you want to start the selec-
+                                                                linked or not, the range indicated by the Timeline
+          tion.
+                                                                Selection Markers always determines the range for
+      If necessary, you can move to the previous tran-          playback and recording (except when in Dynamic
+      sient by pressing Option+Tab (Mac) or Con-                Transport mode, see “Dynamic Transport Mode”
+      trol+Tab (Windows).                                       on page 523).
+
+      5   Press Shift+Tab until the cursor locates to the       With Pro Tools Ultimate or Studio, when the
+          end of the material you want to select.               Scrolling option is set to Center Playhead, it deter-
+                                                                mines where playback begins (see “Playing Time-
+      To move the selection end point to the previous           line and Edit Selections with the Playhead” on
+      transient, press Option+Shift+Tab (Mac) or Con-           page 521).
+      trol+Shift+Tab (Windows).
+
+      Once selected, the material can be looped for re-
+      cording or playback, or it can be turned into a new
+      clip with the Separate or Capture command.
+
+            Peak transients are usually visible in the
+            waveform. However, some low-frequency
+            transients may not appear as visible peaks in
+            the waveform.
+
+
+
+
+682   Pro Tools Reference Guide

@@ -1,0 +1,51 @@
+Trim Clip to File Commands                                 Trimming with Nudge
+There are three Trim Clip to File commands that let        You can trim the start and end points of clips (or
+you trim a clip to the end of the file, the beginning      MIDI notes) by the current Nudge value.
+of a file, or both. However, clips trimmed to file
+boundaries do not overlap other clips on the same          To trim a clip’s start or end point by the Nudge
+track. Instead, the selected clip is trimmed out only      value:
+
+to the next or previous clip boundary depending on         1   Configure the Nudge value (see “Defining the
+which command you use.                                         Nudge Value” on page 700).
+
+To trim out the selected audio clip to the start of
+                                                           2   With the Time Grabber tool, select the clip you
+the referenced file:                                           want to trim.
+1   Select the entire clip.                                3   Do one of the following:
+2   Choose Edit > Trim Clip > To File Start.               • While pressing Option (Mac) or Alt (Windows),
+                                                             press Plus (+) or Minus (–) on the numeric key-
+      To trim the selected clip to the file start, press     pad to trim the clip’s start point by the Nudge
+      Command+Control+R (Mac) or Con-                        value.
+      trol+Start+R.
+                                                           • While pressing Command (Mac) or Control
+To trim out the selected audio clip to the end of the        (Windows), press Plus (+) or Minus (–) on the
+referenced file:                                             numeric keypad to trim the clip’s end point by
+                                                             the Nudge value.
+1   Select the entire clip.
+2   Choose Edit > Trim Clip > To File End.
+
+      To trim the selected clip to the file end, press
+                                                           Nudging Clips
+      Command+Control+Y (Mac) or Con-                      Pro Tools can nudge clips (or MIDI notes) by pre-
+      trol+Start+Y.                                        cise increments with the Plus (+) and Minus (–)
+                                                           keys on the numeric keypad. The amount of the
+To trim out the selected audio clip to the start and
+                                                           nudge is determined by the value specified in the
+end of the referenced file:
+                                                           Nudge Value pop-up menu. The Nudge function
+1   Select the entire clip.                                can be used in any of the Edit modes.
+2   Choose Edit > Trim Clip > To File Boundaries.
+                                                           Nudging can be invaluable for adjusting the
+      To trim the selected clip to both the beginning      “groove” of a musical phrase or a sound effect rel-
+      and end of the file, press Command+Con-              ative to other elements in the session. Since
+      trol+T (Mac) or Control+Start+T.                     Pro Tools can nudge material during playback,
+                                                           you can nudge continuously in real time to adjust
+                                                           the timing relationship between tracks.
+
+                                                           Nudge can also be used to adjust the placement of
+                                                           automation breakpoints. For more information, see
+                                                           “Editing Automation” on page 1216.
+
+
+
+                                                                            Chapter 31: Editing Clips and Selections   699

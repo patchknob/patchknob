@@ -1,0 +1,49 @@
+Chapter 29: Edit Modes and Tools
+
+
+Pro Tools provides four Edit modes and various           then “shuffle” their order, but you cannot separate
+Edit tools to help you successfully edit material.       them from each other and you cannot make them
+                                                         overlap as in Slip mode. However, if there is si-
+                                                         lence between existing clips, and the clips are shuf-
+Edit Modes                                               fled, the silence is maintained, and not removed.
+
+Pro Tools has four Edit modes: Shuffle, Spot, Slip,      In Shuffle mode, adding another clip to the begin-
+and Grid. Grid mode provides two modes of oper-          ning of a track moves all subsequent clips to the
+ation, Relative and Absolute, explained below.           right (later in time) by the length of the added clip.
+The Edit mode is selected by clicking the corre-
+                                                         When using any of the Trim tools in Shuffle mode,
+sponding button in the upper left of the Edit win-
+                                                         changing a clip’s start or end point automatically
+dow.
+                                                         moves any subsequent clips as necessary. The
+                                                         placement and insertion of MIDI notes is not af-
+                                                         fected by Shuffle mode.
+
+                                                              Press F1 to enable Shuffle mode.
+
+Edit mode buttons
+                                                         Shuffle Lock
+The Edit mode affects the movement and place-
+                                                         With certain workflows, it is important to exclude
+ment of audio and MIDI clips (and MIDI notes),
+                                                         Shuffle mode in order to ensure that clips stay
+how commands like Copy and Paste function, and
+                                                         time-aligned while editing. Shuffle Lock prevents
+also how the various Edit tools (Trim, Selector,
+                                                         you from inadvertently entering Shuffle mode by
+Grabber, and Pencil tools) work.
+                                                         disabling all key commands and control surface
+     Use the Accent key ( ` ) to toggle through the      switches for Shuffle mode. You cannot invoke
+     Edit modes.                                         Shuffle Lock while in Shuffle mode.
+
+
+
+Shuffle Mode
+In Shuffle mode, you can move, trim, delete, cut,
+or paste clips freely within a track or to other         Shuffle Lock enabled
+tracks, but their movement is constrained by other
+clips. That is, if you place several clips in a track,
+they automatically snap to each other. You can
+
+
+                                                                                Chapter 29: Edit Modes and Tools   639

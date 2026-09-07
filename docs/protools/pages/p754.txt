@@ -1,0 +1,48 @@
+      5   Select the placement of the Fades: Pre-Splice,      3   In the Fade (or Crossfade) window, click on the
+          Centered, or Post-Splice (see “About Cross-             fade shape and drag to the left or the right until
+          fades and Curves” on page 709).                         you get the fade shape you want.
+      6   Enter a length in milliseconds for Fade In,
+          Crossfades, and Fade Out.
+      7   Click OK.
+
+      Pro Tools creates the fades and crossfades for all
+      selected clips.
+
+            Fade lengths can subsequently be resized          Manually adjusting the fade shape
+            with any of the Trim tools, including
+            Nudge Trim commands. See “Using the
+                                                                    For Crossfades, you can edit only the fade-in
+            Trim Tools” on page 652 and “Trimming
+                                                                    shape of the curve by pressing Option (Mac)
+            with Nudge” on page 699.
+                                                                    or Alt (Windows) while dragging left or right.
+                                                                    To edit only the fade-out portion of the curve,
+                                                                    press Command (Mac) or Control (Windows)
+      Manually Adjusting Fade                                       while dragging.
+      Shapes in Fade Windows
+      If the Fade Shape setting for a Fade In, Fade Out,      4   Click OK.
+      or Crossfade is set to Standard or S-Curve,                   Option-click (Mac) or Alt-click (Windows)
+      Pro Tools lets you adjust the fade shape in the any           the fade curve to reset it to its default shape.
+      of the corresponding Fade window (Fade In, Fade
+      Out, and Crossfade) using the mouse. This in-
+      cludes Batch Fades and Fade windows in the Edit-
+                                                              Adjusting the Start and End
+      ing preferences.
+                                                              Points of a Crossfade
+      To adjust the fade (or crossfade) shape:                If the Link setting for a Crossfade is set to Standard
+      1   Create a new fade (or crossfade) or open the        or None, Pro Tools lets you adjust the start and end
+          Fade (or Crossfade) window for an existing          points of the fade in and fade out of the crossfade
+          fade (or crossfade).                                independently. This includes the Batch Fades and
+                                                              Crossfade windows in the Editing preferences.
+      2   Ensure that the Fade Shape is set to either Stan-
+          dard or S-Curve, and not to one of the seven        To adjust the start and end points of a crossfade:
+          preset Fade Shapes.
+                                                              1   Create a crossfade or open the Crossfade win-
+                                                                  dow for an existing crossfade.
+                                                              2   Ensure that the Link setting for the Crossfade is
+                                                                  set to None.
+
+
+
+
+722   Pro Tools Reference Guide

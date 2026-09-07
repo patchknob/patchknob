@@ -1,0 +1,53 @@
+      Other operations that clear the Undo Queue in-
+      clude:                                                    Basic Editing Commands
+      • Deleting a track, or clearing a clip from the Clips     Pro Tools provides many standard edit commands
+        List                                                    (such as Cut, Copy, and Paste). Pro Tools also pro-
+                                                                vides many specialized edit commands that are op-
+      • Selecting Select > Unused, or Select > Unused
+                                                                timized for audio and MIDI production (such as
+        Audio Except Whole Files in the Clips List menu
+                                                                Repeat Paste to Fill).
+      When the number of operations in the Undo His-
+      tory reaches the maximum level of Undo, perform-          Cut, Copy, Paste, and Clear
+      ing another undoable operation removes the oldest
+      operation at the top of the Undo History queue.           Use the Cut, Copy, Paste, and Clear commands to
+      When the oldest operation is one operation away           rearrange and edit track material. Edits can operate
+      from being pushed out of the queue, it is shown in        on entire clips selected with the Time Grabber tool,
+      red.                                                      or on track ranges selected with the Selector tool.
+                                                                Edits can also work across multiple tracks (see
+                                                                “Editing Across Multiple Tracks” on page 638).
+      Levels of Undo and Memory
+      Because Pro Tools needs to keep track of the play-             You can Cut, Copy, and Paste noncontiguous
+      lists for all tracks that are edited, the use of multi-        clips by selecting them with the Object Grab-
+      ple levels of Undo can be memory intensive. You                ber tool.
+      can lower the Levels of Undo setting (Editing Pref-
+      erences) in Pro Tools to reduce the amount of sys-        Track View and Edit Content
+      tem memory (RAM) used by the Undo queue. If               When cutting or copying track material, the Track
+      you have plenty of memory available for                   View determines the type of data placed on the
+      Pro Tools, you can use a higher Levels Of Undo            Clipboard. When editing in a track’s Master View
+      setting.                                                  (Waveform view for audio tracks and Clips view
+                                                                for MIDI or Instrument tracks), selections can in-
+            Use the Undo History window to view a
+                                                                clude all underlying automation and controller
+            queue of undo operations and return to a pre-
+                                                                data (“Automation Follows Edit Option” on
+            vious state.
+                                                                page 1198). Thus, cutting an audio clip can also
+      To set the Levels of Undo in Pro Tools:                   cut any volume, pan, mute, send, continuous con-
+                                                                troller, or plug-in automation that is also on the
+      1   Choose Setup > Preferences and click the
+                                                                track. This saves you from having to individually
+          Editing tab.
+                                                                cut from each automation playlist on the track.
+      2   Click in the Levels of Undo field and type a
+          value between 1–64.
+
+
+
+
+      Levels of Undo preference                                 Audio waveform data
+
+      3   Click OK.
+
+
+634   Pro Tools Reference Guide

@@ -14,23 +14,32 @@
 //                            MixerGraph via audio_app_graph().
 //    * globals             : perform tempo (BPM) and the UI theme mode.
 //
-//  Track / instrument state is only written when the audio engine is running
-//  (audio_app_running()); otherwise those sections are simply omitted and load
-//  restores everything that does not need the audio graph.  This lets the round
-//  trip be exercised head-less (no audio device) while still persisting the full
-//  engine state in the real app.
+//  The engine-owned sections ("TRAK", "PTCH", "AUDI") can only be GENERATED
+//  from a running audio engine (audio_app_running()), and the shell keeps
+//  running with no engine at all when the device is busy.  A save in that state
+//  therefore carries whatever those sections held in the copy already on disk
+//  through byte for byte, instead of dropping them: omitting them silently
+//  emptied a project of its patch, rack, embedded audio and plugin state while
+//  still reporting success.  Their layout is gated on the container version, so
+//  if the file being overwritten is an OLDER format the save is refused rather
+//  than completed without them.  A head-less round trip of a project that never
+//  had those sections is unaffected.
+//
+//  A load NEVER destroys the open session on a bad file: the whole container is
+//  parsed and validated first, and the live perform / audio graph is only
+//  replaced once the file has been proven readable end to end.
 //
 //  Wire the two free functions straight into File > Save / File > Open.
 //
 //  ---- file format (all integers little-endian) ----------------------------
 //    char  magic[8]   = "S24DAWPJ"
-//    u32   version    = 3
+//    u32   version    (current: 18; v8 and up are readable)
 //    then a sequence of sections until "END " / EOF, each:
 //        char tag[4]
 //        u32  payloadLen
 //        u8   payload[payloadLen]
 //    sections:
-//        "GLOB"  u8 themeMode(0=Light,1=Midnight)  i32 bpm
+//        "GLOB"  u8 themeMode, f64 bpm, loop/range, i32 virtualMidiIns/Outs (v7)
 //        "SEQ "  (repeatable, one per active sequence)
 //                u32 slot
 //                str name                       (u32 len + bytes)
@@ -39,8 +48,17 @@
 //                u8  playing
 //                u8  isScaleMaster  u8 followsMaster
 //                i32 masterScale    i32 masterKey
+//                u8  songMute (v4)  str trackerFxBlob (v4)  u8 midiThru (v5)
+//                u8  trackKind (v11)  i32 arrangeLaneId (v11)
+//                i32 loopStart (v14)  i32 loopEnd (v15)  i32 loopEnabled (v16)
+//                  The per-clip loop window [loopStart, loopEnd) is INDEPENDENT
+//                  of `length` (the END marker) and may legally extend past it;
+//                  loopEnabled == 0 is a ONE-SHOT clip.  Absent fields default
+//                  to the historical behaviour: window == the whole pattern,
+//                  loop enabled.
 //                u32 numEvents
-//                  numEvents * { i32 tick, u8 status, u8 d0, u8 d1 }
+//                  numEvents * { i32 tick, u8 status, u8 d0, u8 d1,
+//                                u8 trackerColumn (v9, 0xFF == untagged) }
 //                u32 numTriggers
 //                  numTriggers * { i32 start, i32 length, i32 offset }
 //        "TRAK"  (repeatable, one per non-default / instrumented track)
@@ -53,18 +71,28 @@
 //        "PUI "  patcher node coordinates, keyed by patch-graph node id
 //        "END "  u32 0
 //
-//  Versions 1 and 2 files remain readable.  Pd source is embedded in the project and
-//  extracted to a sidecar .pd file when opened so libpd can instantiate it.
+//  Every section is parsed through a reader scoped to its own declared payload
+//  length, so a corrupt count inside one section fails that file instead of
+//  wandering into the next section and returning plausible garbage.
+//
+//  v8 and every later version remain readable; v1-v7 are rejected outright (the
+//  accepted set is the closed interval [8, version], NOT an enumerated list --
+//  enumerating it is how v15 briefly became unopenable).  Ticks in pre-v13 files
+//  are in the old 192-PPQN unit and are scaled on load.  Pd source is embedded in
+//  the project and extracted to a sidecar .pd file when opened so libpd can
+//  instantiate it.
 //----------------------------------------------------------------------------
 #ifndef PATCHKNOB_SDLUI_PROJECT_IO_H
 #define PATCHKNOB_SDLUI_PROJECT_IO_H
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
+namespace rackx { class RackEngine; }
 
 class perform;
-namespace PatchKnob { namespace engine { class AutomationPlayer; } }
+namespace PatchKnob { namespace engine { class AutomationPlayer; class Track; } }
 
 struct ProjectPatchNodePosition {
     uint32_t nodeId = 0;
@@ -105,7 +133,28 @@ const std::vector<ProjectPatchNodePosition>& project_io_loaded_patch_layout();
 // pre-v4 projects).  The shell re-applies these after it rebuilds g_seqToTrack.
 const std::vector<ProjectFreezeRecord>& project_io_loaded_freezes();
 
+// The state a project load leaves an engine track in when the incoming file
+// carries no "TRAK" section for that track index.  load_project applies this to
+// EVERY track before it commits, so a track the new project never mentions can
+// never inherit the outgoing session's instrument, inserts, mix -- or its
+// FREEZE (disabled) flag, which is invisible in the mixer and silences the
+// track.  Exposed so those defaults stay testable with no audio device.
+void project_io_reset_track_defaults(PatchKnob::engine::Track& track);
+
+// TEST HOOK: validate a "PTCH" section PAYLOAD (the bytes after the tag+length)
+// exactly as a load would, in DRY mode -- no engine is touched and nothing is
+// created.  load_project only parses PTCH when an audio graph is up, so this is
+// the only way a head-less test can pin the modular-patch layout down; it is
+// what the aux-bus / version-migration checks in project_io_test use.
+bool project_io_parse_patch_section(const void* payload, size_t len, unsigned version);
+
 // Human-readable description of the last save/load failure ("" if none).
 const char* project_io_last_error();
+
+// Standalone modular-rack interchange. This is the same lossless rack payload
+// embedded in .s24 (modules, params, cables, polyphony, Pd/Csound scripts and
+// per-instance panels), wrapped in its own versioned .pkr file.
+bool save_rack_patch(rackx::RackEngine& rack, const std::string& path);
+bool load_rack_patch(rackx::RackEngine& rack, const std::string& path);
 
 #endif // PATCHKNOB_SDLUI_PROJECT_IO_H

@@ -1,0 +1,45 @@
+Single Zoom is identified with an arrow to the right   Continuous Zoom with the
+of the Zoomer icon.                                    Zoomer Tool
+                                                       Use the Zoomer tool to zoom in or out continu-
+                                                       ously.
+
+                                                       To use continuous zoom on one track or a group of
+Single Zoom mode
+                                                       tracks:
+Normal Zoom mode does not have the arrow.              1   Select the Zoomer tool.
+                                                       2   Hold the Control (Mac) or Start key (Windows)
+Zooming in a Ruler                                         and do one of the following:
+To zoom horizontally in a ruler:                       • Drag up to continuously zoom in vertically.
+1   Press Command+Control (Mac) or Con-                • Drag down to continuously zoom out vertically.
+    trol+Start (Windows) and move the cursor into
+                                                       • Drag to the right to continuously zoom in hori-
+    the ruler area, so the Zoomer tool appears.
+                                                         zontally.
+                                                       • Drag to the left to continuously zoom out hori-
+                                                         zontally.
+
+                                                       For horizontal zoom, all tracks zoom together.
+                                                       Tracks will zoom in or out centered horizontally
+                                                       on the location where you click.
+
+                                                       Vertical Zooming In or Out of All
+                                                       Audio Tracks Continuously
+Zooming in a ruler
+                                                       To vertically zoom in or out of all audio tracks
+2   Do one of the following:                           using continuous zoom:
+
+• Click once to zoom in one level around a certain        Drag up or down on the Audio Zoom In or Out
+  point.                                                   button.
+• Drag to zoom in around a particular ruler range.
+                                                       To vertically zoom in or out of all MIDI and
+                                                       Instrument tracks that are set to Notes view using
+                                                       continuous zoom:
+
+                                                          Drag up or down on the MIDI Zoom In or Out
+                                                           button. Any waveform height offsets will be
+                                                           maintained.
+
+
+
+
+                                                                             Chapter 29: Edit Modes and Tools   647

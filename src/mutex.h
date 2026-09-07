@@ -28,16 +28,15 @@ class PatchKnobMutex {
     
 private:
 
-    static const pthread_mutex_t recmutex;
-    
 protected:
     
     /* mutex lock */
     pthread_mutex_t  m_mutex_lock;
-    
+
 public:
     
     PatchKnobMutex();
+    virtual ~PatchKnobMutex();
 
     void lock();
     void unlock();
@@ -48,13 +47,12 @@ class condition_var : public PatchKnobMutex {
 
 private:
 
-    static const pthread_cond_t cond;
-
     pthread_cond_t m_cond;
 
 public:
 
     condition_var();
+    ~condition_var() override;
     
     void wait();
     void signal();

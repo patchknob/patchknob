@@ -24,10 +24,81 @@
 #include <string>
 #include <vector>
 #include <cstdint>
+#include <cstdlib>
 
 namespace PatchKnob { namespace engine {
 
 enum class PluginFormat { VST2, VST3 };
+
+//----------------------------------------------------------------------------
+//  BUS LAYOUT
+//
+//  numAudioIn/numAudioOut are the FLAT channel totals summed over every bus --
+//  that is their historical meaning and every existing reader keeps it.  But a
+//  flat total on its own is not enough to route a plugin correctly:
+//
+//    * a drum machine with per-pad outputs, a sampler with per-key buses and a
+//      synth with a separate FX-return bus all report one big total, and a host
+//      that treats it as one channel list can only ever reach the first pair;
+//    * worse, a plugin with a MONO MAIN bus plus an aux bus reports >= 2 and so
+//      escaped the mono->stereo upmix entirely: caller channel 1 got the aux
+//      bus's left channel instead of a copy of the main.
+//
+//  So the flat list stays, and the bus structure sits next to it.  BUS 0 IS THE
+//  MAIN BUS -- that is the stable identity the routing keys on (both VST3 and
+//  VST2 order the main bus first; `isMain` additionally records what the plugin
+//  itself said, for display).  Everything that used to key on the flat total --
+//  the mono upmix above all -- keys on bus 0's channelCount instead.
+//----------------------------------------------------------------------------
+struct PluginBusInfo {
+    std::string name;              // plugin's own bus name ("Main", "Kick", ...)
+    int         channelCount = 0;
+    bool        isMain       = false;  // VST3 kMain / VST2 first bus
+    bool        isAux        = false;  // VST3 kAux: side-chain or FX return
+};
+
+// PatchKnob's audio ports are STEREO (patch_graph.h kMaxBusChan == 2), so every
+// plugin bus is given a stereo SLOT in the caller's flat channel array: bus 0
+// starts at caller channel 0, bus 1 at 2, and so on.  Two consequences, both
+// deliberate:
+//
+//   * a plugin whose main bus is stereo maps EXACTLY as it did before this
+//     existed (0,1 = main), so nothing that works today changes;
+//   * a MONO bus still occupies two caller channels, its single channel copied
+//     into the second -- which is precisely the mono-main fix, and it keeps
+//     every later bus aligned with the caller's stereo port for that bus.
+//
+// A bus WIDER than stereo keeps its full (even-rounded) width so that a host
+// handed a matching flat array -- the VST2 test harness supplies all N channels
+// of an N-out plugin -- still reaches every channel.  With a single bus the
+// whole mapping therefore degenerates to plain flat packing, i.e. the legacy
+// behaviour, which is also what an empty layout means.
+constexpr int kPluginBusSlotChannels = 2;
+
+inline int pluginBusSlotWidth(int channelCount)
+{
+    if (channelCount <= kPluginBusSlotChannels) return kPluginBusSlotChannels;
+    return channelCount + (channelCount & 1);      // round odd widths up to even
+}
+
+// Channel count of the MAIN bus (bus 0).  `flatFallback` (numAudioIn/Out) is
+// returned when the layout is unknown -- a descriptor from a pre-layout cache,
+// or a plugin that answered no bus queries at all.
+inline int pluginMainBusChannels(const std::vector<PluginBusInfo>& buses,
+                                 int flatFallback)
+{
+    return buses.empty() ? flatFallback : buses[0].channelCount;
+}
+
+// How many caller channels the whole layout occupies (see the slot rule above).
+inline int pluginBusCallerChannels(const std::vector<PluginBusInfo>& buses,
+                                   int flatFallback)
+{
+    if (buses.empty()) return flatFallback;
+    int total = 0;
+    for (const PluginBusInfo& b : buses) total += pluginBusSlotWidth(b.channelCount);
+    return total;
+}
 
 // A plugin discovered on disk (by the scanner). `uid` disambiguates classes
 // inside a multi-class VST3 bundle or a VST2 shell; pass it back to the host to
@@ -39,9 +110,124 @@ struct PluginDescriptor {
     std::string  path;        // .dll (VST2) or .vst3 (VST3) on disk
     std::string  uid;         // class/sub-plugin id within the file ("" = first)
     bool         isInstrument = false;  // emits audio in response to MIDI
-    int          numAudioIn   = 0;
-    int          numAudioOut  = 0;
+    int          numAudioIn   = 0;      // FLAT total over audioInBuses
+    int          numAudioOut  = 0;      // FLAT total over audioOutBuses
+    // Ordered bus layout; bus 0 is the main bus.  Empty == unknown (treat as a
+    // single main bus of numAudioIn/numAudioOut channels).  Appended last so
+    // positional aggregate init of the older fields stays valid.
+    std::vector<PluginBusInfo> audioInBuses;
+    std::vector<PluginBusInfo> audioOutBuses;
+
+    int mainInChannels()  const { return pluginMainBusChannels(audioInBuses,  numAudioIn);  }
+    int mainOutChannels() const { return pluginMainBusChannels(audioOutBuses, numAudioOut); }
 };
+
+//----------------------------------------------------------------------------
+//  BUS LAYOUT WIRE FORMAT
+//
+//  ONE encoding, used by all three places a layout has to survive a boundary:
+//  the out-of-process probes' stdout (BUSIN=/BUSOUT= lines), the scanner that
+//  parses them, and the plugin cache file.  Keeping it here means the writer
+//  and the reader cannot drift apart.
+//
+//    buses    := bus (';' bus)*
+//    bus      := name '/' channelCount '/' flags
+//    flags    := 'm'?  'a'?          ('m' = main bus, 'a' = aux/side-chain)
+//
+//  '\', ';' and '/' inside a name are backslash-escaped, so a bus called
+//  "FX / Send" round-trips intact.  An empty string decodes to an empty layout,
+//  which every consumer reads as "unknown -- treat as one main bus".
+//----------------------------------------------------------------------------
+inline std::string pluginEncodeBusLayout(const std::vector<PluginBusInfo>& buses)
+{
+    std::string out;
+    for (size_t i = 0; i < buses.size(); ++i)
+    {
+        if (i) out += ';';
+        for (char c : buses[i].name)
+        {
+            if (c == '\\' || c == ';' || c == '/') out += '\\';
+            out += c;
+        }
+        out += '/';
+        out += std::to_string(buses[i].channelCount);
+        out += '/';
+        if (buses[i].isMain) out += 'm';
+        if (buses[i].isAux)  out += 'a';
+    }
+    return out;
+}
+
+// Inverse of pluginEncodeBusLayout. Returns false (and leaves `buses` empty) on
+// malformed input, so a corrupt field degrades to "unknown layout" rather than
+// to a wrong one.
+inline bool pluginDecodeBusLayout(const std::string& text,
+                                  std::vector<PluginBusInfo>& buses)
+{
+    buses.clear();
+    if (text.empty()) return true;
+
+    PluginBusInfo cur;
+    std::string   field;
+    int           fieldIndex = 0;      // 0 name, 1 channels, 2 flags
+
+    auto endField = [&]() -> bool {
+        if (fieldIndex == 0)      cur.name = field;
+        else if (fieldIndex == 1)
+        {
+            if (field.empty()) return false;
+            for (char c : field) if (c < '0' || c > '9') return false;
+            cur.channelCount = std::atoi(field.c_str());
+        }
+        else if (fieldIndex == 2)
+        {
+            for (char c : field)
+            {
+                if      (c == 'm') cur.isMain = true;
+                else if (c == 'a') cur.isAux  = true;
+                else return false;      // unknown flag: refuse the whole layout
+            }
+        }
+        else return false;              // too many '/' in one bus
+        field.clear();
+        ++fieldIndex;
+        return true;
+    };
+    auto endBus = [&]() -> bool {
+        if (!endField()) return false;
+        if (fieldIndex < 2) return false;          // needs at least name/count
+        buses.push_back(cur);
+        cur = PluginBusInfo{};
+        fieldIndex = 0;
+        return true;
+    };
+
+    for (size_t i = 0; i < text.size(); ++i)
+    {
+        const char c = text[i];
+        if (c == '\\')
+        {
+            if (i + 1 >= text.size()) { buses.clear(); return false; }
+            field += text[++i];
+        }
+        else if (c == '/')  { if (!endField()) { buses.clear(); return false; } }
+        else if (c == ';')  { if (!endBus())   { buses.clear(); return false; } }
+        else                field += c;
+    }
+    if (!endBus()) { buses.clear(); return false; }
+    return true;
+}
+
+// Fill a missing layout in with the single-main-bus reading of the flat totals.
+// Used by the cache loader for entries written before layouts existed, and by
+// any host whose plugin refuses to describe its buses.
+inline void pluginFillDefaultBusLayout(PluginDescriptor& d)
+{
+    if (d.audioInBuses.empty() && d.numAudioIn > 0)
+        d.audioInBuses.push_back(PluginBusInfo{ "Main", d.numAudioIn, true, false });
+    if (d.audioOutBuses.empty() && d.numAudioOut > 0)
+        d.audioOutBuses.push_back(PluginBusInfo{ "Main", d.numAudioOut, true, false });
+}
 
 // One automatable/controllable parameter.
 struct ParamInfo {
@@ -57,6 +243,21 @@ struct MidiEvent {
     uint8_t       status;        // e.g. 0x90 | channel
     uint8_t       data1;
     uint8_t       data2;
+    // Original transport-domain arrival sample for live input. Delivery may be
+    // deferred one block for RT safety; recording must not inherit that delay.
+    int64_t       captureSample = -1;
+    // Tracker note-column (VOICE) this event belongs to, or -1 when untagged
+    // (live MIDI in, piano-roll edits, imported files).
+    //
+    // The column MUST travel on the event.  It used to live in a 128-entry
+    // pitch-keyed table inside the sampler, stamped ahead of time by the UI --
+    // which meant the same pitch played from two columns collapsed onto one
+    // column (last writer won), and with per-column mono voice allocation the
+    // two notes then fought over a single voice.  Carried here, a note-on and
+    // its note-off identify their voice exactly, whatever else shares the pitch.
+    //
+    // Appended last so positional aggregate init of the older fields stays valid.
+    int8_t        column = -1;
 };
 
 // A parameter change to apply at a sample offset within the block (automation).
