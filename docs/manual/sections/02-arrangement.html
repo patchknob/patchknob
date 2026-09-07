@@ -1,0 +1,516 @@
+<section id="arrange" data-title="Arrangement &amp; Editing">
+  <h2 id="arrange">Arrangement &amp; Editing</h2>
+  <p>The arrange view is PatchKnob's timeline: one lane per track, with clips —
+  MIDI patterns, audio regions and automation blocks — placed along a bar ruler.
+  Everything you do to a song's structure happens here: placing, moving,
+  trimming, splitting and consolidating clips, fading audio, and selecting
+  material for the editors and the transport to act on.</p>
+
+  <h3 id="arrange-view">The arrange view at a glance</h3>
+  <p>The view has four fixed parts:</p>
+  <ul>
+    <li><strong>The track-header column</strong> (left). One row per lane: a
+    status spine, an INS/AUD type badge, the track name, an instrument dropdown
+    (instrument tracks only), I/O pickers, a level meter, Mute and Solo buttons,
+    a record-arm control and a small <code>x</code> that removes the track. A
+    <code>+</code> row at the bottom adds tracks. Drag a header's bottom edge to
+    resize that lane; heights are per-lane.</li>
+    <li><strong>The topbar</strong> (two rows above the ruler). Row A holds the
+    edit-mode block (SHUFFLE / SLIP / SPOT / GRID), the tool strip, zoom preset
+    buttons 1–5, the Zoom Toggle (<code>Z&lt;&gt;</code>), zoom in/out/FIT, and
+    the vertical zoom buttons (<code>a-</code>/<code>a+</code> for audio
+    waveform height, <code>m-</code>/<code>m+</code> for MIDI preview spread).
+    Row B holds the Main/Start/End/Length counters, the GRID and NUDGE value
+    fields, and the chips: <code>EDIT</code> (the command menu),
+    <code>VIEW</code> (waveform and clip display options), <code>LAY</code>
+    (Layered Editing), <code>T&lt;E</code> (Link Timeline and Edit Selection),
+    <code>TRK</code> (Link Track and Edit Selection), <code>TAB</code> (Tab to
+    Transients), <code>UNI</code> (Universe view) and <code>?</code> (the
+    built-in key reference, also on <kbd>/</kbd>).</li>
+    <li><strong>The ruler</strong> (the time band under the topbar). Bar
+    numbers, the L/R timeline markers and the edit-selection markers. Clicking
+    or dragging in the time band scrubs the playhead; dragging a marker moves
+    that boundary, and <kbd>Alt</kbd>-dragging slides a whole selection along
+    the ruler.</li>
+    <li><strong>The canvas</strong>: the lanes themselves, a bar/beat grid that
+    always lines up with the ruler digits, the clips, the moving playhead, and
+    a shaded band across the lanes showing the transport's L..R loop span. A
+    horizontal song navigator (bottom) and a vertical track navigator (right)
+    are always present; drag their thumbs to scroll.</li>
+  </ul>
+  <p>The <strong>Universe strip</strong> (<kbd>Alt</kbd>+<kbd>7</kbd> or the
+  <code>UNI</code> chip) is a miniature of the whole arrangement drawn under
+  the topbar, with a frame marking what the canvas currently shows. Click or
+  drag inside it to jump anywhere in the song; drag its bottom edge to resize
+  the strip.</p>
+  <p>One lane can carry several clips of the same pattern, and — after splits —
+  several independent sequences. The view groups them by lane, so what you see
+  as "one track" may be many sequences sharing a lane key. This matters for a
+  few commands that act per sequence rather than per lane (the loop flag, for
+  one — see <a href="#arrange-loop">the clip loop window</a>).</p>
+
+  <h3 id="arrange-navigation">Zooming and scrolling</h3>
+  <table>
+    <thead><tr><th>Gesture / key</th><th>Effect</th></tr></thead>
+    <tbody>
+      <tr><td>wheel</td><td>Horizontal zoom, anchored on the pointer</td></tr>
+      <tr><td><kbd>Shift</kbd>+wheel</td><td>Pan horizontally</td></tr>
+      <tr><td><kbd>Alt</kbd>+wheel</td><td>Scroll the lanes vertically</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+wheel</td><td>Lane height (vertical zoom)</td></tr>
+      <tr><td><kbd>Alt</kbd>+<kbd>Shift</kbd>+wheel</td><td>Audio waveform amplitude zoom</td></tr>
+      <tr><td><kbd>Alt</kbd>+<kbd>Ctrl</kbd>+wheel</td><td>MIDI note-preview vertical zoom</td></tr>
+      <tr><td><kbd>+</kbd> / <kbd>-</kbd></td><td>Zoom in / out</td></tr>
+      <tr><td><kbd>F</kbd></td><td>Fit the whole song to the canvas</td></tr>
+      <tr><td><kbd>Shift</kbd>+<kbd>F</kbd></td><td>Fit the edit selection</td></tr>
+      <tr><td><kbd>Z</kbd></td><td>Recall the previous zoom level</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>1</kbd>..<kbd>5</kbd></td><td>Recall zoom preset 1–5 (Shift-click or hold a preset button to store)</td></tr>
+      <tr><td><kbd>E</kbd></td><td>Zoom Toggle: jump to a stored zoom/height/grid state and back (<kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd> cancels without reverting; right-click <code>Z&lt;&gt;</code> for its preferences)</td></tr>
+      <tr><td>arrow keys</td><td>Pan a quarter-screen; <kbd>Up</kbd>/<kbd>Down</kbd> scroll lanes</td></tr>
+      <tr><td><kbd>PgUp</kbd> / <kbd>PgDn</kbd></td><td>Page the lanes</td></tr>
+      <tr><td><kbd>Home</kbd> / <kbd>End</kbd></td><td>Playhead and view to song start / end</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>Left</kbd>/<kbd>Right</kbd></td><td>Step the playhead a bar (works while stopped — this is how you move the edit point for a paste)</td></tr>
+      <tr><td><kbd>L</kbd></td><td>Follow-playhead auto-scroll on/off</td></tr>
+      <tr><td><kbd>T</kbd></td><td>Light / Midnight theme</td></tr>
+    </tbody>
+  </table>
+  <p><kbd>Ctrl</kbd> + a numeric-keypad digit engages <strong>Shuttle
+  Lock</strong>: the playhead winds forward or back at a multiple of realtime
+  (<kbd>5</kbd> = 1x, <kbd>9</kbd> = the custom speed, 50–800%, adjusted with
+  <kbd>Up</kbd>/<kbd>Down</kbd> while shuttling). <kbd>+</kbd>/<kbd>-</kbd>
+  flip direction; <kbd>0</kbd> or <kbd>Space</kbd> stops. This is transport
+  shuttling only — the engine has no varispeed scrub path, so no audio plays
+  at shuttle speeds.</p>
+
+  <h3 id="arrange-tracks">Adding tracks</h3>
+  <p>The <code>+</code> row at the bottom of the header column (and the shell's
+  track menu) offers three kinds:</p>
+  <ul>
+    <li><strong>Instrument Track</strong> — a MIDI lane. It gets MIDI in/out
+    ports on the master mixer and drives one instrument node, picked from the
+    dropdown on the header's second line. Its clips are patterns, opened in the
+    piano roll or tracker.</li>
+    <li><strong>Audio Track</strong> — carries audio regions and gets audio
+    in/out ports. Clips draw their waveform; audio arrives by recording,
+    importing, freezing or consolidating — you do not draw audio clips by hand
+    (except with the Pencil, which edits existing samples destructively).</li>
+    <li><strong>Automation Track</strong> — a lane of automation clips, each
+    drawing its region's curve, loop repeats and a live playhead dot. An
+    automation lane owns no mixer track of its own: <strong>it inherits the
+    track of the nearest non-automation lane above it</strong> (or the first
+    mapped track if there is none above). Nothing on screen says so, but it is
+    why you add an automation lane directly under the track it should control.
+    Double-clicking an automation clip opens the automation editor.</li>
+  </ul>
+  <p>The per-track <code>x</code> removes a track. Because queued undo steps
+  may name the deleted sequence, <strong>deleting a track clears the undo
+  queue</strong> — make sure you mean it.</p>
+
+  <h3 id="arrange-clips">Working with clips</h3>
+  <p><strong>Creating.</strong> On an empty instrument or automation lane:
+  double-click to place a one-pattern-length clip snapped to the grid, drag
+  with the Pencil tool to place and grow one, or right-click for
+  <em>Add Piano Clip</em> / <em>Add Tracker Clip</em> / <em>Add Automation
+  Clip</em>. A single click on empty space just sets the paste anchor and
+  starts a rubber-band selection, so you cannot scribble clips by accident.</p>
+  <p><strong>Moving.</strong> Drag a clip's body. Placement follows the edit
+  mode (snapped in Grid, free in Slip, packed against neighbours in Shuffle —
+  see <a href="#arrange-modes">edit modes</a>). A snapped guide line and a
+  bar.beat readout follow every drag. Grabbing one clip of a multi-selection
+  moves the whole group rigidly; if any lane would hit a neighbour, the whole
+  group clamps rather than shearing apart. Dragging against a view edge
+  auto-scrolls.</p>
+  <p><strong>Trimming.</strong> Drag within 6 px of a clip's left or right
+  edge (any tool), or use the Trimmer, whose whole clip body is a trim zone
+  split at the middle. A left trim keeps the content anchored — pulling the
+  edge in hides material, it does not drag notes or audio along. On audio, the
+  trim edits the region non-destructively: the source audio is untouched and
+  can be revealed again.</p>
+  <p><strong>Slipping (audio).</strong> <kbd>Alt</kbd>+drag an audio clip's
+  body slides the source material under the fixed clip window.</p>
+  <p><strong>Splitting.</strong> Middle-click a clip at the pointer,
+  press <kbd>X</kbd> to split the focused lane at the playhead, click with the
+  scissors (Cut) tool, or use the context menu's <em>Split</em>. Splits land on
+  the snapped tick. The right half of an audio split becomes a new lane-mate
+  region; fades split with the halves (see
+  <a href="#arrange-fades">Preserve Fades</a>).</p>
+  <p><strong>Duplicating.</strong> <kbd>Ctrl</kbd>+drag drags a ghost copy and
+  commits it on release (a plain <kbd>Ctrl</kbd>+click adds to the selection
+  instead and never duplicates). <kbd>Ctrl</kbd>+<kbd>D</kbd> duplicates the
+  selection immediately after itself; the context menu has
+  <em>Duplicate</em> too.</p>
+  <p><strong>Deleting.</strong> <kbd>Delete</kbd> removes the object selection;
+  with a range selection it clears the range; <kbd>Ctrl</kbd>+<kbd>Delete</kbd>
+  clears all track data in the selection. Right-click &gt; <em>Delete</em>
+  removes one clip. Deleted audio clips are cached to disk so undo restores
+  them exactly.</p>
+  <p><strong>Renaming.</strong> <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>
+  or right-click &gt; <em>Rename</em> edits the name in place. Double-click
+  opens the clip's editor (piano roll, sample editor, or automation editor,
+  by clip kind).</p>
+  <p><strong>Audio-clip affordances.</strong> Each audio clip carries a
+  top-right loop chip (see <a href="#arrange-loop">the loop window</a>), a
+  lower-right extend handle (drag to lengthen the region; a looping region
+  wraps its source to fill, and <kbd>Ctrl</kbd> constrains the drag to whole
+  loop iterations), and a horizontal gain line whose centre handle drags the
+  region gain from silence to 2x (+6 dB) with a live dB readout. The
+  right-click menu adds <em>Fades...</em>, <em>Normalize</em>,
+  <em>Reverse</em>, <em>Mute</em>/<em>Unmute</em>, <em>Split Into Mono</em>,
+  <em>Compact...</em> (destructive — it discards unused source audio and
+  cannot be undone), <em>Sync Point</em> and a 1–5 rating.</p>
+  <p><strong>Overlaps.</strong> The <code>LAY</code> chip toggles Layered
+  Editing: ON, a clip dropped over another leaves the covered clip intact
+  underneath; OFF, the covered clip is trimmed to the overlapper on drop.
+  Fully covered clips are removed either way.</p>
+
+  <h3 id="arrange-modes">Edit modes</h3>
+  <p>One of four modes governs how every clip gesture places its result.
+  <kbd>F1</kbd>–<kbd>F4</kbd> select them; <kbd>`</kbd> cycles.</p>
+  <table>
+    <thead><tr><th>Mode</th><th>Key</th><th>Behaviour</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Shuffle</strong></td><td><kbd>F1</kbd></td>
+      <td>Clips pack against each other and cannot overlap: a dragged or pasted
+      clip snaps to the end of the nearest earlier clip, and removing a range
+      slides everything after it left by the range length (gaps between clips
+      are preserved). Trims and pastes ripple the lane the same way.</td></tr>
+      <tr><td><strong>Slip</strong></td><td><kbd>F2</kbd></td>
+      <td>Free placement — no snapping at all. Clips may overlap or leave
+      gaps.</td></tr>
+      <tr><td><strong>Spot</strong></td><td><kbd>F3</kbd></td>
+      <td>Clicking a clip opens the Spot dialog instead of starting a drag:
+      type an exact destination as <code>bar.beat.tick</code> or
+      <code>m:ss.mmm</code>. With the Trimmer, the dialog spots the pressed
+      edge (and in TCE trim mode, time-stretches to it). The dialog also shows
+      the clip's original time stamp.</td></tr>
+      <tr><td><strong>Grid</strong></td><td><kbd>F4</kbd></td>
+      <td>Everything snaps to the current grid value. This is the default.
+      Right-click the GRID mode button to switch between
+      <em>Absolute</em> (clips land on grid lines) and <em>Relative</em>
+      (clips move <em>by</em> grid increments, keeping their offset from the
+      grid).</td></tr>
+    </tbody>
+  </table>
+  <p><strong>Snap To Grid</strong> is a separate flag that combines grid
+  snapping with Shuffle, Slip or Spot: <kbd>Shift</kbd>+<kbd>F4</kbd> toggles
+  it, and <kbd>Shift</kbd>+<kbd>F1</kbd>..<kbd>F3</kbd> select that mode with
+  the flag on. <kbd>Ctrl</kbd>-clicking the SHUFFLE button locks Shuffle out
+  entirely (so a stray <kbd>F1</kbd> cannot ripple your session);
+  <kbd>Ctrl</kbd>-click again to unlock.</p>
+
+  <h3 id="arrange-tools">Edit tools</h3>
+  <p>PatchKnob's four original tools are reachable on bare letters —
+  <kbd>G</kbd> Grabber, <kbd>R</kbd> Selector, <kbd>C</kbd> scissors (Cut),
+  <kbd>D</kbd> Pencil — and the full set lives on the function keys.
+  <kbd>Esc</kbd> cycles tools (after first clearing any selection). Pressing a
+  tool's key again, or clicking its button again, cycles its sub-modes;
+  holding the button opens the sub-mode menu. The right-click context menu
+  carries the tool palette across its top, so you can switch tools where the
+  pointer already is.</p>
+  <table>
+    <thead><tr><th>Tool</th><th>Key</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Zoomer</strong></td><td><kbd>F5</kbd></td>
+      <td>Click zooms in, <kbd>Alt</kbd>-click zooms out, dragging rubber-bands
+      a range to fill the view, <kbd>Ctrl</kbd>+drag zooms continuously
+      (horizontal = time, vertical = lane height). Double-click its button fits
+      the session; <kbd>Ctrl</kbd>-click the button jumps to a 256
+      samples/pixel overview. Sub-modes: Normal, and Single (one zoom gesture,
+      then back to the previous tool).</td></tr>
+      <tr><td><strong>Trimmer</strong></td><td><kbd>F6</kbd></td>
+      <td>The whole clip body trims, split at the middle; <kbd>Alt</kbd>
+      reverses which edge. Standard trim moves the edges of <em>all</em>
+      selected clips together, and <kbd>Ctrl</kbd> on two overlapping clips
+      trims both sides of the joint in tandem. Sub-modes: <em>Standard</em>,
+      <em>TCE</em> (time-compress/expand the audio to the new length, with a
+      live percentage readout), <em>Scrub</em> (audition while trimming;
+      <kbd>Ctrl</kbd> = finer), <em>Loop</em> (top half loops the region out to
+      length; bottom half trims the source iteration while the looped span
+      stays put).</td></tr>
+      <tr><td><strong>Selector</strong></td><td><kbd>F7</kbd></td>
+      <td>The range tool: drag to select a tick range, drag vertically to span
+      more tracks. Double-click selects a clip, triple-click a whole track.
+      <kbd>Shift</kbd>+click moves the nearer end of the selection.
+      <kbd>Ctrl</kbd>+click over a fade bends its curve.</td></tr>
+      <tr><td><strong>Grabber</strong></td><td><kbd>F8</kbd></td>
+      <td>The clip tool: click to select, drag to move, edges to trim.
+      Sub-modes: <em>Time</em>, <em>Separation</em> (dragging inside the edit
+      selection splits it out as its own clip and moves it;
+      <kbd>Alt</kbd>-drag copies it out instead), <em>Object</em>. Also selects
+      fades as objects (see <a href="#arrange-fades">fades</a>).</td></tr>
+      <tr><td><strong>Scrubber</strong></td><td><kbd>F9</kbd></td>
+      <td>Drag to scrub the pressed track: on audio lanes short snippets of the
+      clip play through the track's mixer path (respecting mute/solo and the
+      channel fader); on other lanes the playhead follows silently.</td></tr>
+      <tr><td><strong>Pencil</strong></td><td><kbd>F10</kbd></td>
+      <td>Draws clips on empty instrument lanes (drag to place and grow). On an
+      audio clip it redraws the samples under the pointer —
+      <strong>destructively</strong> — and only at sample-level zoom; further
+      out it refuses with a warning instead of damaging audio.</td></tr>
+      <tr><td><strong>Smart tool</strong></td><td><kbd>F6</kbd>+<kbd>F7</kbd> or <kbd>F7</kbd>+<kbd>F8</kbd></td>
+      <td>Zones pick the function: upper middle = Selector, lower middle =
+      Grabber, edges = trim, top corners pull fades out, over a fade = reshape
+      it, the bottom seam between two adjacent audio clips drags a crossfade,
+      and <kbd>Ctrl</kbd> scrubs.</td></tr>
+    </tbody>
+  </table>
+  <p>The scissors (Cut) tool splits a clip at the snapped click point — one
+  click, one split. <em>Edit/Tool Mode Keyboard Lock</em> (in the grid value
+  pop-up) stops a repeated F-key from cycling sub-modes; mouse clicks still
+  may.</p>
+
+  <h3 id="arrange-selection">Selection</h3>
+  <p>There are two kinds of selection, and most commands accept either:</p>
+  <ul>
+    <li>The <strong>edit selection</strong> — a tick range across one or more
+    lanes, made with the Selector. A zero-length edit selection is the
+    <em>insertion point</em>. While <em>Link Timeline and Edit Selection</em>
+    (<code>T&lt;E</code> chip, <kbd>Shift</kbd>+<kbd>/</kbd>) is on, edit
+    selections mirror into the transport's L/R play range, and clicking an
+    insertion point while stopped moves the playhead.</li>
+    <li>The <strong>object selection</strong> — whole clips, made with the
+    Grabber: click selects one clip exclusively; <kbd>Shift</kbd>+click toggles
+    whole clips in and out of a noncontiguous selection (disabled in Shuffle
+    and Spot modes); <kbd>Shift</kbd>+drag — or a drag started on empty lane
+    space — rubber-bands across lanes, with a live count of the clips inside
+    the band. Holding <kbd>Ctrl</kbd> or <kbd>Shift</kbd> while lassoing adds
+    to the existing selection instead of replacing it.</li>
+  </ul>
+  <p><kbd>Ctrl</kbd>+<kbd>A</kbd> selects every clip in the project.
+  <kbd>Esc</kbd> clears the selection. <em>Link Track and Edit Selection</em>
+  (<code>TRK</code>, <kbd>Shift</kbd>+<kbd>T</kbd>) keeps the two models
+  pointed at the same lanes.</p>
+  <p><strong>Tab navigation.</strong> <kbd>Tab</kbd> moves the insertion point
+  to the next clip boundary, <kbd>Ctrl</kbd>+<kbd>Tab</kbd> to the previous;
+  <kbd>Shift</kbd> extends the selection to the target. With the
+  <code>TAB</code> chip on (<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Tab</kbd>
+  toggles it), the targets are audio transients instead of boundaries.</p>
+  <p><strong>Selection maneuvers.</strong> <kbd>P</kbd> and <kbd>;</kbd> move
+  the selection up / down a lane (<kbd>Shift</kbd> extends it over lanes,
+  <kbd>Alt</kbd> peels a lane off). Numpad <kbd>+</kbd>/<kbd>-</kbd> nudge the
+  range (bare), its start (<kbd>Alt</kbd>) or its end (<kbd>Ctrl</kbd>).
+  <kbd>Alt</kbd>+<kbd>Left</kbd>/<kbd>Right</kbd> moves the selection by its
+  own length; <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>'</kbd> doubles it,
+  <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd> halves it,
+  <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd> duplicates the selected
+  material after itself and extends the selection over both copies.
+  <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>5</kbd> sets the timeline to match the
+  edit selection, <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>6</kbd> the reverse.
+  <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Z</kbd> restores the previous selection.
+  During playback, <kbd>Down</kbd> marks the selection start at the playhead
+  and <kbd>Up</kbd> the end — selection on the fly.</p>
+  <p>The Start/End/Length counters in the topbar are editable: click one (or
+  press keypad <kbd>*</kbd> for the Main counter) and type —
+  <kbd>.</kbd> moves to the next subfield, <kbd>/</kbd> to the next field,
+  <kbd>+</kbd>/<kbd>-</kbd> enter calculator mode, <kbd>Enter</kbd> commits.
+  The mouse wheel over a counter steps its value.</p>
+
+  <h3 id="arrange-editing">Cut, copy, paste and the Edit menu</h3>
+  <p><kbd>Ctrl</kbd>+<kbd>C</kbd> / <kbd>Ctrl</kbd>+<kbd>X</kbd> /
+  <kbd>Ctrl</kbd>+<kbd>V</kbd> work on whichever selection you have. A range
+  copy captures exactly the range — clips are sliced at its boundaries — and
+  the range length becomes the clipboard span. Paste lands at the edit
+  insertion point (or the playhead when there is none) and
+  <strong>overwrites</strong> the material under it, separating leftovers at
+  the paste boundaries; in Shuffle mode it pushes later material right
+  instead. Pasting again at the same spot steps forward by the clipboard span,
+  so repeated pastes tile instead of stacking. A single-lane clipboard pastes
+  onto the <em>focused</em> lane (the highlighted one — the lane you last
+  touched), which is how you copy clips between tracks.</p>
+  <p><kbd>Ctrl</kbd>+<kbd>B</kbd> clears the selection without touching the
+  clipboard. The <code>EDIT</code> chip opens the full command menu: the
+  clipboard commands, clip-gain Copy/Paste/Clear Special, Repeat to Fill
+  Selection, Capture Clip (<kbd>Ctrl</kbd>+<kbd>R</kbd>), Separate At
+  Selection (<kbd>Ctrl</kbd>+<kbd>E</kbd>) / On Grid / At Transients, Heal
+  Separation (<kbd>Ctrl</kbd>+<kbd>H</kbd>), the nine Trim commands
+  (To Selection <kbd>Ctrl</kbd>+<kbd>T</kbd>, Start/End To Insertion
+  <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>7</kbd>/<kbd>8</kbd>, To Fill, To File
+  boundaries), Quantize To Grid (<kbd>Ctrl</kbd>+<kbd>0</kbd>), Consolidate,
+  the TCE commands, Rename, ratings
+  (<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>1</kbd>..<kbd>5</kbd>) and the user
+  time stamp.</p>
+
+  <h3 id="arrange-consolidate">Consolidate</h3>
+  <p>Consolidate (<kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>3</kbd>, or
+  <code>EDIT</code> &gt; <em>Consolidate</em>) stitches material into one new
+  clip. It has two forms:</p>
+  <ul>
+    <li><strong>Clip selection</strong> (no range): per lane, exactly the
+    selected audio clips render — in timeline order, the gaps between them
+    preserved as silence, each piece's gain and fade envelope baked in — into
+    one new clip spanning first start to last end. Unselected material inside
+    that span is neither rendered nor removed. This is the "stitch the cut
+    pieces back into one clip" gesture: lasso the slices, consolidate.</li>
+    <li><strong>Range selection</strong>: each selected lane's boundaries are
+    separated first, then everything inside the range — silence included,
+    muted clips as silence — renders into one new whole clip replacing the
+    range. On MIDI lanes the covered clips' <em>played</em> events (loops
+    unrolled at their window's period) are flattened into one new one-shot
+    pattern spanning the range.</li>
+  </ul>
+  <p>The new audio clip is named "Consolidated" (MIDI results get the source
+  name plus "cons"). The removed pieces and the new clip land in one undo
+  entry, so a single <kbd>Ctrl</kbd>+<kbd>Z</kbd> takes it all back.</p>
+  <blockquote>The audio mix Consolidate performs is engine code with an
+  automated rendered-sample test covering gap placement, source offsets, gain
+  and fade curves — but nothing in the project records a listening check of
+  the result. Sample-accuracy is machine-verified; if a consolidated clip
+  sounds wrong to you, undo restores the pieces exactly.</blockquote>
+
+  <h3 id="arrange-fades">Fades and crossfades</h3>
+  <p>Audio clips (including frozen ones) carry a per-clip fade-in and
+  fade-out. The fade you see is evaluated by the same curve function the
+  engine plays, so the drawn envelope is the audible one.</p>
+  <p><strong>By hand.</strong> Drag a clip's top corner inward to set a fade
+  length; drag the mid-fade point to bend a Standard or S-Curve fade. With the
+  Smart tool, the top corners pull fades out and the zone over an existing
+  fade reshapes it; with the Selector, <kbd>Ctrl</kbd>+click does the same.</p>
+  <p><strong>From the selection.</strong> <kbd>Ctrl</kbd>+<kbd>F</kbd> creates
+  fades from the edit selection: a selection reaching a clip's start makes a
+  fade-in, one reaching its end a fade-out, one crossing the joint between two
+  clips a crossfade, and one covering whole clips opens the
+  <strong>Batch Fades</strong> dialog (fade-in/crossfade/out at typed
+  millisecond lengths, placed pre-splice, centred or post-splice, optionally
+  adjusting existing fades' shapes and lengths). <kbd>Ctrl</kbd>+<kbd>F</kbd>
+  opens the Fades dialog — curve editing, shape preset thumbnails, waveform
+  views, an Audition button that plays the fade through the real signal path,
+  and five storable presets — while
+  <kbd>Ctrl</kbd>+<kbd>Win</kbd>+<kbd>F</kbd> (or
+  <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F</kbd>, for window managers that grab
+  the Start key) applies your default fade settings with no dialog.
+  <kbd>Win</kbd>+<kbd>D</kbd> fades from the clip start to the insertion
+  point, <kbd>Win</kbd>+<kbd>G</kbd> from the insertion point to the clip
+  end.</p>
+  <blockquote><kbd>Win</kbd>+<kbd>D</kbd> and <kbd>Win</kbd>+<kbd>G</kbd> have
+  no <kbd>Ctrl</kbd>+<kbd>Alt</kbd> fallback, so on desktops where the Super
+  key is owned by the window manager they may be unreachable from the
+  keyboard; use <code>EDIT</code> &gt; <em>Fade To Start</em> /
+  <em>Fade To End</em> instead.</blockquote>
+  <p><strong>Shapes and slopes.</strong> Fades come in Standard, S-Curve and
+  seven parabolic preset shapes, each with an Equal Gain or Equal Power slope;
+  a crossfade's halves are linked Equal Power, Equal Gain, or not at all.
+  <kbd>Alt</kbd>+<kbd>Win</kbd>+<kbd>Left</kbd>/<kbd>Right</kbd> cycles every
+  fully selected fade through the shapes; the right-click
+  <em>Fades...</em> submenu sets shape and slope directly (a <code>~</code>
+  marker means the selection mixes values).</p>
+  <p><strong>Crossfades.</strong> A crossfade is two lane-mates whose regions
+  overlap — the left clip fading out and the right fading in across the
+  overlap. The engine sums both enveloped regions, so the crossfade is heard,
+  not just drawn. Drag the bottom seam between two adjacent audio clips with
+  the Smart tool to create or resize one; the window clamps to the source
+  material actually available beyond each clip's edges. Trimming or nudging a
+  contributor re-clamps the crossfade; pushed past any possible overlap it is
+  removed. Deleting a crossfade retracts the two regions to a butt joint at
+  the overlap midpoint. The <em>Overlapped Crossfades</em> view option
+  (<code>VIEW</code> chip) draws each contributor's hidden material as a ghost
+  overlay.</p>
+  <p><strong>Fades as objects.</strong> Clicking a fade (not its handles) with
+  the Grabber selects it: <kbd>Delete</kbd> removes it, numpad
+  <kbd>+</kbd>/<kbd>-</kbd> nudges it, and dragging slides it within its
+  clips. <code>EDIT</code> &gt; <em>Delete Fades</em> removes every fade the
+  selection covers.</p>
+  <p><strong>Preferences.</strong> Right-click a clip &gt; <em>Fades...</em>
+  &gt; <em>Fade Preferences...</em>: default shapes, slopes and link for new
+  fades and crossfades, audition pre/post-roll, <em>AutoFades</em> (0–10 ms of
+  automatic micro-fade applied by the player at every clip boundary; saved
+  with the session), <em>Smart fade-adjust needs Ctrl</em>, and
+  <strong>Preserve Fades when Editing</strong>. With Preserve Fades ON
+  (default), splitting a clip keeps the fade-in on the left half and the
+  fade-out on the right, trimmed to the new boundaries, and clips separated
+  out of a crossfade keep their halves as plain fades; OFF, fades touched by
+  an edit are dropped.</p>
+  <blockquote>After a project reload, fade settings reappear in the view only
+  on clips restored through freeze records (frozen, recorded and consolidated
+  clips). On a plain audio lane rebound by the loader the view starts with no
+  fade record, so fade handles that existed before the reload can be missing
+  from the display even where the saved region still carries them.</blockquote>
+
+  <h3 id="arrange-loop">The clip loop window</h3>
+  <p>Do not confuse two loops that meet on this timeline:</p>
+  <ul>
+    <li>The <strong>transport loop</strong> — the L/R markers on the ruler,
+    shown as a shaded band across the lanes. It repeats <em>playback</em> of a
+    song span and belongs to the transport.</li>
+    <li>The <strong>clip loop</strong> — each clip's own repeat flag, toggled
+    by the chip in its top-right corner (or the context menu's
+    <em>Loop On</em> / <em>Loop Off (1-Shot)</em>). It decides what the clip
+    plays <em>inside its own block</em>, wherever that block sits.</li>
+  </ul>
+  <p>A looping MIDI clip repeats its <strong>loop window</strong> — the
+  [loop start, loop end) span set in the pattern editors, or the whole pattern
+  when no window is set — at the window's period, for the clip's whole length.
+  That is how a 3-step figure tiles polyrhythmically across a 4/4 bar. A
+  one-shot clip plays its data once from the clip start; the dead air after
+  the data is drawn as a hatched tail, so a one-shot and a looping clip are
+  distinguishable at a glance. The note preview drawn on the clip mirrors
+  exactly what the player will sound, repeats and all.</p>
+  <p>The loop flag and window live on the <em>pattern</em>, not on the block:
+  every clip of the same pattern flips together when you click one chip.
+  Splitting a MIDI clip copies the window and flag onto the new half, so both
+  halves keep playing what they played.</p>
+  <p>Audio clips have their own version: the region's loop flag wraps the
+  source to fill the block (the same chip position, a different mechanism).
+  The Loop Trimmer's bottom half sets the iteration length; dragging the
+  extend handle on a looping region fills the new span with repeats, and the
+  automation-clip equivalent repeats its curve on the region's own loop
+  length.</p>
+
+  <h3 id="arrange-undo">Undo and redo</h3>
+  <p>The arrange view keeps one <strong>multiple-undo queue</strong> covering
+  every arrangement edit — clip moves and trims, deletes (audio deletes are
+  disk-cached and restored exactly), fades, pastes, consolidates, record
+  takes. <kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes,
+  <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> or
+  <kbd>Ctrl</kbd>+<kbd>Y</kbd> redoes. A compound edit (say, a delete that
+  tears down three audio clips) unwinds as one step. When this queue has
+  nothing left, the keys fall through to the shell's project-wide snapshot
+  undo, so patch and mixer edits still undo with the arrange view focused. A
+  status line names each step ("Undo: Move Clip", "Can't Undo").</p>
+  <p><kbd>U</kbd> opens the <strong>Undo History</strong> window: the queue as
+  a list with creation times, done steps bold, and an Options pop-up (show
+  times, Undo All, Redo All, clear the queue, and the Levels of Undo setting —
+  default 32, settable 1–64; beyond the limit the oldest step falls off). A
+  fresh edit truncates any redo tail, as usual.</p>
+  <p>Three things empty the queue outright: loading another project, deleting
+  a track, and <em>Compact</em> (which is itself destructive and warns
+  first). Note also that bare <kbd>Z</kbd> is <em>previous zoom</em>, not
+  undo.</p>
+
+  <h3 id="arrange-nudge">Nudge, snap and the grid</h3>
+  <p><strong>The grid.</strong> The GRID field in the topbar shows the current
+  value; <kbd>S</kbd> cycles it (BAR, 1/2, 1/4, 1/8 ... 1/128, OFF),
+  <kbd>Shift</kbd>+<kbd>=</kbd> / <kbd>Shift</kbd>+<kbd>-</kbd> step it larger
+  / smaller, and the wheel over the field does the same. The field's pop-up
+  adds <em>Dotted</em> and <em>Triplet</em> modifiers and the time scale:
+  <em>Bars|Beats</em>, <em>Min:Secs</em> (a wall-clock ladder from a minute
+  down to a millisecond), <em>Samples</em> (one source sample), or
+  <em>Clips/Markers</em> — free placement with magnetic snap to nearby clip
+  boundaries, the L/R markers and the selection edges. Whether the grid
+  actually bites depends on the <a href="#arrange-modes">edit mode</a>: Grid
+  mode always snaps, the Snap To Grid flag snaps the other modes, Slip alone
+  is free.</p>
+  <p><strong>Nudge.</strong> The NUDGE field has its own value ladder (same
+  steps as the grid), a <em>Follow Main Time Scale</em> option, and a typed
+  custom value (plain ticks, or <code>Nms</code> for milliseconds);
+  <kbd>Shift</kbd>+<kbd>Alt</kbd>+<kbd>=</kbd>/<kbd>-</kbd> step it. With
+  clips selected, numpad <kbd>+</kbd>/<kbd>-</kbd> nudges them by the nudge
+  value; <kbd>Alt</kbd> trims their start instead, <kbd>Ctrl</kbd> their end,
+  and <kbd>Shift</kbd> slides the contents inside the fixed boundaries.
+  <kbd>/</kbd> and <kbd>M</kbd> nudge forward / back by the next larger nudge
+  value. With only a range selection, the same keys nudge the range (bare),
+  its start (<kbd>Alt</kbd>) or its end (<kbd>Ctrl</kbd>); with a fade
+  selected they move the fade. Nudging a crossfade contributor stretches the
+  crossfade to keep its outer edges where they were.</p>
+  <p><kbd>Ctrl</kbd>+<kbd>0</kbd> quantizes the selected clips' start points
+  to the grid.</p>
+
+  <blockquote>Known reload caveat: an ordinary audio lane (one not backed by a
+  freeze record) is re-linked to its engine audio after a project load by
+  matching the lane's clip start against the saved regions on its mixer track,
+  to within one tick. This association is recovered heuristically rather than
+  stored, and it is the mechanism behind the fade-display gap noted under
+  <a href="#arrange-fades">fades</a>. Historically these lanes did not rebind
+  at all — edits on a freshly loaded audio lane silently did nothing — so if a
+  loaded audio clip ever refuses to split or trim, this is the machinery that
+  failed; save and reload, and check the clip still sits where its region
+  starts.</blockquote>
+</section>

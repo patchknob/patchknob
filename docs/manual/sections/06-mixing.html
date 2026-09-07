@@ -1,0 +1,444 @@
+<section id="mix" data-title="Mixing, Recording &amp; Setup">
+  <h2 id="mix">Mixing, Recording &amp; Setup</h2>
+  <p>This section covers the parts of PatchKnob that sit around the music: the
+  transport, the mixer, recording and punch recording, freezing tracks,
+  choosing an audio device, MIDI routing, project files, and the preferences —
+  including the built-in Claude assistant's settings.</p>
+
+  <h3 id="mix-transport">The transport</h3>
+  <p>The transport lives in a compact strip at the top of the main window; a
+  larger version of the same panel opens from <strong>View &gt; Transport
+  (large window)</strong>. Both drive the same clock, so it does not matter
+  which one you use. From left to right the buttons are:</p>
+  <ul>
+    <li><strong>To start</strong> — locate to tick 0.</li>
+    <li><strong>Rewind / Fast-forward</strong> — step the playhead one bar
+      back or forward. These work while stopped; the playhead visibly moves
+      and play resumes from wherever you put it.</li>
+    <li><strong>Play</strong> — start the transport. Pressing Play while
+      already rolling (or while a count-in is running) does nothing rather
+      than restarting.</li>
+    <li><strong>Stop</strong> — stop, leaving the playhead where it stopped.
+      Play then resumes from that spot. Stop is also the punch-out and
+      record-commit button (see <a href="#mix-recording">Recording</a>).
+      Cancelling a pending count-in with Stop puts the playhead back where the
+      count-in started.</li>
+    <li><strong>Record</strong> — arm or punch, depending on the record mode.
+      The button shows a solid red field while actually capturing, flashes
+      while armed-and-waiting, and carries a <code>P</code>, <code>T</code> or
+      <code>DP</code> badge when a punch mode is active.</li>
+    <li><strong>To end</strong> — locate to the end of the arrangement
+      (this understands audio-only projects, not just pattern triggers).</li>
+    <li><strong>Loop</strong> — toggle loop playback between the loop
+      markers.</li>
+    <li><strong>Metronome</strong> — toggle the click. It is off by default.
+      Right-click it (on the full panel) to toggle <strong>Count in
+      (4 beats)</strong>.</li>
+  </ul>
+  <p>Below the buttons sit the meter, the <strong>SONG/LIVE</strong> chip, a
+  large <strong>bar|beat|tick</strong> clock, and the tempo field. Click the
+  BPM value, type a new tempo and press <kbd>Enter</kbd> to commit
+  (<kbd>Esc</kbd> cancels; clicking elsewhere commits rather than dropping
+  what you typed). Tempo is clamped to 20–500 BPM and fractional values
+  survive end-to-end.</p>
+
+  <h4>Song mode and live mode</h4>
+  <p>The SONG/LIVE chip toggles the two playback models. In <strong>SONG</strong>
+  mode (the default) the timeline gates playback: a clip sounds only where it
+  is placed in the arrange view. In <strong>LIVE</strong> mode armed patterns
+  loop freely, the classic pattern-jamming model. The chip is bright in SONG
+  mode and dim in LIVE mode.</p>
+
+  <h4>The loop braces</h4>
+  <p>The left and right loop markers are the bracket handles in the arrange
+  ruler; drag them to move them, or drag a range in the ruler with the
+  Selector tool to set both at once. Looping itself is done inside the audio
+  engine, sample-accurately — the transport is never seeked to loop, so loops
+  are click-free and survive very short lengths.</p>
+  <p>The markers enforce a <strong>minimum loop window of one sixteenth
+  note</strong> rather than refusing a short loop: pushing one brace into (or
+  past) the other moves the other brace just far enough to keep a
+  sixteenth-note window, so a deliberately short loop stays short instead of
+  snapping back or ballooning to a bar.</p>
+
+  <h4>Locate</h4>
+  <p>Click or drag in the arrange ruler to move the playhead (it snaps to the
+  grid; hold <kbd>Alt</kbd> for a free position). Every locate — ruler, the
+  transport's step buttons, stop — moves both the sequencer and engine clocks
+  together, and each locate or stop also releases every sounding note
+  (an automatic MIDI panic), so nothing hangs.</p>
+
+  <blockquote>There is no global keyboard shortcut for play/stop. Transport
+  control is by the on-screen buttons (plus the arrange view's shuttle keys,
+  described in the arrangement section).</blockquote>
+
+  <h4>Count-in</h4>
+  <p>With count-in enabled, Play and Record first run a four-beat click
+  pre-roll (beat one accented), then start from where you were. The Play and
+  Record buttons stay lit through the pre-roll. A second press during the
+  count-in is ignored — Stop is the way out, and it returns the playhead to
+  the point the count-in started from.</p>
+
+  <h4>Record quantize</h4>
+  <p>Three chips on the transport bar shape MIDI takes as they are committed
+  (they are greyed out when record quantize is off):</p>
+  <ul>
+    <li><strong>Quantize grid</strong> — click to cycle off &rarr; whole &rarr;
+      half &rarr; quarter &rarr; eighth &rarr; sixteenth &rarr; thirty-second
+      note.</li>
+    <li><strong>Q-Range</strong> — 0/25/50/75%. A note already within this
+      fraction of the largest possible deviation from its grid line is left
+      exactly as played, so only what is audibly off gets corrected.
+      Left-click steps forward, right-click steps back.</li>
+    <li><strong>Swing</strong> — 50–70% in steps of 4. 50% is straight.</li>
+  </ul>
+
+  <h3 id="mix-mixer">The mixer and master mixer</h3>
+  <p>Open the master mixer from <strong>View &gt; Master Mixer</strong>. It is
+  a row of Ardour-style channel strips: one per track, then one
+  <strong>aux-return strip</strong> per aux bus, a slim <strong>+ AUX</strong>
+  column, and the <strong>MASTER</strong> strip on the right. The same window
+  also serves plain patchable Mixer nodes (right-click a Mixer module in the
+  patchbay and choose Open Mixer — see the <a href="#mod">patching
+  section</a>); those show no aux machinery, because aux buses belong to the
+  master only.</p>
+  <p>Each track strip carries, top to bottom:</p>
+  <ul>
+    <li><strong>Name header</strong> — right-click for Rename, Clear Inserts,
+      Unity Gain and (on an aux strip) Remove Bus.</li>
+    <li><strong>Input button</strong> — what feeds the strip.</li>
+    <li><strong>Processor box</strong> — the strip's insert-FX chain.
+      Right-click for New Plugin..., bypass, remove, Move to Pre-Fader / Move
+      to Post-Fader; drag entries to reorder. The <strong>fader is shown as
+      its own entry</strong> in the list, so the pre/post split is visible and
+      inserts can be dragged across it. A bypassed entry keeps its place but
+      processes nothing.</li>
+    <li><strong>Aux send knobs</strong> — one per aux bus; drag for level,
+      <kbd>Ctrl</kbd>+click to reset to zero, right-click for the send menu
+      (below). The send section only exists while at least one bus does.</li>
+    <li><strong>Pan</strong>, <strong>Mute / Solo</strong> (with a
+      solo-isolate LED), the <strong>gain fader</strong> (+6&nbsp;dB at the
+      top, on Ardour's fader taper) with a stereo meter, a numeric dB entry
+      and a click-to-reset peak readout, then <strong>Output</strong> and
+      <strong>Comments</strong> buttons.</li>
+  </ul>
+  <p>Solo is real engine state, not a UI trick: soloing a strip implicitly
+  mutes the others, the display distinguishes "muted by you" from "muted
+  because something else is soloed", and solo state is saved with the project
+  (format v18 and later). The strip menu (right-click the name header) also
+  carries Solo Isolate, Solo Safe, Reset Peak, and <strong>Meter Type</strong>:
+  PPM, DIN, Nordic, VU, K20, K14, K12 or Peak ballistics.</p>
+
+  <h4>Aux buses and sends</h4>
+  <p>Click the <strong>+ AUX</strong> column to create a bus (you are dropped
+  straight into naming it). Each track strip then grows a send knob for it,
+  and an aux-return strip appears between the track strips and the master.
+  Right-clicking a send knob opens a menu named for its destination bus with
+  three entries: <strong>Enabled</strong>, <strong>Pre-Fader</strong> (a
+  checkbox — post-fader is the default) and <strong>Level 0</strong>.</p>
+  <p>A <strong>post-fader</strong> send follows the strip's fader and mute —
+  what a reverb send normally wants. A <strong>pre-fader</strong> send ignores
+  the fader, mute <em>and solo</em>, which makes it usable as a headphone or
+  monitor feed. The aux bus runs its own insert chain (always pre-fader; its
+  "fader" is the return gain at the very end of the bus), and its output
+  returns into the master mix. The master strip's own inserts are the mirror
+  image: always post-fader, sitting between the mix bus and the audio
+  device.</p>
+  <p>A disabled send remembers its level so it can be toggled back. Send
+  levels are normalized 0–1; zero is silence, not merely quiet.</p>
+
+  <h3 id="mix-recording">Recording</h3>
+
+  <h4>Arming a track</h4>
+  <p>Click a track's record button in the arrange track header to arm it.
+  Exactly one track holds the arm at a time (punch modes extend this — see
+  below), and you cannot re-arm while a take is rolling. Arming an
+  <em>instrument</em> track records MIDI; arming an <em>audio</em> track
+  records audio.</p>
+
+  <h4>MIDI recording</h4>
+  <p>With an instrument track armed, press Record. From a standstill the
+  transport starts at the playhead (after the count-in, if enabled) and every
+  live event — hardware MIDI input and on-screen preview playing alike — is
+  captured, timestamped against the transport. Press Record or Stop to end
+  the take; the events become a clip at the record position, with record
+  quantize applied if it is on.</p>
+  <p>Routing is strict and explicit: a track armed on a virtual MIDI input
+  that has nothing patched into it records nothing, and the status line says
+  so ("Armed on ... but nothing is patched into it") rather than silently
+  producing an empty clip. There is no hidden hardware side channel — see
+  <a href="#mix-midi">MIDI setup</a>.</p>
+
+  <h4>Audio recording</h4>
+  <p>With an audio track armed, Record opens a capture tap on that track's
+  strip inlet. The tap is <strong>pre-fader</strong> and copies exactly what
+  is patched <em>into</em> the track — an Audio In device module, an
+  instrument, a rack — so fader, pan and mute are monitoring only and never
+  bake into the take. A track whose inlet has nothing patched into it records
+  silence, and the UI says so. The engine keeps eight independent taps, so
+  the punch modes below can genuinely record several tracks at once.</p>
+  <blockquote>Audio capture buffers are a fixed 120 seconds. A normal take —
+  or a QuickPunch/TrackPunch pass — longer than that is truncated and the
+  status line says so ("hit the 120 s capture limit"). Stop, commit, and
+  roll again for longer material. DestructivePunch takes are bounded by the
+  DP File Length preference instead.</blockquote>
+
+  <h4>Punch recording</h4>
+  <p>PatchKnob implements the Pro Tools punch model. Choose the mode in the
+  <strong>Options</strong> menu, with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>
+  (QuickPunch), <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>T</kbd> (TrackPunch) or
+  <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>D</kbd> (DestructivePunch) — each
+  toggles against Normal — or by right-clicking the transport's Record button,
+  which opens the mode picker. <kbd>Ctrl</kbd>+click on Record cycles the
+  modes.</p>
+  <ul>
+    <li><strong>Normal</strong> — the plain take described above. MIDI tracks
+      always punch in Normal mode.</li>
+    <li><strong>QuickPunch</strong> — works on the record-enabled audio
+      track. Stopped, Record toggles <em>Record Ready</em> (the button
+      flashes); Play starts the pass, and Record then punches in and out on
+      the fly as often as you like. Each punch becomes its own clip, cut from
+      one continuous background capture, so punching never drops audio.</li>
+    <li><strong>TrackPunch</strong> — like QuickPunch, but per track.
+      Punch-enable any number of audio tracks (<kbd>Super</kbd>+click a
+      track's record button; <kbd>Ctrl</kbd>+click is accepted as the same
+      gesture because many Linux window managers grab
+      <kbd>Super</kbd>+click). While rolling, each punch-enabled track's
+      record button punches that track independently, and the transport's
+      Record button punches all of them at once.
+      <kbd>Alt</kbd>+<kbd>Super</kbd>+click toggles punch-enable on all audio
+      tracks (<kbd>Shift</kbd> restricts that to tracks with a selected
+      clip).</li>
+    <li><strong>DestructivePunch</strong> — writes each punch <em>into the
+      existing clip on the track</em>, in place, with a crossfade at the in
+      and out points; no new clips are created. A track is only eligible if
+      it carries one continuous audio clip at unity clip gain, starting at
+      the beginning of the timeline and at least as long as the DP file
+      length; the menu item <strong>Options &gt; Prepare DPE Tracks</strong>
+      (run it with DestructivePunch already enabled, transport stopped)
+      consolidates a track's existing material into such a clip.
+      Trying to DP-enable an ineligible track is refused with the reason and
+      its remedy. Each punch is committed at punch-out, without stopping the
+      pass.</li>
+  </ul>
+  <p>Punch clips are named after their lane with a pass and punch number
+  (<code>Audio 1_01-02</code> is the second punch of the first pass).</p>
+
+  <h4>Record preferences</h4>
+  <p>These live at the bottom of the <strong>Options</strong> menu and persist
+  in <code>punch_prefs.txt</code> in the preferences directory:</p>
+  <ul>
+    <li><strong>QP/TP Crossfade</strong> — the crossfade written at each
+      punch boundary: none, 5, 10 (default), 20 or 50&nbsp;ms. At "none" no
+      crossfade is written into the edit, but a 4&nbsp;ms monitor-only fade
+      still smooths what you hear at the punch moment.</li>
+    <li><strong>DP File Length</strong> — the length of the destructive-punch
+      take buffer: 1, 2, 5 (default), 10 or 25 minutes. Audio clips live in
+      RAM (roughly 23&nbsp;MB per stereo minute at 48&nbsp;kHz), which is why
+      the default is 5 rather than Pro Tools' 25.</li>
+    <li><strong>Transport RecordLock</strong> — on: the transport stays
+      record-ready after a stop, so the next pass needs only Play. Off (the
+      default): stop disarms. Its effect is suspended while DestructivePunch
+      is active (the stored preference survives).</li>
+    <li><strong>Audio Track RecordLock</strong> — on (the default): track
+      record and punch enables survive a transport stop. Off: they clear on
+      every stop, tape-machine style.</li>
+    <li><strong>Mute Record-Armed Tracks While Stopped</strong> — mutes an
+      armed track's monitoring whenever the transport is stopped, so an open
+      microphone is not live between takes.</li>
+  </ul>
+
+  <h3 id="mix-freeze">Freeze and bounce</h3>
+  <p>Freezing renders a track's output to audio so its instrument and effects
+  stop costing CPU. Right-click a clip in the arrange view:</p>
+  <ul>
+    <li><strong>Freeze</strong> — renders just that clip's span to audio and
+      plays the result in its place. The source pattern is song-muted, the
+      lane is tinted, and the waveform is shown.</li>
+    <li><strong>Freeze Track</strong> — renders the whole lane (from its
+      first clip to its last, including any release tail) onto a
+      <em>new audio lane</em> named "<em>name</em> (frozen)", song-mutes the
+      source, and disables the source track's devices to free CPU. The source
+      lane and its clips stay in place for editing later.</li>
+    <li><strong>Unfreeze</strong> — the same menu entries flip to Unfreeze on
+      a frozen lane. Unfreezing removes the rendered audio, restores the
+      source's previous mute state and re-enables its devices. Deleting a
+      frozen clip instead removes only the audio and leaves the source
+      muted.</li>
+  </ul>
+  <p>Track freezes are saved with the project: the rendered audio is embedded
+  like any other project clip, and the frozen lane comes back after a load
+  with its waveform and its link to the source, so Unfreeze still works.</p>
+  <p><strong>File &gt; Render to WAV...</strong> is the whole-mix bounce: it
+  plays the project once in real time, taps every master block, and writes a
+  16-bit stereo WAV.</p>
+  <blockquote>Render to WAV currently writes to a fixed file name,
+  <code>render.wav</code>, in the directory PatchKnob was started from —
+  there is no file picker — and it estimates the capture length from pattern
+  lengths assuming 120 BPM, so at slower tempos the tail of a long project
+  can be cut off. Check the result.</blockquote>
+
+  <h3 id="mix-audio-settings">Audio settings</h3>
+  <p>Open <strong>A/V &gt; Audio Settings...</strong>. The window is a list of
+  clickable rows in four groups; the current choice in each group is marked
+  with <code>*</code>, and selecting a row applies it immediately (the engine
+  stops, reopens on the new setting and carries on):</p>
+  <ul>
+    <li><strong>Driver Type / Backend</strong> — on Linux: ALSA, JACK,
+      PulseAudio (PipeWire is reached through its ALSA/JACK/Pulse
+      compatibility layers). Windows builds list ASIO, WASAPI, WDM-KS,
+      DirectSound and MME.</li>
+    <li><strong>Output Device</strong> and <strong>Input Device</strong> —
+      the input device feeds the patcher's Audio In module; when a capture
+      device is selected the stream opens duplex, which is what audio
+      recording taps.</li>
+    <li><strong>Buffer Size (latency)</strong> — 64 to 65536 frames in powers
+      of two. 512 is the default. Smaller is lower latency and higher CPU
+      risk; if you hear crackles, go up a step.</li>
+  </ul>
+  <p>Choices persist in <code>~/.config/patchknob/audio_preferences.txt</code>
+  (on Windows, <code>%APPDATA%\PatchKnob\</code>) and are restored by name at
+  the next launch.</p>
+  <blockquote>The sample rate (default 48&nbsp;kHz) is stored in that
+  preferences file but has no row in the Audio Settings window; to change it,
+  quit PatchKnob and edit the <code>sample_rate=</code> line by hand.</blockquote>
+  <p><strong>If the device is lost</strong> — unplugged, or the server went
+  away — the engine notices the stream dying and PatchKnob automatically
+  reopens on the default output device. If you started with no working device
+  at all, the app still runs (with audio disabled and "No audio device" in
+  Audio Settings); fix the device and restart.</p>
+
+  <h3 id="mix-midi">MIDI setup</h3>
+  <p>MIDI I/O is patched, not configured in a dialog. The building blocks
+  (all patch modules — see the <a href="#mod">patching section</a> for the
+  patcher itself):</p>
+  <ul>
+    <li><strong>MIDI In</strong> — the built-in hardware MIDI input node.
+      Its menu lists the hardware inputs; pick one to bind it. Its events
+      flow to whatever it is wired to.</li>
+    <li><strong>MIDI-in / MIDI-out port nodes</strong> — additional nodes,
+      each bound to a hardware MIDI input or output device, or acting as a
+      pure virtual routing point. MIDI-out nodes send whatever is patched
+      into them to their device.</li>
+    <li><strong>Virtual MIDI</strong> — a configurable bank of virtual
+      inputs and outputs (right-click the node to set the port counts) that
+      acts as the routing fabric between tracks, hardware and instruments.
+      Routes between virtual ports are real graph edges: they show up in the
+      patcher and can be edited or removed there.</li>
+  </ul>
+  <p>Tracks route through this fabric automatically: each instrument track
+  shows its MIDI input and output in the arrange header, and the wiring from
+  input to instrument is rebuilt for you when you change it. Clips can also
+  be pointed at a specific instrument node, which routes their MIDI to it by
+  channel. The contract throughout is explicit: if nothing is patched into
+  an input, nothing arrives on it — arming a track on an unpatched input
+  records nothing, and the UI says so instead of pretending.</p>
+
+  <h3 id="mix-projects">Projects</h3>
+  <p><strong>File &gt; New / Open... / Save / Save As...</strong> Projects are
+  single <code>.s24</code> files, currently format version 20. Older versions
+  load and are migrated (including pre-v13 files written at the old
+  192-PPQN resolution). Saves are atomic and flushed to disk before the old
+  file is replaced.</p>
+  <p>A project file stores everything needed to reopen the session on another
+  machine with no external files:</p>
+  <ul>
+    <li>Global state: theme (Light/Midnight), tempo, loop on/off and the loop
+      markers, virtual MIDI port counts, and the session AutoFades length.</li>
+    <li>Every sequence: name, routing, length, loop markers, its events with
+      their tracker columns, per-pattern FX, and its arrange triggers.</li>
+    <li>Per-track mixer state — gain, pan, mute, solo, sends, aux buses,
+      insert chains with each plugin's own state blob.</li>
+    <li>The whole patch graph: nodes (plugins, samplers, mixers, Rack, Pure
+      Data and Csound patches with their documents), connections, and
+      port-level wiring.</li>
+    <li>Audio clips, <strong>embedded</strong> — the samples themselves, not
+      paths — with each region's trim, source offset, loop period, gain,
+      mute, and fade shapes/slopes including crossfade links.</li>
+    <li>Automation tracks, lanes and breakpoints, and freeze
+      relationships.</li>
+  </ul>
+  <p>Plain audio lanes are re-linked to their clips after a load by matching
+  each lane's clip position against the stored regions on its track, so
+  waveforms reappear and clip edits (splits, trims, fades) work in a freshly
+  loaded project. Loading also runs undo bookkeeping: undo history is kept as
+  whole-project snapshots on disk, so <strong>Edit &gt; Undo</strong>
+  (<kbd>Ctrl</kbd>+<kbd>Z</kbd>) and <strong>Redo</strong>
+  (<kbd>Ctrl</kbd>+<kbd>Y</kbd> or
+  <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd>) span every kind of edit.</p>
+
+  <h3 id="mix-prefs">Preferences and the A/V menu</h3>
+  <p>PatchKnob has no single modal preferences dialog. Settings live where
+  they act: record preferences in <strong>Options</strong>
+  (<a href="#mix-recording">above</a>), the theme in <strong>View &gt; Light /
+  Midnight</strong>, and the rest in the <strong>A/V</strong> menu:</p>
+  <ul>
+    <li><strong>Audio Settings... / Video Settings... / Claude
+      Settings...</strong> — open the respective windows.</li>
+    <li><strong>Fullscreen (exclusive)</strong> — also on <kbd>F11</kbd> —
+      and <strong>VSync</strong>.</li>
+    <li><strong>Playback redraw 60 / 30 / 15 Hz</strong> — a ceiling on
+      animation frames during playback, for weak GPUs. Clicks and drags
+      always repaint at full rate.</li>
+    <li>A read-only line showing the SDL version and renderer in use, and —
+      only when a sibling build is installed alongside — a "Restart
+      with SDL2/SDL3..." item to relaunch the other build.</li>
+  </ul>
+  <p>On mobile builds the View menu additionally offers a UI scale of 100,
+  125, 150 or 175%; desktop builds scale with the system automatically.
+  Preferences files live in the per-user application directory
+  (<code>~/.config/patchknob/</code> and the SDL preferences path).</p>
+
+  <h4>The Claude assistant settings</h4>
+  <p><strong>A/V &gt; Claude Settings...</strong> (also reachable from the
+  chat panel's SET.. button) configures the assistant that writes Csound
+  instruments in the Csound editor. Two backends:</p>
+  <ul>
+    <li><strong>Claude Code</strong> (the default) runs your locally installed
+      Claude Code CLI and spends your existing subscription. No API key is
+      held, stored or transmitted by PatchKnob at all, and no metered credits
+      are consumed. It only requires <code>claude</code> to be on your
+      <code>PATH</code>; the settings row says plainly whether it was
+      found.</li>
+    <li><strong>Anthropic API</strong> posts to the Messages API with your own
+      key and bills per token — for machines without Claude Code, or if you
+      prefer metered use.</li>
+  </ul>
+  <p>The API key entry is masked while typing and the key is never shown
+  again after saving. It is stored <strong>per user and per machine</strong>,
+  in your preferences directory (the window shows the exact path), and the
+  stored blob is <em>bound to the machine that wrote it</em>: copying the
+  preferences file to another computer — or syncing your home directory —
+  does not carry the account over. The other machine reports the key as
+  foreign and asks for one of its own, by design; the window shows this
+  machine's fingerprint so two machines can be told apart. The key is never
+  written into a project file.</p>
+  <blockquote>On Windows the binding is real encryption (DPAPI). On Linux and
+  macOS it is obfuscation keyed to the machine identity plus a 0600 file: it
+  stops the key travelling between machines and being read by other users,
+  but it is not protection against someone who can already run code as
+  you.</blockquote>
+  <p>The window also selects the model — <code>claude-opus-5</code> (the
+  default; the generated code has to compile, so the strongest model earns
+  its keep), <code>claude-sonnet-5</code> or <code>claude-haiku-4-5</code> —
+  and toggles extended thinking (on by default) and the reply token
+  budget.</p>
+  <blockquote>If neither backend is usable — no <code>claude</code> on the
+  PATH and no key (or, on the API side, a build without HTTPS support) — the
+  chat panel does not break: it shows a plain notice explaining exactly what
+  is missing and how to fix it, and sending is disabled until one backend
+  works.</blockquote>
+
+  <h3 id="mix-video">Video settings</h3>
+  <p><strong>A/V &gt; Video Settings...</strong> configures the built-in
+  screen recorder, which captures the PatchKnob window together with the
+  mixer's master output — the audio is taken from the engine's master tap,
+  so it cannot drift against the picture the way a re-recorded soundcard
+  capture would. Rows (left-click steps a value forward, right-click back):
+  codec, height (width follows the window), frame rate, encoder threads
+  (1 keeps encoding off the audio thread), mixer audio on/off, and the output
+  folder. Recording requires <code>ffmpeg</code> on the system; the window
+  says so if it is not found. Start and stop recording from the chip at the
+  right end of the transport bar; settings changed while recording apply to
+  the next take.</p>
+</section>

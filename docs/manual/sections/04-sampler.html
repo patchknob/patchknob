@@ -1,0 +1,381 @@
+<section id="smp" data-title="Sampler &amp; Audio Content">
+  <h2 id="smp">Sampler &amp; Audio Content</h2>
+  <p>PatchKnob's built-in Sampler is a keyzone instrument: it maps samples onto
+  key and velocity ranges, plays them back with per-zone envelopes, filtering
+  and tuning, and imports whole SoundFont presets. This section covers the
+  Sampler window, its zones, the shared sample editor, and the disk browsers
+  that feed them. Audio clips on the arrangement timeline and the mixer are
+  covered in their own sections.</p>
+
+  <h3 id="smp-instrument">The sampler instrument</h3>
+  <p>To create a sampler, right-click empty space in the Patchbay and choose
+  <strong>Add Sampler</strong>. The new node arrives fully wired: it gets its
+  own MIDI channel, its own channel on the master mixer, and its own arrange
+  lane, so it is immediately playable. To edit it, right-click the node and
+  choose <strong>Open Sampler Editor</strong> (the same menu also offers
+  <strong>Parameters</strong> for the raw parameter list). The editor opens in
+  a window titled <em>Sampler</em>.</p>
+  <p>The engine side is an ordinary plugin instance: the sampler's parameters
+  surface in the tracker FX picker like any other instrument's, and its
+  volume, pan and pitch respond per note-column when driven from the
+  tracker.</p>
+  <p>The editor window contains, left to right: a disk browser (the sample
+  library), the zone list, the key map, the selected zone's waveform (the full
+  sample editor, embedded in place), the per-zone inspector, the envelope
+  editor, and the instrument's parameter sliders. The toolbar holds three
+  buttons:</p>
+  <ul>
+    <li><strong>REPLACE WAV</strong> — load a WAV file into the selected zone.
+    Only the audio and the display name are replaced; the zone's key range,
+    root, velocity band and playback settings survive.</li>
+    <li><strong>ADD ZONE</strong> — load a WAV as a new zone (full key range,
+    root C-4 by default).</li>
+    <li><strong>DELETE ZONE</strong> — delete the selected zones
+    (<kbd>Del</kbd>; undoable with <kbd>Ctrl</kbd>+<kbd>Z</kbd>).</li>
+  </ul>
+  <p>Samples can also arrive by drag and drop from the library pane (see
+  <a href="#smp-browser">the browser</a>) or, for SoundFont presets, from the
+  Sample Editor window's browser (see <a href="#smp-sf2">SoundFont
+  support</a>).</p>
+
+  <h4>How a note picks a zone</h4>
+  <p>On note-on, the engine considers every zone whose key range covers the
+  played note and whose velocity range covers the note's velocity, skipping
+  zones flagged as note-off layers. Among the candidates it plays the
+  <strong>one</strong> zone whose root key is nearest the played note (ties go
+  to the earlier zone). Overlapping zones therefore do not stack: exactly one
+  zone sounds per note.</p>
+  <blockquote><p>The per-zone overlap mode shown in the zone context menu
+  (<em>Overlap: play all / cycle / random</em>) is stored, saved with the
+  project and round-trips faithfully — but the playback engine never consults
+  it. Whatever mode you pick, a note plays the single nearest-root zone.
+  Likewise, a zone marked as a <em>note-off layer</em> is correctly excluded
+  from note-on triggering, but nothing currently triggers it when the note is
+  released — the flag mutes the zone rather than deferring it.</p></blockquote>
+
+  <h3 id="smp-keymap">The key map</h3>
+  <p>The key map draws every zone as a rectangle on a grid of keys (horizontal)
+  by velocity (vertical), above a keyboard strip. Selection and editing:</p>
+  <ul>
+    <li>Click a zone to select it. Where zones stack in velocity, the hit test
+    honours both the key <em>and</em> the velocity under the pointer, so lower
+    layers are selectable directly.</li>
+    <li><kbd>Ctrl</kbd>+click toggles a zone in and out of the selection;
+    <kbd>Shift</kbd>+click in the zone list extends a range.
+    <kbd>Shift</kbd>+drag on the grid is always a marquee, even when it starts
+    over a zone; a plain drag on empty grid is a marquee too.</li>
+    <li>Drag a zone's body to move it; drag its left/right edges to resize the
+    key range, its top/bottom edges to resize the velocity range, and its root
+    marker to move the root key. The nearest handle wins, so a one-key drum
+    zone remains movable and its velocity edges stay reachable.</li>
+    <li>Mouse wheel over the keyboard strip nudges the selected zone's root;
+    <kbd>Ctrl</kbd>+wheel over the grid zooms the visible key window around
+    the pointer (12–128 keys).</li>
+    <li>Dropping a library file on the grid maps a new zone to the key under
+    the pointer; dropping it on a zone row replaces that zone's audio; dropping
+    it in the empty space under the zone list appends a zone. The highlight
+    shown during the drag is exactly what the release will do.</li>
+  </ul>
+  <p>Keyboard commands (with the key map focused, not the browser):</p>
+  <table>
+    <thead><tr><th>Keys</th><th>Action</th></tr></thead>
+    <tbody>
+      <tr><td><kbd>Up</kbd> / <kbd>Down</kbd></td><td>Select the previous / next zone</td></tr>
+      <tr><td><kbd>Left</kbd> / <kbd>Right</kbd> (or <kbd>Alt</kbd>+<kbd>Up</kbd>/<kbd>Down</kbd>)</td><td>Move the selected zones one key; <kbd>Shift</kbd> moves an octave</td></tr>
+      <tr><td><kbd>R</kbd> / <kbd>Home</kbd> / <kbd>End</kbd></td><td>Set root to the centre / low key / high key of each selected zone</td></tr>
+      <tr><td><kbd>F</kbd></td><td>Fill gaps: spread the selected zones' key ranges to meet halfway between their roots</td></tr>
+      <tr><td><kbd>V</kbd></td><td>Layer the selected zones into equal velocity bands</td></tr>
+      <tr><td><kbd>W</kbd></td><td>Edit the selected zone's waveform</td></tr>
+      <tr><td><kbd>L</kbd></td><td>Lock / unlock map editing</td></tr>
+      <tr><td><kbd>M</kbd></td><td>Toggle whether the root follows a zone move</td></tr>
+      <tr><td><kbd>S</kbd></td><td>Solo the selected zones in the display</td></tr>
+      <tr><td><kbd>O</kbd></td><td>Show / hide zones that overlap the selection</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>A</kbd> / <kbd>Ctrl</kbd>+<kbd>I</kbd></td><td>Select all zones / invert the selection</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>C</kbd> / <kbd>X</kbd> / <kbd>V</kbd> / <kbd>D</kbd></td><td>Copy / cut / paste / duplicate zones (paste and duplicate land one key up; <kbd>Shift</kbd>+<kbd>V</kbd> pastes an octave up)</td></tr>
+      <tr><td><kbd>Del</kbd></td><td>Delete the selected zones</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd></td><td>Undo / redo. When the waveform pane has focus this undoes the sample edit; everywhere else it undoes the zone edit</td></tr>
+    </tbody>
+  </table>
+  <p>The right-click menu on a zone or the key map repeats most of these
+  (Rename, Duplicate, Delete, Edit waveform, Set root to this key, Shrink to
+  one key, Spread selection over keys, Fill gaps, Layer by velocity, select
+  and display toggles, Undo/Redo).</p>
+
+  <h3 id="smp-zones">Zones</h3>
+  <p>Each zone owns: its sample, a key range (low–high), a velocity range, a
+  root key, loop points, and a set of playback parameters. Loop on/off,
+  reverse, gain and the source trim are baked into the audio the engine
+  receives, so changing them re-uploads the zone's sample; everything else is
+  an engine-side parameter and updates live while you drag.</p>
+  <p>The <strong>ZONE PARAMETERS</strong> inspector edits the engine-side set
+  (drag to set, <kbd>Shift</kbd> for fine, right-click for the default):</p>
+  <table>
+    <thead><tr><th>Field</th><th>Range</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td>PAN</td><td>L100 … C … R100</td><td>Zone pan, applied by the engine (not baked into the sample)</td></tr>
+      <tr><td>ATTEN</td><td>0 … 96 dB</td><td>Attenuation; positive is quieter</td></tr>
+      <tr><td>CUTOFF</td><td>OFF, 20 Hz … 20 kHz</td><td>Low-pass filter cutoff; the leftmost sliver of the slider means no filter</td></tr>
+      <tr><td>RESO</td><td>0 … 30 dB</td><td>Filter resonance</td></tr>
+      <tr><td>COARSE</td><td>−48 … +48 st</td><td>Coarse tune in semitones</td></tr>
+      <tr><td>FINE</td><td>−99 … +99 ct</td><td>Fine tune in cents</td></tr>
+      <tr><td>KEYTRACK</td><td>0 … 1200 ct (steps of 5)</td><td>Cents of pitch per key. 100 is normal tracking; 0 is fixed pitch (drums)</td></tr>
+      <tr><td>CHOKE</td><td>OFF, 1 … 16</td><td>Exclusive class: a new note in a class chokes every other sounding voice of the same class (closed hi-hat kills open). Choked voices fade, they are not cut</td></tr>
+      <tr><td>MOD&gt;PITCH</td><td>−12000 … +12000 ct</td><td>Modulation-envelope depth into pitch</td></tr>
+      <tr><td>MOD&gt;CUTOFF</td><td>−12000 … +12000 ct</td><td>Modulation-envelope depth into filter cutoff</td></tr>
+      <tr><td>LOOP START / LOOP END</td><td>0 … 100%</td><td>Loop points as a fraction of the zone; also draggable as markers in the waveform editor</td></tr>
+    </tbody>
+  </table>
+  <p>The remaining playback switches live in the waveform pane's right-click
+  menu: <em>Reverse playback</em>, <em>Note-on layer</em> / <em>Note-off
+  layer</em>, <em>Key follows pitch</em> / <em>Fixed pitch</em>,
+  <em>Velocity controls volume</em> / <em>Fixed volume</em>, the three overlap
+  modes, plus two whole-map commands, <em>Distribute zones across keys</em>
+  (equal key bands) and <em>Layer zones by velocity</em> (equal velocity
+  bands).</p>
+  <ul>
+    <li><strong>Key follows pitch / fixed pitch</strong> — with fixed pitch
+    the zone always plays at its root pitch regardless of the key (equivalent
+    to KEYTRACK 0).</li>
+    <li><strong>Velocity controls volume / fixed volume</strong> — with fixed
+    volume every velocity plays at full level.</li>
+    <li><strong>Loop</strong> — a looped zone cycles between its loop points
+    while the note is held. A looped zone with no amplitude envelope gets a
+    short declick fade on release; one-shot zones always play to the end, as
+    hardware samplers do. Degenerate loop points (start at or past end) turn
+    the loop off rather than being repaired into an invented loop.</li>
+  </ul>
+  <p><strong>Slices.</strong> The waveform editor supports slice markers on a
+  sampler zone (double-click the waveform to add one). Slices automatically
+  expand into generated sibling zones: the source zone keeps the first
+  region and each slice becomes a one-key zone on the next key up, named
+  <code>name [slice N]</code>. Moving a marker rebuilds the regions but
+  preserves any root/key/velocity edits you made to individual slices.</p>
+  <blockquote><p>The shell's hand-editing path manages at most 128 zones. A
+  SoundFont import bypasses it and can install thousands of zones, and the
+  editor will happily select and edit any of them — parameter and envelope
+  edits reach every zone — but a <em>mapping</em> or <em>structural</em> edit
+  (move, resize, add, delete) is only re-pushed to the engine for the first
+  128 zones. On a large imported bank, treat the key map as read-mostly and do
+  mapping surgery before or during import, not after.</p></blockquote>
+
+  <h3 id="smp-envelopes">Envelopes and the per-zone filter</h3>
+  <h4>Instrument envelopes (AMP, PIT, CUT, RES, PAN)</h4>
+  <p>The envelope pane's first five tabs are instrument-wide envelopes for
+  amplitude, pitch, cutoff, resonance and pan. Each is a freely drawable
+  curve:</p>
+  <ul>
+    <li>Double-click empty canvas to add a node (a single click is
+    deliberately harmless).</li>
+    <li>Drag a node to move it; right-click an interior node to delete it.</li>
+    <li><kbd>Shift</kbd>+click a node to make it the sustain point (the level
+    held until note-off); <kbd>Shift</kbd>+click again to clear it.</li>
+    <li>Each segment has a small curve handle at its midpoint — drag it to
+    bend the segment between concave and convex.</li>
+  </ul>
+  <p>A fresh sampler is seeded with a default amplitude ADSR. Internally the
+  curves are resampled into up to 64 linear points and handed to the engine,
+  so what you draw is what plays (within that resolution).</p>
+  <h4>Per-zone DAHDSR envelopes (Z-AMP, Z-MOD)</h4>
+  <p>The last two tabs edit the <em>selected zone's</em> envelopes: the
+  amplitude override and the modulation envelope, in SoundFont's six-stage
+  form — <strong>delay, attack, hold, decay, sustain, release</strong>
+  (times in seconds; sustain is a level). Times span 1 ms to 120 s on a
+  logarithmic slider, which covers SoundFont's full legal range — an SF2
+  stage can legitimately exceed 100 seconds (8000 timecents ≈ 101.6 s), and
+  imported values that long are preserved, not clamped. Right-click a stage
+  slider to reset it.</p>
+  <p>By default a zone has no envelope of its own and <strong>inherits the
+  instrument envelope</strong>; the editor says so in words rather than
+  showing an empty curve. Dragging any stage turns the zone override on;
+  the toggle button releases it again (stage values are kept). The
+  modulation envelope only does something once you give it a destination via
+  MOD&gt;PITCH or MOD&gt;CUTOFF in the inspector. A zone with its own
+  amplitude envelope runs its own release from wherever its level is at
+  note-off — the release of one voice can never leak into another.</p>
+  <h4>Filter</h4>
+  <p>Each zone has an optional low-pass filter (CUTOFF/RESO in the
+  inspector). CUTOFF at the far left means no filter at all — imported
+  SoundFont zones whose cutoff sits above audibility are normalized to
+  "off" rather than wasting a filter on nothing.</p>
+
+  <h3 id="smp-sf2">SoundFont (SF2) import</h3>
+  <p>PatchKnob reads <code>.sf2</code> banks (and Vorbis-compressed
+  <code>.sf3</code>) with its own parser, resolving the generator layering
+  rules of the SF2 spec, so imported zones become ordinary sampler zones you
+  can edit, slice and process like any other.</p>
+  <h4>Browsing a bank without loading it</h4>
+  <p>In either browser (the Sampler window's library or the Sample Editor
+  window's browser), a soundfont file shows a <code>+</code> affordance and
+  expands <em>in place</em> like a folder: click or double-click it and its
+  presets splice in below as rows labelled <code>[bank:program] Name</code>.
+  Expanding parses headers only — a few milliseconds even on an 800 MB bank —
+  and the parse is cached, so collapsing and re-expanding is free. No sample
+  data is read until you actually import a preset. A soundfont row is never
+  auditioned as audio (it is not a decodable audio file).</p>
+  <h4>Importing a preset</h4>
+  <p>Two ways in, one import path:</p>
+  <ul>
+    <li><strong>Click</strong> a preset row in the Sampler window's own
+    library — that browser already lives inside the sampler it imports
+    into.</li>
+    <li><strong>Drag</strong> a preset row out of the Sample Editor window's
+    browser and drop it on the Sampler window.</li>
+  </ul>
+  <p>The import is <strong>asynchronous</strong>. Decoding a preset out of a
+  large bank can cost hundreds of milliseconds of disk on a cold cache, so
+  the file reading and decoding run on a worker thread while the UI stays
+  live; the status line shows progress ("Importing … 34/120 samples (28%)").
+  Clicking a second preset before the first finishes <strong>supersedes</strong>
+  it — the queue has depth one and the latest click wins, so auditioning down
+  a preset list always ends on the preset you clicked last, and a stale
+  import can never land after you have moved on. After each import the next
+  preset in the bank is quietly prefetched into the disk cache, so stepping
+  down a list gets faster, not slower.</p>
+  <p>What gets imported: every zone's key and velocity range, root key,
+  tuning (coarse/fine/scale), pan, attenuation, filter cutoff and resonance,
+  both envelopes (volume and modulation, including their pitch/filter
+  routing), exclusive class, loop points and loop flag. Stereo instruments —
+  stored in SF2 as two linked mono samples — are interleaved into single
+  stereo zones (a broken link degrades to mono rather than failing the
+  preset). The import replaces the sampler's previous contents, and the
+  status line reports the result: zones loaded, distinct samples interned,
+  stereo pairs, and anything skipped.</p>
+  <h4>Memory: zones are lazily materialized</h4>
+  <p>Zones that reuse one recording share one immutable buffer in the engine
+  — a 2976-zone concert grand drawing on 192 recordings holds roughly 85 MB,
+  not the 1.3 GB per-zone copies would cost. The editor keeps only zone
+  metadata; a zone's audio is pulled from the engine when you
+  <em>select</em> that zone (to show its waveform and let you edit it). This
+  is why a freshly imported bank uses far less memory than its file size
+  suggests, and why selecting a zone for the first time can do a little
+  work. Editing one zone's audio affects only that zone: the engine copies
+  never mutate shared buffers.</p>
+  <blockquote><p>The import engine supports two options — a hard cap on zones
+  loaded (a cheap preview import) and collapsing redundant velocity layers —
+  but no UI currently exposes them: every import runs uncapped with layers
+  intact. Also, SF2's "loop until release" mode (sampleModes 3) is imported
+  as a plain sustained loop; the until-release distinction is not kept.</p></blockquote>
+
+  <h3 id="smp-sf2-export">SoundFont export</h3>
+  <p>The engine contains a full SF2 writer aimed at two audiences at once.
+  For everyone else, it emits a strictly conformant SF2 2.04 file: real
+  generators for zones, key/velocity ranges, root keys, loops, tuning, pan,
+  attenuation, filter and both envelopes, terminal records, the 46 zero
+  frames the spec demands after each sample — so the file plays correctly in
+  FluidSynth, Polyphone or a hardware sampler. Writing goes to a temporary
+  file and renames on success, so a failed export can never destroy an
+  existing bank.</p>
+  <p>For PatchKnob itself, the writer adds a private <code>PKST</code> chunk
+  carrying the state that has no SF2 generator to live in: the native FX
+  tail (gain/pan/width/drive/filters/bitcrush/downsample/noise), tracker
+  note-column configuration, and the <em>exact</em> drawn envelope curves.
+  SF2 readers are required to skip unknown chunks, so the file stays fully
+  standard — other samplers simply ignore the extra chunk, while PatchKnob
+  reading its own file back restores the patch exactly. A
+  <em>standard-only</em> mode omits the chunk for pure interchange; drawn
+  envelopes are then fitted to six-stage DAHDSR, and the fit reports its
+  worst-case error so a caller can warn before writing, not after. A 24-bit
+  option writes the SF2.04 <code>sm24</code> chunk (low bytes of 24-bit
+  samples); older readers ignore it and play the 16-bit data.</p>
+  <blockquote><p>As of this writing the export is engine-only: the writer,
+  the 24-bit path and the <code>PKST</code> round-trip are implemented and
+  covered by tests, but no menu item or button in the UI invokes them yet.
+  There is currently no way to export a patch to SF2 from inside the
+  program.</p></blockquote>
+
+  <h3 id="smp-editor">The sample editor</h3>
+  <p>One sample editor serves the whole program: it edits anything that holds
+  a sample — a sampler zone (embedded in the Sampler window, or via
+  <kbd>W</kbd> / <em>Edit waveform…</em>) and the modular rack's SMPL-1
+  module (in the <em>Sample Editor</em> window, which pairs the editor with a
+  disk browser). It edits a sampler's playback region and knows nothing about
+  the timeline; time-stretching a clip on the arrangement is a different
+  editor.</p>
+  <h4>Display and navigation</h4>
+  <ul>
+    <li>Bipolar min/max waveform; <strong>ST</strong> switches between one
+    overlaid lane and two stacked L/R lanes.</li>
+    <li>Wheel zooms <em>at the pointer</em>; <kbd>Shift</kbd>+wheel scrolls;
+    <kbd>Ctrl</kbd>+wheel zooms amplitude. <kbd>Home</kbd> (or
+    <strong>FIT</strong>) shows the whole file, <kbd>E</kbd> zooms to the
+    selection, <kbd>Left</kbd>/<kbd>Right</kbd> scroll (fine with
+    <kbd>Shift</kbd>), <kbd>PgUp</kbd>/<kbd>PgDn</kbd> page,
+    <kbd>+</kbd>/<kbd>-</kbd> zoom.</li>
+    <li>Four draggable markers: <strong>S</strong> (region start),
+    <strong>E</strong> (region end), <strong>LS</strong>/<strong>LE</strong>
+    (loop start/end). They clamp so they can never cross. Drag on empty
+    waveform makes a selection; <kbd>Esc</kbd> unwinds one thing at a time —
+    first an in-flight drag, then the selection.</li>
+    <li><strong>0X</strong> toggles snapping of edits and markers to zero
+    crossings (on by default — this is what stops clicks).</li>
+    <li>The footer shows position, selection length, and peak/RMS of the
+    selected span.</li>
+  </ul>
+  <h4>Operations</h4>
+  <p>Operations apply to the selection, or to the whole file when there is no
+  selection. Everything is in the right-click menu; the common ones also have
+  keys:</p>
+  <table>
+    <thead><tr><th>Operation</th><th>Key</th></tr></thead>
+    <tbody>
+      <tr><td>Cut / Copy / Paste (insert) / Delete</td><td><kbd>Ctrl</kbd>+<kbd>X</kbd> / <kbd>Ctrl</kbd>+<kbd>C</kbd> / <kbd>Ctrl</kbd>+<kbd>V</kbd> / <kbd>Del</kbd></td></tr>
+      <tr><td>Paste (mix), Duplicate, Insert silence</td><td>menu</td></tr>
+      <tr><td>Trim to selection</td><td><kbd>T</kbd></td></tr>
+      <tr><td>Normalize</td><td><kbd>N</kbd></td></tr>
+      <tr><td>Gain +1.5 dB / −1.5 dB</td><td>menu</td></tr>
+      <tr><td>Reverse / Invert phase</td><td><kbd>R</kbd> / menu</td></tr>
+      <tr><td>Fade in / Fade out</td><td><kbd>I</kbd> / <kbd>O</kbd></td></tr>
+      <tr><td>Silence</td><td><kbd>M</kbd></td></tr>
+      <tr><td>Remove DC, Declick edges, Auto-trim silence</td><td><kbd>D</kbd> / menu / menu</td></tr>
+      <tr><td>Swap L/R, Sum to mono, Bitcrush, Half / Double speed</td><td>menu</td></tr>
+      <tr><td>Region = selection / Loop = selection</td><td><kbd>[</kbd> / <kbd>]</kbd></td></tr>
+      <tr><td>Loop playback on/off</td><td><kbd>L</kbd></td></tr>
+      <tr><td>Crossfade loop (seamless loop; length shown and draggable in the footer, default 20 ms)</td><td>menu</td></tr>
+      <tr><td>Save as WAV…</td><td><kbd>Ctrl</kbd>+<kbd>S</kbd></td></tr>
+      <tr><td>Undo / Redo</td><td><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd></td></tr>
+    </tbody>
+  </table>
+  <p>Edits are destructive to the zone's working copy and undoable; the undo
+  history is bounded (16 steps, capped at 256 MB of retained audio), so on
+  very long recordings the oldest steps fall off first. When the editor is
+  hosting a sampler zone, its context menu also carries the zone playback
+  switches listed under <a href="#smp-zones">Zones</a>. Double-click the
+  waveform to add a slice marker (sampler zones only); right-click a slice
+  for <em>Remove</em>, <em>Snap to zero crossing</em> and <em>Clear all
+  slices</em> (the last one asks twice).</p>
+
+  <h3 id="smp-browser">The browser</h3>
+  <p>Two disk browsers feed the samplers, sharing one design.</p>
+  <h4>The Sample Editor window's browser</h4>
+  <p>A plain directory list — folders first, then audio files — with a
+  clickable path breadcrumb and a draggable divider. It lists
+  <code>wav</code>, <code>aif</code>, <code>aiff</code>, <code>flac</code>,
+  <code>ogg</code> and <code>mp3</code> files, plus <code>sf2</code>/<code>sf3</code>
+  soundfonts (which expand in place; see <a href="#smp-sf2">above</a>).
+  Selecting a file with the arrow keys auditions it; <kbd>Space</kbd>
+  re-auditions the current row; <kbd>Enter</kbd> or double-click loads it
+  into the editor; <kbd>Backspace</kbd> goes up a folder; <kbd>F5</kbd>
+  rescans. Typing letters filters the list (a filter chip appears — click it
+  or press <kbd>Esc</kbd> to clear). Rows are drag sources: drop a file on
+  the editor to load it, or drop a soundfont preset row on the Sampler
+  window to import it.</p>
+  <blockquote><p>The browser lists more formats than the sample loader can
+  decode: loading goes through a WAV-only reader (16/24/32-bit PCM and
+  32-bit float RIFF/WAVE), so <code>aif</code>, <code>flac</code>,
+  <code>ogg</code> and <code>mp3</code> rows appear in the list but fail
+  with a load error when you try to use them. Stick to WAV for now.</p></blockquote>
+  <h4>The Sampler window's library</h4>
+  <p>The Sampler's own left-hand pane is a simpler list: folders, WAV files
+  and soundfonts only. Clicking a WAV previews its waveform and auditions it
+  (click inside the preview to play from that position); clicking a preset
+  row inside an expanded soundfont imports it immediately. Keys while the
+  browser pane is active: <kbd>Up</kbd>/<kbd>Down</kbd> step and audition,
+  <kbd>PgUp</kbd>/<kbd>PgDn</kbd> page, <kbd>Home</kbd>/<kbd>End</kbd> jump,
+  <kbd>Backspace</kbd> parent folder, <kbd>F5</kbd> rescan,
+  <kbd>Space</kbd> re-audition, <kbd>Enter</kbd> re-select. A breadcrumb
+  drive menu switches roots (drive letters on Windows, <code>/</code>
+  elsewhere). The pane says <em>why</em> it is empty — an unreadable folder
+  and a folder with no WAVs report differently. Press-and-drag a row past a
+  small threshold to pick it up and drop it on the key map, a zone row, or
+  the zone list; an ordinary click never starts a drag.</p>
+</section>

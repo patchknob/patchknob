@@ -1,0 +1,377 @@
+<section id="seq" data-title="Sequencing &amp; Composition">
+  <h2 id="seq">Sequencing &amp; Composition</h2>
+  <p>PatchKnob gives you two editors for writing notes — a tracker and a piano
+  roll, both editing the same pattern data — plus an automation editor for
+  drawing parameter curves. This section covers all three, and the pattern and
+  clip model that decides how what you write actually plays back on the
+  timeline.</p>
+
+  <h3 id="seq-editors">Opening an editor</h3>
+  <p>Double-click a MIDI clip in the <a href="#arrange">arrangement</a> to open
+  it in the piano roll; double-click an automation clip to open the automation
+  editor. Right-click a clip for the full choice: <em>Open Piano</em>,
+  <em>Open Tracker</em>, <em>Split</em>, <em>Duplicate</em> (automation clips
+  offer <em>Open Automation</em> instead of the two note editors, deliberately —
+  they hold no notes for those editors to edit).</p>
+  <p>The tracker and the piano roll are two views of the <strong>same</strong>
+  sequence: a note entered in one appears in the other, and both share one undo
+  history for the note data. Loop settings made in either editor (see
+  <a href="#seq-patterns">patterns and clips</a>) apply to the clip identically.</p>
+
+  <h3 id="seq-tracker">The tracker</h3>
+  <p>The tracker renders one pattern as a vertical grid: time runs downward,
+  one row per step, with the playhead row highlighted during playback. Each
+  <strong>note column</strong> is a group of sub-columns:</p>
+  <ul>
+    <li><strong>Note</strong> — three characters, e.g. <code>C-4</code> or
+    <code>OFF</code>.</li>
+    <li><strong>Velocity</strong> — two hex digits, <code>00</code>–<code>7F</code>.</li>
+    <li><strong>FX</strong> — zero to eight four-digit hex command columns
+    (see below).</li>
+  </ul>
+  <p>A pattern can show 1–8 note columns. The toolbar band above the header has
+  bracket buttons for everything you would otherwise reach by shortcut:
+  <code>[-]</code>/<code>[+]</code> pairs for NOTE columns, FX columns, LPB,
+  OCT (base octave) and the secondary row highlight; a LINES box showing the
+  pattern length in rows (click it, type a number 1–4096, press Enter); and a
+  LOOP / 1-SHOT chip in the row-number gutter that toggles clip looping —
+  the same state the piano roll's chip shows.</p>
+
+  <h4>Rows, LPB and pattern length</h4>
+  <p>LPB (lines per beat) is the grid resolution of the view, not of the data.
+  Valid values are 1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64, 96, 128, 192,
+  256, 384 and 768 — every one divides the engine's fixed 768 ticks per beat
+  exactly, so a row always lands on a whole tick (the triplet values 3, 6, 12…
+  stay exact too). The default is 4. Changing LPB never touches the notes: a
+  note that sits between rows at the current resolution is <em>hidden</em> at
+  that resolution, and its row is marked so it cannot be lost silently. Raise
+  the LPB to see and edit it again.</p>
+  <p>The LINES box sets the pattern length as <code>rows × ticks-per-row</code>.
+  Shrinking a pattern <strong>hides</strong> the data past the new end rather
+  than deleting it — type the old number back and the notes, their column
+  assignments, their OFFs and their FX automation all return.</p>
+
+  <h4>Note entry</h4>
+  <p>With the cursor on a note cell, the computer keyboard is a two-octave
+  piano: <kbd>Z</kbd> <kbd>S</kbd> <kbd>X</kbd> <kbd>D</kbd> <kbd>C</kbd>
+  <kbd>V</kbd> <kbd>G</kbd> <kbd>B</kbd> <kbd>H</kbd> <kbd>N</kbd> <kbd>J</kbd>
+  <kbd>M</kbd> is the lower octave (C, C#, D … B) and <kbd>Q</kbd> <kbd>2</kbd>
+  <kbd>W</kbd> <kbd>3</kbd> <kbd>E</kbd> <kbd>R</kbd> <kbd>5</kbd> <kbd>T</kbd>
+  <kbd>6</kbd> <kbd>Y</kbd> <kbd>7</kbd> <kbd>U</kbd> the upper. At the default
+  base octave (4), <kbd>Z</kbd> writes C-4 (MIDI 60). The key also previews the
+  note through the clip's instrument, sustaining until you release it. After
+  each entry the cursor advances by the edit step (1–8 rows, default 1).</p>
+  <p>A tracker note sustains until something releases it: entering
+  <kbd>`</kbd> (backtick) on a note cell writes an explicit <code>OFF</code>,
+  and striking a new note in the same column releases the previous one.
+  <kbd>Delete</kbd>, <kbd>.</kbd> or <kbd>Backspace</kbd> clears the cell under
+  the cursor (or the whole selection). On a velocity cell, hex keys
+  (<kbd>0</kbd>–<kbd>9</kbd>, <kbd>A</kbd>–<kbd>F</kbd>) roll digits in; on an
+  FX cell they accumulate up to four digits, left-aligned — typing <code>8</code>
+  alone means <code>8000</code> (half scale), <code>FFFF</code> is full scale.</p>
+
+  <h4>One column is one voice</h4>
+  <p>Column assignment is not cosmetic. Every note remembers which column it
+  was entered in, and the engine treats each column as a monophonic voice for
+  <em>every</em> instrument type: striking a column cuts whatever that column
+  was holding, one tick before the new note, so retriggers are deterministic.
+  Notes moved between columns change voice allocation accordingly.</p>
+
+  <h4>FX columns</h4>
+  <p>Each note column carries its own FX command columns
+  (<kbd>Ctrl</kbd>+<kbd>=</kbd> adds one, <kbd>Ctrl</kbd>+<kbd>-</kbd> removes
+  one, 0–8 per note column). Click an FX column's header label to open the
+  target menu: <em>None</em>, a MIDI CC number, or drill into an instrument /
+  rack device for one of its parameters. New patterns arrive with two columns
+  bound to CC 74 (filter cutoff, header <code>C74</code>) and CC 7 (channel
+  volume, <code>C07</code>).</p>
+  <ul>
+    <li>A CC-bound column stores real control-change events inside the
+    pattern, played through the normal engine path. The 16-bit cell value is
+    quantised to the CC's 7 bits.</li>
+    <li>A parameter-bound column (instrument, patch node or rack module
+    parameter) stores full 16-bit values in a per-pattern store and fires them
+    as the playhead crosses each row — for every active pattern on the track,
+    not only the one currently shown.</li>
+  </ul>
+  <p>FX bindings and values are <strong>per pattern</strong>: switching the
+  tracker to another clip saves the current pattern's FX state and loads the
+  other's, so automation never bleeds between patterns.
+  <kbd>Ctrl</kbd>+<kbd>I</kbd> interpolates an FX column linearly across the
+  selected rows.</p>
+
+  <h4>Navigation and editing keys</h4>
+  <table>
+    <thead><tr><th>Keys</th><th>Action</th></tr></thead>
+    <tbody>
+      <tr><td><kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd></td><td>Move the cursor (wraps across columns)</td></tr>
+      <tr><td><kbd>Tab</kbd> / <kbd>Shift</kbd>+<kbd>Tab</kbd></td><td>Next / previous note column</td></tr>
+      <tr><td><kbd>PgUp</kbd> <kbd>PgDn</kbd> <kbd>Home</kbd> <kbd>End</kbd></td><td>Page / first / last row; with <kbd>Ctrl</kbd>, first / last column</td></tr>
+      <tr><td><kbd>Shift</kbd>+arrows</td><td>Extend the cell selection</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>A</kbd></td><td>Select the whole pattern</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>C</kbd> / <kbd>X</kbd> / <kbd>V</kbd></td><td>Copy / cut / paste cells at the cursor</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd></td><td>Undo note edits</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>↑</kbd> / <kbd>↓</kbd></td><td>Transpose selection a semitone (octave with <kbd>Shift</kbd>)</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>D</kbd></td><td>Duplicate the block below itself</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>H</kbd></td><td>Humanise velocities</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd></td><td>Interpolate velocity across the selection</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>.</kbd> / <kbd>Ctrl</kbd>+<kbd>,</kbd></td><td>Velocity +8 / −8</td></tr>
+      <tr><td><kbd>Insert</kbd> / <kbd>Shift</kbd>+<kbd>Delete</kbd></td><td>Insert a blank row / delete the row (shifting the rest)</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>Delete</kbd></td><td>Clear the whole row</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Backspace</kbd></td><td>Clear the whole pattern</td></tr>
+      <tr><td><kbd>[</kbd> / <kbd>]</kbd></td><td>Base octave down / up (0–8)</td></tr>
+      <tr><td><kbd>-</kbd> / <kbd>=</kbd>, or <kbd>Alt</kbd>+<kbd>↑</kbd> / <kbd>↓</kbd></td><td>Edit step down / up (1–8)</td></tr>
+      <tr><td><kbd>Alt</kbd>+<kbd>←</kbd> / <kbd>→</kbd></td><td>Previous / next LPB value</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>F</kbd></td><td>Follow playback (cursor pinned to the playhead)</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>M</kbd></td><td>Mute the cursor's note column (visual)</td></tr>
+      <tr><td><kbd>Shift</kbd>+<kbd>L</kbd> / <kbd>Ctrl</kbd>+<kbd>L</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd></td><td>Loop on/off · loop from selection · clear loop window</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>Cancel selection and silence preview notes</td></tr>
+    </tbody>
+  </table>
+  <blockquote><p><kbd>Ctrl</kbd>+<kbd>M</kbd> column mute is a
+  <strong>visual</strong> marker only: the engine still plays every event in
+  the pattern. Do not rely on it to silence a column during playback.</p></blockquote>
+
+  <h3 id="seq-piano">The piano roll</h3>
+  <p>The piano roll shows the same pattern horizontally: a bar/beat ruler on
+  top (with the END marker and the loop window), a keyboard strip on the left
+  (click a key to preview it), the note grid, and a data lane underneath for
+  velocities. Six tools sit on the number keys — <kbd>1</kbd> edit,
+  <kbd>2</kbd> draw, <kbd>3</kbd> erase, <kbd>4</kbd> select, <kbd>5</kbd>
+  zoom, <kbd>6</kbd> pan.</p>
+
+  <h4>Entering and editing notes</h4>
+  <ul>
+    <li>Click empty grid to add a note at the snap position; drag in empty
+    grid to lasso-select.</li>
+    <li>Click a note to select it (<kbd>Ctrl</kbd>-click adds to the
+    selection); drag to move the whole selection. Drag a note's right edge to
+    resize (<kbd>Shift</kbd> stretches the selection proportionally).</li>
+    <li>Drag across the data lane to ramp velocities; <kbd>V</kbd> cycles what
+    the lane shows (velocity, pitch bend, program, channel pressure, CCs).</li>
+    <li>The wheel zooms time around the pointer; <kbd>Shift</kbd>+wheel
+    scrolls vertically, <kbd>Ctrl</kbd>+wheel zooms row height.</li>
+  </ul>
+
+  <h4>Keys</h4>
+  <table>
+    <thead><tr><th>Keys</th><th>Action</th></tr></thead>
+    <tbody>
+      <tr><td><kbd>Q</kbd></td><td>Quantise selected note starts to the snap (lengths kept)</td></tr>
+      <tr><td><kbd>G</kbd></td><td>Cycle the snap size: 1/1, 1/2, 1/4, 1/8, 1/16, 1/32</td></tr>
+      <tr><td><kbd>↑</kbd> / <kbd>↓</kbd></td><td>Transpose a semitone (octave with <kbd>Shift</kbd>, or <kbd>PgUp</kbd>/<kbd>PgDn</kbd>)</td></tr>
+      <tr><td><kbd>←</kbd> / <kbd>→</kbd></td><td>Nudge one snap step (one beat with <kbd>Ctrl</kbd>)</td></tr>
+      <tr><td><kbd>A</kbd></td><td>Select all</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>C</kbd> / <kbd>X</kbd> / <kbd>V</kbd></td><td>Copy / cut / paste</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd>, <kbd>U</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd>, <kbd>Ctrl</kbd>+<kbd>Y</kbd></td><td>Undo / redo</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>D</kbd></td><td>Duplicate the selection after itself</td></tr>
+      <tr><td><kbd>Delete</kbd> / <kbd>Backspace</kbd></td><td>Remove selected notes</td></tr>
+      <tr><td><kbd>]</kbd> / <kbd>[</kbd></td><td>Lengthen / shorten by one snap; with <kbd>Ctrl</kbd>, scale lengths ×2 / ×0.5; with <kbd>Shift</kbd>, time-stretch the selection ×2 / ×0.5</td></tr>
+      <tr><td><kbd>=</kbd></td><td>Give the selection one uniform length</td></tr>
+      <tr><td><kbd>.</kbd> / <kbd>,</kbd></td><td>Velocity +8 / −8 · <kbd>N</kbd> normalise (loudest → 127)</td></tr>
+      <tr><td><kbd>L</kbd> / <kbd>H</kbd></td><td>Legato / humanise</td></tr>
+      <tr><td><kbd>R</kbd> / <kbd>I</kbd></td><td>Reverse in time / invert pitch</td></tr>
+      <tr><td><kbd>D</kbd> / <kbd>B</kbd></td><td>Drum mode (diamond heads) / note-name labels</td></tr>
+      <tr><td><kbd>K</kbd> / <kbd>Shift</kbd>+<kbd>K</kbd></td><td>Cycle snap-to-scale / cycle scale root</td></tr>
+      <tr><td><kbd>Shift</kbd>+<kbd>L</kbd> / <kbd>Ctrl</kbd>+<kbd>L</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd></td><td>Loop on/off · loop the selected notes · clear the loop window</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>Deselect</td></tr>
+    </tbody>
+  </table>
+
+  <h4>The ruler: END marker and loop window</h4>
+  <p>The END marker on the ruler is where the pattern's data ends — drag it to
+  resize the pattern. The grey band on the ruler is the pattern's
+  <strong>loop window</strong>: drag in empty ruler to select a new window
+  (a bare click changes nothing), drag the band to move it, drag an edge to
+  resize it. The LOOP / 1-SHOT chip at the ruler's right end toggles whether
+  the clip loops at all — the same three keys and the same chip labels as the
+  tracker, because both edit the one window the pattern owns.</p>
+  <p>As in the tracker, dragging END inward hides data rather than deleting
+  it; drag it back out and the notes return.</p>
+
+  <h3 id="seq-patterns">Patterns and clips</h3>
+  <p>A <strong>pattern</strong> is the container the editors edit: a list of
+  events plus a length (the END marker). A <strong>clip</strong> is a placement
+  of that pattern on the timeline — start tick, end tick, and a
+  <strong>content offset</strong> saying where in the pattern's data the clip
+  begins. All clips of one pattern share its data: edit the pattern and every
+  placement changes. Placing, trimming, splitting and fading clips is
+  <a href="#arrange">section 2's</a> territory; what follows is how the
+  engine turns a clip into sound.</p>
+
+  <h4>Looping clips and the loop window</h4>
+  <p>By default a clip <strong>loops</strong>: it repeats its pattern for as
+  long as the clip is, so dragging the clip longer on the timeline repeats the
+  bars. What repeats is the pattern's <em>loop window</em>
+  (<code>loop_start</code>–<code>loop_end</code>), which defaults to the whole
+  pattern but can be any sub-region — set it from the piano roll ruler or with
+  <kbd>Ctrl</kbd>+<kbd>L</kbd> in either editor. A 4-step window over a 1-bar
+  pattern plays those 4 steps over and over. The window may even reach past
+  the END marker, which is how an odd-length loop (say 3 beats) is laid over a
+  shorter phrase: the ticks past the data play as silence, then the window
+  wraps.</p>
+  <p>Repetitions are anchored on the clip's own left edge, not on bar 1 of the
+  song — so a clip with a 3-step loop starts on the same step wherever you
+  place it, and moving a clip moves its content with it.</p>
+
+  <h4>One-shot clips</h4>
+  <p>Turn looping off (the LOOP / 1-SHOT chip, or <kbd>Shift</kbd>+<kbd>L</kbd>)
+  and the clip becomes a <strong>one-shot</strong>: its data plays exactly once
+  from the clip's start, and dragging the clip longer just moves its end point
+  — nothing repeats. Anything still sounding when the data reaches the END
+  marker is released there.</p>
+
+  <h4>Content offset</h4>
+  <p>The content offset is set when a clip is split or trimmed: the right half
+  of a split carries offset <code>+ (cut&nbsp;−&nbsp;clip&nbsp;start)</code>,
+  so it carries on playing exactly where the left half stopped. But the offset
+  means something different in the two modes, and this is easy to be caught
+  out by:</p>
+  <ul>
+    <li>In a <strong>looping</strong> clip, the offset is a <em>phase</em>: it
+    <strong>rotates</strong> the loop window. The clip starts playing from the
+    offset position, and the content <em>before</em> the offset comes back
+    round at the tail of each repetition. The offset is folded by the window's
+    period, so splitting a looping clip anywhere leaves every repetition
+    intact.</li>
+    <li>In a <strong>one-shot</strong> clip, the offset is a
+    <em>trim-in</em>: content before it is skipped, nothing wraps, and an
+    offset at or past the END marker legitimately means "this clip's content
+    has run out" — silence. Split a one-shot past the end of its data and the
+    right half is quiet, as it should be, rather than replaying the pattern
+    from the top.</li>
+  </ul>
+
+  <h4>Notes across a loop boundary</h4>
+  <p>A note still sounding when a repetition ends is <strong>cut at the
+  boundary</strong>, not held and not re-struck — the hard cut every DAW
+  performs at a clip or loop edge. The one exception is a note whose note-off
+  was recorded wrapping the pattern (a key held across the loop point while
+  recording): that pair is kept, and the next repetition releases it where the
+  off actually sits.</p>
+
+  <h3 id="seq-automation">Automation</h3>
+  <p>Automation clips live on <strong>automation tracks</strong> in the
+  arrangement. Double-click one to open the automation editor: a toolbar, a
+  bar/beat ruler, and a stack of <strong>lanes</strong>, each binding one
+  target parameter to a breakpoint curve. Values are normalised 0–1 and mapped
+  onto the target's real range at playback.</p>
+
+  <h4>Lanes</h4>
+  <p>The <code>+</code> toolbar button adds a lane and opens the target picker
+  (a drilldown: node → device → parameter, or a CC number 0–127). Each lane's
+  gutter carries its name (click to re-pick the target, <kbd>F2</kbd> to
+  rename), delete, mute, solo and bypass toggles, a colour swatch, value-axis
+  zoom buttons, a resize grip and a reorder handle. Toolbar chips duplicate
+  and remove the selected lane, cycle its interpolation, toggle snap and cycle
+  the snap size (whole note down to 1/128), zoom to fit, follow the playhead,
+  and drive the editor's own undo/redo (<kbd>Ctrl</kbd>+<kbd>Z</kbd>,
+  <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> or <kbd>Ctrl</kbd>+<kbd>Y</kbd>
+  — automation history is separate from note history).</p>
+
+  <h4>Breakpoints</h4>
+  <ul>
+    <li><strong>Add</strong>: click empty lane space (a click that does not
+    move; the tick snaps, the value is where you clicked). At most one
+    breakpoint per tick.</li>
+    <li><strong>Move</strong>: drag a point; drag one of several selected
+    points to move them together. <kbd>Ctrl</kbd>-click toggles a point in and
+    out of the selection; <kbd>Ctrl</kbd>-drag draws a marquee over points
+    (<kbd>Shift</kbd> adds the box to the selection, <kbd>Alt</kbd> subtracts
+    it).</li>
+    <li><strong>Nudge</strong>: arrow keys move selected points by a snap step
+    horizontally or 1/64 vertically; <kbd>Shift</kbd> makes it fine (one tick /
+    1/512).</li>
+    <li><strong>Exact values</strong>: <kbd>Enter</kbd> opens numeric entry
+    for the selected point's value and tick.</li>
+    <li><strong>Delete</strong>: <kbd>Delete</kbd> removes the selected points,
+    or clears the selected range; <kbd>Shift</kbd>+<kbd>Delete</kbd> removes
+    the whole lane (a structural edit, deliberately a separate gesture).</li>
+  </ul>
+
+  <h4>Interpolation and curve tension</h4>
+  <p>Each lane has one interpolation mode, cycled with <kbd>I</kbd> or the
+  toolbar chip:</p>
+  <ul>
+    <li><strong>Linear</strong> (<code>LIN</code>) — a straight (or bent) line
+    between neighbouring breakpoints.</li>
+    <li><strong>Step</strong> (<code>STEP</code>) — holds the left
+    breakpoint's value across the segment, jumping at the next one: the
+    classic sample-and-hold step sequencer shape.</li>
+    <li><strong>Hold</strong> (<code>HOLD</code>) — jumps to the right
+    breakpoint's value immediately after the left one and holds it.</li>
+  </ul>
+  <p>In Linear mode every segment has a tension handle at its midpoint: drag
+  it vertically to bend the segment (−1…+1; positive bows the curve toward the
+  start value, negative toward the end, zero is a straight line). Tension
+  survives moving the breakpoint.</p>
+
+  <h4>Range selections and processes</h4>
+  <p>Drag in the ruler to select a tick range across all lanes, or drag in one
+  lane to select just that lane (<kbd>Shift</kbd> extends,
+  <kbd>Ctrl</kbd>-click a gutter adds or removes a lane from the set). With a
+  range active, <kbd>P</kbd> or the toolbar's process button opens the range
+  processes: Quantise, Humanise, Stretch, Reverse, Shift Time, Duplicate
+  Range; Insert Time and Delete Time (ripple edits); Scale, Offset, Invert,
+  Normalise, Clamp; Smooth, Thin, Densify; the generators LFO Fill, Ramp Fill,
+  S-Curve Fill, Bend Curve, Step Quantise, Random Walk and Noise Fill; and
+  the multi-lane ops Copy Shape, Mirror Lanes, Phase Offset Lanes and Average
+  Lanes. Breakpoints outside the range are untouched (except by the ripple
+  ops, whose whole point is moving what follows), and the random processes
+  are deterministic — re-running one with the same settings gives the same
+  result.</p>
+
+  <h4>Automation clips on the timeline</h4>
+  <p>An automation clip behaves like a looping note clip: its curve repeats
+  the clip's loop window for as long as the clip is, its content offset is a
+  trim into the curve, and the handles at the top of each lane edit the same
+  loop window the pattern owns. The curve drawn on the arrange clip is sampled
+  from the same data that plays, repeats included.</p>
+  <blockquote><p>Automation clips have no one-shot mode: a clip dragged longer
+  than its loop window always repeats the curve, even where a note clip with
+  looping off would fall silent.</p></blockquote>
+
+  <h4 id="seq-lane-track">Track lanes versus automation clips</h4>
+  <p>The engine holds automation in two places. An <strong>automation
+  clip</strong> owns its lanes: they start, loop and end with the clip, in
+  clip-local time. A <strong>track lane</strong> belongs to a mixer track and
+  runs in absolute song time for the whole arrangement, independent of any
+  clip. Both play back, both are saved with the project, and both are honoured
+  when a track is frozen or bounced.</p>
+  <blockquote><p>In the current shell, the automation editor only ever opens
+  bound to an automation <em>clip</em> (double-click one in the arrangement).
+  Track lanes play, save and freeze correctly if a project contains them, but
+  there is no menu or window that opens the editor on a track's own lane set —
+  in practice, clips are how you write automation.</p></blockquote>
+
+  <h3 id="seq-targets">What can be automated</h3>
+  <p>An automation lane (and a tracker FX column — they share one target
+  inventory) can drive:</p>
+  <ul>
+    <li><strong>Patch-graph node parameters</strong> — a parameter on a plugin
+    node in the patchbay, addressed by node.</li>
+    <li><strong>Rack module parameters</strong> — a parameter on one module
+    inside a rack node, denormalised into the module's real range.</li>
+    <li><strong>MIDI CC</strong> — controller 0–127 on the destination track's
+    output.</li>
+    <li><strong>Instrument parameters</strong> — a parameter of the
+    destination track's hosted instrument.</li>
+  </ul>
+  <p>All four kinds reach the engine from an automation clip during playback,
+  locate and bounce. The first two route by node and need no track; CC and
+  instrument-parameter targets need to know <em>which</em> mixer track to send
+  to — and an automation track owns none of its own (it makes no sound). So:</p>
+  <p><strong>An automation lane inherits the mixer track of the lane above
+  it</strong> — the nearest non-automation lane upward in the arrangement,
+  the convention every DAW with sub-lane automation uses. Nothing on screen
+  says this, but it decides where the lane's CCs go and which instrument's
+  parameter list the picker shows. Put the automation lane directly under the
+  track it should control. If nothing sits above it, the first track in the
+  project is used.</p>
+  <blockquote><p>Two timing caveats. Patch-graph and rack targets are applied
+  at the start of the next audio block rather than at the exact scheduled
+  tick — fine for filter sweeps, audible on very fast stepped moves at large
+  buffer sizes. And tracker FX columns bound to parameters (as opposed to
+  CCs) are fired from the interface thread as the playhead crosses each row,
+  so they carry the same block-rate granularity.</p></blockquote>
+</section>

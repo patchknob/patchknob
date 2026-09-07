@@ -1,0 +1,467 @@
+<section id="mod" data-title="Modular, Plugins &amp; Sound Design">
+  <h2 id="mod">Modular, Plugins &amp; Sound Design</h2>
+  <p>Every sound source and processor in PatchKnob lives in one place: the
+  <strong>patch graph</strong>, a node canvas where instruments, effects, MIDI
+  ports and mixers are wired together with cables. This is different from most
+  DAWs: an instrument is not loaded "into a track" — it is a node in the graph,
+  and the mixer, the sequencer and the audio device connect to it with cables
+  like everything else. That is also why an automation target is usually a
+  patch-node parameter: the parameters worth automating belong to the nodes in
+  this graph, not to a slot on a mixer strip.</p>
+
+  <h3 id="mod-patchbay">The patchbay (bottom dock)</h3>
+  <p>The patchbay is a window docked to the bottom of the screen, visible by
+  default. It shares the bottom dock with the Sample Editor as two tabs;
+  <em>View &gt; Patchbay (bottom dock)</em> shows or hides the whole dock.
+  Showing or hiding the patchbay never changes what you hear — whether audio
+  renders through the patch graph is a separate engine state, and it switches
+  on automatically the first time you wire something into <code>Audio Out</code>.</p>
+  <p>Canvas navigation: the mouse wheel pans vertically, <kbd>Shift</kbd>+wheel
+  pans horizontally, and <kbd>Ctrl</kbd>+wheel zooms around the pointer
+  (35–250%, with a zoom read-out bottom-left). Scrollbars appear along the
+  edges when the patch outgrows the view. Drag a node body to move it.</p>
+  <p>A new project seeds the canvas with five permanent nodes:</p>
+  <ul>
+    <li><strong>Instrument out</strong> — the sequencer's MIDI source. It grows
+    one output plug per arrange track, so each track's notes are a separate
+    cable.</li>
+    <li><strong>Hardware MIDI In</strong> — the default hardware MIDI input.</li>
+    <li><strong>Audio Out</strong> — the audio device sink.</li>
+    <li><strong>Master Mixer</strong> — the singleton master mixer node
+    (right-click &gt; <em>Open Mixer</em> opens the strip view; the mixer
+    itself is covered in the mixer section).</li>
+    <li><strong>Instrument Virtual MIDI Ports</strong> — a PipeWire-style
+    virtual patch panel; right-click &gt; <em>Configure MIDI Ports...</em> sets
+    how many ins and outs it has, and wiring one of its outputs to one of its
+    inputs stores an internal route rather than drawing a cable.</li>
+  </ul>
+
+  <h4 id="mod-patchbay-add">Adding nodes</h4>
+  <p>Right-click empty canvas. The menu lists the node categories:
+  <em>Instrument</em>, <em>Sampler</em>, <em>Effect</em>, <em>MIDI Ports</em>
+  (a submenu: virtual MIDI in/out plus every hardware MIDI in and out port on
+  the machine), <em>Audio I/O</em> (a submenu: <em>Audio In</em>,
+  <em>Audio Out</em>, <em>Mono to Stereo</em>), <em>Mixer</em>,
+  <em>Pure Data</em>, <em>Modular (Rack)</em> and <em>Csound</em>, followed by
+  <em>Add Module...</em>. The node is created where you right-clicked.</p>
+  <p>An <em>Instrument</em> or <em>Effect</em> node is created <strong>empty</strong>
+  — it is a plugin host with nothing loaded. Adding an Instrument immediately
+  opens the plugin picker so you choose what it hosts; an Effect waits until
+  you right-click it and pick <em>Choose Plugin...</em>.</p>
+
+  <h4 id="mod-patchbay-wiring">Connecting and disconnecting</h4>
+  <p>Ports are drawn as discs on the node edges: inputs on the left, outputs on
+  the right. Audio ports are filled, MIDI ports are hollow, and MIDI cables are
+  drawn dashed so the two never look alike. To connect:</p>
+  <ul>
+    <li><strong>Drag</strong> from an output port to an input port of the same
+    kind. The target highlights when the drop would connect.</li>
+    <li><strong>Click-to-connect</strong>: click a node body (it lights up,
+    "armed"), then click a second node. PatchKnob wires the first matching
+    output→input pair for each kind the two nodes share — so one click-click
+    links MIDI In → Instrument (MIDI), Instrument → Audio Out (audio), or both
+    at once. Order does not matter; you can click source or sink first.
+    <kbd>Esc</kbd> or clicking empty canvas cancels an armed node.</li>
+    <li><strong>Click a cable</strong> on empty canvas to delete it.</li>
+  </ul>
+  <p>The engine validates every connection; a refused one (kind mismatch, a
+  cycle, or a full fan-in) simply disappears again so the canvas always matches
+  the real graph.</p>
+
+  <h4 id="mod-patchbay-tracks">Instruments get their own mixer track</h4>
+  <p>Adding any instrument-like node — Instrument, Sampler, Pure Data,
+  Modular (Rack) or Csound — does three things at once: the engine creates a
+  dedicated master-mixer audio track for it, wires the sequencer's MIDI and the
+  node's audio through that track (the cables appear on canvas), and creates an
+  arrange lane routed to it. A fresh instrument is therefore playable and
+  mixable immediately, with its own live mixer strip; you can still reassign
+  lanes to other instruments from the track header dropdown.</p>
+  <p><strong>Per-node MIDI channel:</strong> every instrument-like node carries
+  a MIDI channel filter in the engine (default omni), so several instruments
+  hanging off one MIDI cable could each answer a different channel. The current
+  UI does not expose the filter: which instrument a track or MIDI source drives
+  is decided by which node the cable ends at, and PatchKnob sets new
+  instruments to omni. Csound is the place where channels still matter — see
+  <a href="#mod-csound-midi">live MIDI in Csound</a>.</p>
+
+  <h4 id="mod-patchbay-menu">The node menu</h4>
+  <p>Right-click a node for its actions. All nodes offer <em>Remove</em>; the
+  rest depends on the category:</p>
+  <ul>
+    <li><em>Instrument</em> / <em>Effect</em>: <em>Load Plugin from Disk...</em>,
+    <em>Choose Plugin...</em> (the scanned-plugin picker), <em>Open GUI</em>
+    (the plugin's own editor) and <em>Parameters</em> (the built-in panel).</li>
+    <li><em>Sampler</em>: <em>Open Sampler Editor</em> and <em>Parameters</em>
+    (the sampler itself is documented in its own section).</li>
+    <li><em>Pure Data</em>: <em>Open Pd Editor</em>.</li>
+    <li><em>Modular (Rack)</em>: <em>Open Rack Editor</em>, plus a
+    <em>Polyphony</em> list (1, 2, 4, 8 or 16 voices).</li>
+    <li><em>Csound</em>: <em>Edit CSD</em>.</li>
+    <li><em>Mixer</em>: <em>Open Mixer</em>.</li>
+    <li>A <em>MIDI In</em> node: choose how many virtual ports it exposes and
+    which hardware MIDI input feeds it (or <em>None</em>).</li>
+  </ul>
+
+  <h3 id="mod-rack">The modular rack</h3>
+  <p>A <em>Modular (Rack)</em> node hosts a small VCV-Rack-style modular patch.
+  Its patch-graph ports track the rack's contents: each <em>Audio Out</em>
+  module inside the rack becomes a stereo output port on the node, each
+  <em>Audio In</em> module a stereo input port, and there is always one MIDI
+  input, which feeds the rack's <em>MIDI-CV</em> modules. Right-click the node
+  &gt; <em>Open Rack Editor</em> to edit it.</p>
+
+  <h4 id="mod-rack-add">Adding modules and wiring</h4>
+  <p>Right-click empty rack canvas (or just click, when the rack is empty — it
+  says so) to open the module palette: a searchable list of module cards with a
+  category filter at the top. Type to filter by name, slug or category, and
+  <strong>drag a card onto the canvas</strong> to place the module.
+  <kbd>Esc</kbd> or right-click closes the palette.</p>
+  <p>Wiring works like the patchbay: drag from an output jack to an input jack,
+  or click an output jack (it arms) and then click an input jack. Right-click a
+  cable to remove it. Right-click a module for <em>Duplicate</em> and
+  <em>Delete</em>; <kbd>Delete</kbd> or <kbd>Backspace</kbd> removes the
+  selected module. Knobs are dragged vertically (panels with a value display
+  show the parameter's value while you turn it). Cables are colored
+  per-connection so parallel runs stay readable.</p>
+
+  <h4 id="mod-rack-modules">What ships</h4>
+  <p>The built-in set follows VCV conventions (±5 V audio, ±10 V CV, 0/10 V
+  gates, 1 V/octave pitch), so modules interoperate the way Rack users expect.
+  It includes:</p>
+  <ul>
+    <li>The core voice modules — VCO, VCF, VCA, ADSR, LFO, Mixer, 8vert, Merge,
+    Split, Sum, Mid/Side, Octave, VCA-2, VCA Mix, Mutes, Pulses, Random, SEQ-3,
+    sequential switches — built from the VCV <em>Fundamental</em> DSP through a
+    GUI-free bridge, plus Noise, Audio In/Out and MIDI-CV.</li>
+    <li>Native translations of <em>Cardinal</em> modules (currently the Befaco
+    ATTE and ABC utilities; the original source stays vendored under
+    <code>vendor/Cardinal</code>).</li>
+    <li>A second utility set: Clock, Clock Div, a 16×16 step sequencer, S&amp;H,
+    Quantizer, Attenuverter, Slew, Multiple, Delay, Waveshaper, Wavefolder,
+    Ring Mod, Panner, Crossfader, Comparator, AD Envelope, LFO2 and more.</li>
+    <li>PatchKnob originals: the 303 Oscillator, 303 Sequencer and three Acid
+    303 filter variants, VCO-4 SSE, ZDF Multi, Z-Plane Filter, Harmonic Forge,
+    Env-8 Tempo, Buffer Retrig, and a Sampler module (right-click it for
+    <em>Edit Sample</em> / <em>Load Sample...</em>).</li>
+    <li>The <a href="#mod-cdp">CDP processes</a> as rack modules, under a
+    <em>CDP</em> category.</li>
+    <li>Two <em>Scripting</em> modules, <strong>Csound</strong> and
+    <strong>Pd</strong>, which run a .csd or .pd inside the rack. Their jacks
+    and knobs are declared in the script itself (<code>chnget "jack-N"</code> /
+    <code>"knob-N"</code> channels in Csound; <code>adc~</code>/<code>dac~</code>
+    and <code>[r knob-N]</code> in Pd). Right-click one for <em>Edit DSP</em>
+    (the Csound or Pd editor bound to that module) and <em>Edit Panel</em>
+    (drag and resize its faceplate controls).</li>
+  </ul>
+  <p>PatchKnob also scans a <code>modules/</code> directory next to the
+  executable for externally built bridge modules and registers whatever it
+  finds there.</p>
+
+  <h4 id="mod-rack-poly">Polyphony</h4>
+  <p>A rack is monophonic by default. Right-click the rack <em>node</em> in the
+  patchbay and pick a <em>Polyphony</em> of 2, 4, 8 or 16: incoming notes are
+  then allocated across voices and the MIDI-CV pitch/gate/velocity outputs
+  become polyphonic signals of that width (VCV-style), so a chain of
+  poly-capable modules plays chords. The scripting Csound module understands
+  this too and runs one instrument instance per voice.</p>
+
+  <h3 id="mod-csound">Csound nodes</h3>
+  <p>A Csound node runs a complete <code>.csd</code> document inside the patch
+  graph, compiled by a real embedded Csound. Right-click the node &gt;
+  <em>Edit CSD</em> opens the editor.</p>
+
+  <h4 id="mod-csound-editor">The editor and compiling</h4>
+  <p>The editor is a plain text editor with the usual keys
+  (<kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>X</kbd>/<kbd>V</kbd>/<kbd>A</kbd>, undo
+  with <kbd>Ctrl</kbd>+<kbd>Z</kbd>). The status bar along the bottom holds
+  <em>OPEN</em>, <em>SAVE</em> and <em>SAVE AS</em> buttons for .csd files on
+  disk, and a <em>COMPILE</em> button; <kbd>Ctrl</kbd>+<kbd>E</kbd> compiles
+  too. The compile result lands in the same status bar: dimmed
+  "compiled OK" text on success, the compiler's error highlighted on failure.
+  A successful compile also re-mirrors the node's ports, because the CSD header
+  decides them: <code>nchnls</code> sets the outputs (one stereo port per pair)
+  and <code>nchnls_i</code> the inputs. Recompiling never glitches the audio
+  thread — the old engine keeps running until the new one is ready.</p>
+  <p>A fresh node compiles immediately with this starter document:</p>
+  <pre>&lt;CsoundSynthesizer&gt;
+&lt;CsInstruments&gt;
+sr = 48000
+ksmps = 32
+nchnls = 2
+nchnls_i = 2
+0dbfs = 1
+
+instr 1
+endin
+
+&lt;/CsInstruments&gt;
+&lt;CsScore&gt;
+f 0 86400
+&lt;/CsScore&gt;
+&lt;/CsoundSynthesizer&gt;</pre>
+
+  <h4 id="mod-csound-midi">Live MIDI: how the host drives your instrument</h4>
+  <p>PatchKnob feeds the node's <em>midi in</em> port straight into Csound's
+  realtime MIDI input, so instruments are triggered the classic Csound way, by
+  live events rather than score lines:</p>
+  <ul>
+    <li><code>massign &lt;channel&gt;, &lt;instr&gt;</code> routes a MIDI
+    channel to an instrument. Take pitch with <code>icps cpsmidi</code> and
+    velocity with <code>iamp ampmidi 0.5</code>.</li>
+    <li>Use MIDI-aware envelopes — <code>madsr</code> / <code>mxadsr</code> —
+    so the voice responds to note-off and releases instead of cutting.</li>
+    <li>The score's <code>f 0 86400</code> line is the <strong>keep-alive</strong>:
+    it holds the performance open for 24 hours so a MIDI instrument or effect
+    has time to run. Delete it and the performance ends immediately — the node
+    goes silent until the next compile.</li>
+  </ul>
+  <p><strong>The channel-stealing trap:</strong> <code>massign 0, N</code>
+  claims <em>every</em> MIDI channel for instrument N. With two or more
+  instruments in one CSD, a later <code>massign 0</code> silently takes the
+  earlier instrument's input — the last one wins and nothing warns you. Give
+  each instrument its own channel (<code>massign 1, 1</code> /
+  <code>massign 2, 2</code>) as soon as there is more than one.</p>
+  <p>For effects, read the node's audio inputs with <code>ins</code> (stereo)
+  or <code>inch</code>. If you forget to declare <code>nchnls_i</code>,
+  PatchKnob infers it from the <code>in</code>/<code>ins</code>/<code>inch</code>
+  opcodes it finds in the orchestra and injects it at compile time, so those
+  opcodes produce input jacks instead of silently reading nothing. The node
+  also has a <em>midi out</em> port: whatever the orchestra sends with
+  <code>midiout</code> is published there, sample-accurately, for wiring to a
+  hardware MIDI output or another node.</p>
+  <blockquote>Csound is an optional build dependency. If it was not found when
+  this binary was built, Csound nodes still exist and load in projects, but
+  compiling reports "Csound support was not built into this binary" and the
+  node produces silence. The assistant's compile check is skipped (it says so)
+  rather than failing.</blockquote>
+
+  <h4 id="mod-csound-manual">The reference manual drawer</h4>
+  <p>The small tab at the editor's top-right corner (marked <code>&gt;</code>)
+  slides out the complete Csound Reference Manual as a browsable drawer. It has
+  <em>BACK</em> and <em>HOME</em> buttons, a find-in-page box
+  (<kbd>Ctrl</kbd>+<kbd>F</kbd> focuses it; <kbd>F3</kbd> or
+  <kbd>Ctrl</kbd>+<kbd>G</kbd> steps through matches, with <kbd>Shift</kbd>
+  going backwards, and the box shows a match counter), and ordinary links —
+  click an opcode reference to follow it. Text can be selected and copied with
+  <kbd>Ctrl</kbd>+<kbd>C</kbd>, and the drawer's left edge drags to resize.
+  This is the <em>same</em> manual the assistant validates opcodes against:
+  its index of about 1,720 opcode signatures is parsed from these very pages,
+  so the documentation you read and the audit that checks generated code can
+  never disagree.</p>
+  <p>The manual is a local mirror staged next to the executable (or in
+  <code>vendor/csound-manual</code> in a source tree). If it was never
+  fetched, the drawer says so and names the fetch script
+  (<code>tools/fetch_csound_manual.py</code>) instead of showing a broken
+  page.</p>
+
+  <h4 id="mod-csound-ai">The Csound assistant</h4>
+  <p>Directly under the manual tab sits an <em>AI</em> tab (the two share the
+  right edge; opening one closes the other). It is a chat panel that writes and
+  fixes Csound for the document you are editing, and it does the whole job, not
+  just the first draft:</p>
+  <ol>
+    <li>Your request is sent together with the <strong>live</strong> editor
+    buffer and the last compile error, plus facts the model must know: which
+    <code>instr</code> numbers are already taken, whether the score has an
+    <code>f 0</code> keep-alive, and how <code>massign</code> routing stands.</li>
+    <li>The reply streams in; extended thinking is shown as a collapsible
+    "thinking" block and a progress line replaces the silence while the model
+    reasons.</li>
+    <li>Every fenced Csound block is <strong>audited against the shipped
+    manual's opcode signatures</strong> — argument rates, counts, overloads.</li>
+    <li>Code that passes the audit is then <strong>compiled by the real Csound
+    compiler</strong> on a throwaway instance (a bare <code>instr</code> block
+    is spliced into your document first, since it is not compilable alone).</li>
+    <li>Audit mismatches or compiler diagnostics are fed back to the model
+    automatically, up to four correction rounds. Superseded replies stay
+    visible but greyed, and their code is never offered.</li>
+    <li>Only code that actually <strong>compiled</strong> is auto-applied to
+    the editor — a whole document replaces the buffer, a bare instrument is
+    inserted at the cursor — and the apply goes through the normal undo, so one
+    <kbd>Ctrl</kbd>+<kbd>Z</kbd> takes it back. Code that never compiled is
+    only available behind an explicit <em>APPLY UNVERIFIED</em> button, with
+    the mismatches listed so you can judge it yourself.</li>
+  </ol>
+  <p>The audit is deliberately conservative: expressions, user-defined opcodes,
+  macros, arrays and plugin opcodes are <em>skipped</em> rather than guessed
+  at, because a false complaint would train you to ignore the checker and waste
+  a correction round. Everything it does report should be a real defect.</p>
+  <p><strong>Backends.</strong> <em>SET..</em> opens the settings window. The
+  default backend is <em>Claude Code</em>: PatchKnob shells out to a locally
+  installed <code>claude</code> executable and spends your existing
+  subscription — no API key is held, stored or transmitted, and hitting the
+  subscription's rate limit is reported as a calm "please wait" notice, not an
+  error. The alternative is the <em>Anthropic API</em> with your own key,
+  billed per token, for machines without Claude Code. The key field is always
+  masked, the key is stored only in your user preferences bound to this
+  machine and user (a key copied from another machine is refused, with the
+  reason shown), and it is never written to a project file. Settings also pick
+  the model — <code>claude-opus-5</code> (the default; the code has to
+  compile), <code>claude-sonnet-5</code> or <code>claude-haiku-4-5</code> —
+  toggle extended thinking, and cycle the reply-token cap.</p>
+  <p>While a reply is generating, a <em>STOP GENERATING</em> bar sits above the
+  composer; the worker unwinds and the panel reports "(cancelled)". When the
+  editor holds a compile error, that bar becomes a one-click <em>FIX THE
+  COMPILE ERROR</em>. <em>NEW</em> clears the transcript (disabled
+  mid-generation, on purpose).</p>
+  <blockquote>The pieces of this pipeline are individually tested — the stream
+  decoders, the opcode audit, the compile oracle and the panel logic all have
+  unit tests — but writing this manual we did not run a live end-to-end
+  exchange against a real backend from the panel. If the assistant misbehaves,
+  the settings window's backend status lines ("detected: &lt;version&gt;" /
+  "Claude Code was NOT found on your PATH") are the first thing to check.</blockquote>
+
+  <h3 id="mod-pd">Pure Data nodes</h3>
+  <p>A Pure Data node hosts an embedded Pd instance via libpd — real Pd
+  vanilla, one private instance per node. The patch lives <em>in the
+  project</em>, not as a file on disk: right-click the node &gt;
+  <em>Open Pd Editor</em> edits the node's stored patch text, and every commit
+  reloads it live. The editor's <em>OPEN</em> / <em>SAVE</em> /
+  <em>SAVE AS</em> buttons import and export ordinary <code>.pd</code> files
+  when you do want them on disk.</p>
+  <p>The editor is a visual patcher: <kbd>Ctrl</kbd>+<kbd>E</kbd> toggles
+  between EDIT and RUN mode (like Pd itself, and the current mode is shown as a
+  badge), objects are placed from a palette organized into
+  All / Sig~ / Ctrl / Math / MIDI / GUI / List / Array / Time / Data
+  categories, and the GUI atoms — toggles, bangs, sliders, number boxes,
+  radios — are drawn as live widgets you can operate in RUN mode, with their
+  values fed to the running patch. The palette's object list is generated from
+  the vanilla class registry, so everything placeable in Pd vanilla (including
+  the FFT and analysis objects) is available. Records the editor does not
+  understand — subpatches, arrays, scalars — are preserved verbatim rather
+  than dropped, so a patch made in Pd proper round-trips safely even where it
+  cannot be edited visually. Externals are not supported: what libpd vanilla
+  can load is what runs.</p>
+  <p>The node's ports follow the patch: one stereo output port per
+  <code>dac~</code> channel pair, one stereo input port per <code>adc~</code>
+  pair, plus a MIDI in (feeding <code>[notein]</code>, <code>[ctlin]</code>,
+  <code>[midiin]</code>...) and a MIDI out (carrying <code>[noteout]</code>,
+  <code>[ctlout]</code>, <code>[midiout]</code>).</p>
+
+  <h3 id="mod-cdp">CDP processes</h3>
+  <p>PatchKnob embeds the Composer's Desktop Project as a callable library: 56
+  processes lifted out of the original CDP8 command-line programs (blur,
+  focus, combine, distort, extend, filter, grain, modify, spectral and more),
+  each with its original parameters and documentation lines. They appear in two
+  places: as rack modules (the <em>CDP</em> palette category), and in the
+  <strong>CDP editor</strong> — an offline transformation patcher opened from a
+  clip's right-click <em>CDP...</em> entry in the arrangement.</p>
+  <p>The clip you invoked it from arrives as a source node with a waveform
+  strip. Right-click empty canvas to add a process from the palette
+  (grouped as "group / name"), wire source → process → process by dragging
+  between ports, and drag a parameter row's value to tune it — every node shows
+  a rendered waveform of its own output, cached and recomputed only when
+  something upstream changes. You can drop further clips from the timeline
+  into the same graph.</p>
+  <p>The bottom strip has <em>RENDER TO TRACK</em> — renders the chain and
+  places the result as a new audio track with its own mixer channel — and
+  <em>PREVIEW</em>, which plays the render without committing it. Next to the
+  buttons a read-out states the chain's honesty about realtime: spectral
+  (phase-vocoder) processes report their analysis-window latency, and
+  processes that need the whole file up front are marked "offline only"
+  rather than pretending to stream.</p>
+
+  <h3 id="mod-plugins">VST2 / VST3 hosting</h3>
+  <p>PatchKnob hosts 64-bit VST2 and VST3 plugins inside Instrument and Effect
+  nodes.</p>
+  <h4 id="mod-plugins-scan">Scanning and picking</h4>
+  <p>At startup PatchKnob loads its plugin cache if one exists (instant) and
+  otherwise scans the standard directories — on Linux
+  <code>/usr/lib/vst</code>, <code>/usr/local/lib/vst</code> and
+  <code>~/.vst</code> for VST2, <code>/usr/lib/vst3</code>,
+  <code>/usr/local/lib/vst3</code> and <code>~/.vst3</code> for VST3; on
+  Windows the usual <code>Program Files</code> VST locations — probing each
+  candidate and writing the cache. <em>View &gt; Rescan Plugins</em> forces a
+  fresh scan. The picker (from <em>Choose Plugin...</em>, or automatically on
+  a new Instrument node) lists every scanned plugin with its format tag and an
+  I/O summary; multi-output instruments show their bus layout
+  ("2x8" = eight stereo buses) so you can see there is more than one pair to
+  patch. <em>Load Plugin from Disk...</em> probes a single file directly, and
+  if a VST3 bundle exports several audio classes you choose the exact class
+  rather than silently getting the first.</p>
+  <h4 id="mod-plugins-editors">The plugin's editor vs. the parameter panel</h4>
+  <p>Every plugin node offers two views. <em>Parameters</em> is PatchKnob's own
+  panel: every parameter as a slider, always available, and the header lists
+  the plugin's bus layout. <em>Open GUI</em> opens the plugin's own editor,
+  embedded in a PatchKnob window frame when the platform allows it; a plugin
+  with no native editor falls back to the parameter panel automatically. The
+  same two views serve the mixer's insert slots.</p>
+  <p><strong>Linux/Wayland:</strong> a plugin editor cannot be embedded in a
+  Wayland session. Every Linux VST editor is an X11 window (VST3's only Linux
+  platform type is X11 window-ID embedding; there is no Wayland type at all),
+  and under Wayland the SDL window has no X11 id to parent into. So the editor
+  opens as a <strong>separate top-level window</strong> (via XWayland), and
+  PatchKnob shows a small companion frame that says so. The frame is not
+  decoration: hiding it hides the plugin window, and closing it closes the
+  editor. On an X11 session, and on Windows, editors embed normally.</p>
+
+  <h3 id="mod-fx">The built-in effects</h3>
+  <p>Four effects are compiled into PatchKnob and appear in the plugin picker
+  and browser alongside scanned plugins (their "path" is a
+  <code>builtin://</code> identifier). They have no native GUI; the parameter
+  panel gives the compressor and drum bus a dial layout of their own.</p>
+
+  <h4 id="mod-fx-comp">PatchKnob Compressor</h4>
+  <p>A feed-forward compressor implemented from the Giannoulis/Massberg/Reiss
+  design tutorial (JAES 2012), computing gain in the log domain and smoothing
+  the gain-reduction curve — not a rectified envelope — so attack and release
+  do not change with level.</p>
+  <table>
+    <thead><tr><th>Parameter</th><th>Range</th><th>Default</th></tr></thead>
+    <tbody>
+      <tr><td>Threshold</td><td>−60..0 dB</td><td>−18 dB</td></tr>
+      <tr><td>Ratio</td><td>1:1..10:1</td><td>4:1</td></tr>
+      <tr><td>Attack</td><td>0.1..50 ms</td><td>10 ms</td></tr>
+      <tr><td>Release</td><td>10..500 ms</td><td>120 ms</td></tr>
+      <tr><td>Makeup</td><td>0..30 dB</td><td>0 dB</td></tr>
+      <tr><td>Detector HPF</td><td>0..500 Hz</td><td>off</td></tr>
+      <tr><td>Knee</td><td>0..24 dB</td><td>6 dB</td></tr>
+      <tr><td>Lookahead</td><td>0..20 ms</td><td>5 ms</td></tr>
+      <tr><td>SC Attack</td><td>0..50 ms</td><td>0 ms</td></tr>
+      <tr><td>SC Release</td><td>0..500 ms</td><td>20 ms</td></tr>
+      <tr><td>Stereo Link</td><td>on/off</td><td>on</td></tr>
+      <tr><td>Mix</td><td>0..100%</td><td>100%</td></tr>
+    </tbody>
+  </table>
+  <p>The node has <strong>four inputs</strong>: the main stereo pair plus a
+  real stereo <strong>sidechain key</strong> on inputs 3/4. Unpatched, the
+  detector reads the main input and it behaves like an ordinary compressor;
+  patch anything into the key and that signal drives the gain instead —
+  kick-ducks-bass without workarounds. The key has its own shaping: the
+  detector high-pass filters only the key (never the audio path), and SC
+  Attack/Release smooth the key independently of the main gain timing. The
+  soft knee eases reduction in across its width instead of switching at the
+  threshold; lookahead delays the audio so the detector's gain lands on the
+  transient it was computed from; stereo link derives one gain from the louder
+  channel so a hard-panned hit cannot tug the image; and Mix blends dry signal
+  back in for parallel ("New York") compression on one track.</p>
+
+  <h4 id="mod-fx-trans">PatchKnob Transient Shaper</h4>
+  <p>Two envelope followers track the input at different speeds; their ratio is
+  the transient measure, so the effect is level-independent — a ghost note gets
+  the same treatment as an accent, which no threshold design can do.
+  Parameters: <em>Attack</em> and <em>Sustain</em> (each a ±12 dB bipolar
+  amount, centre = neutral), <em>Speed</em> (slides the follower pair between
+  responding to individual hits and whole phrases), <em>Output</em> (±12 dB)
+  and <em>On</em>.</p>
+
+  <h4 id="mod-fx-drum">PatchKnob Drum Bus</h4>
+  <p>A drum-bus channel strip in the spirit of a drum buss: one control per
+  job, in signal order. <em>Drive</em> is tanh-shaped soft saturation on the
+  whole signal; <em>Crunch</em> is a harder distortion applied only above a
+  200 Hz split, for snare bite without kick mush; <em>Damp</em> is an output
+  low-pass (20 kHz down to 3 kHz) to tame what drive added; <em>Boom</em> is a
+  tuned resonator (<em>Boom Freq</em> 40–120 Hz, <em>Boom Decay</em>
+  60–600 ms) struck by the signal's own transients — generated sub-thump, so it
+  works on material with no low end to boost; <em>Transients</em> is the
+  two-envelope shaper as a single bipolar knob; and <em>Compress</em> is a
+  fixed-character 4:1 soft-knee bus compressor whose threshold walks down and
+  makeup walks up together, so the knob only ever adds density. <em>Dry/Wet</em>
+  and <em>On</em> complete the set.</p>
+
+  <h4 id="mod-fx-lim">Classic Master Limiter</h4>
+  <p>A native adaptation of AnClark's ClassicMasterLimiter-RE01 (GPL-3.0),
+  keeping the original's fixed 580-sample lookahead and independent left/right
+  gain-reduction meters. One control — <em>Threshold</em>, −20..0 dB — plus
+  the two read-only meters; output is capped just under full scale.</p>
+</section>

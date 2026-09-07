@@ -1,0 +1,2517 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PatchKnob Manual</title>
+<style>
+  :root {
+    --bg:#0d1014; --panel:#141920; --edge:rgba(255,255,255,.09);
+    --text:#dfe6ee; --muted:#8c99a8; --accent:#39ff88; --accentdim:#1f7d47;
+    --code:#0a0d11;
+  }
+  * { box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body {
+    margin:0; background:var(--bg); color:var(--text);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Ubuntu,sans-serif;
+  }
+  a { color:var(--accent); text-decoration:none; }
+  a:hover { text-decoration:underline; }
+
+  .layout { display:grid; grid-template-columns:296px minmax(0,1fr); }
+
+  /* ---- left-hand navigation ---- */
+  .sidebar {
+    position:sticky; top:0; height:100vh; overflow-y:auto;
+    background:var(--panel); border-right:1px solid var(--edge); padding:22px 0 60px;
+  }
+  .brand {
+    display:flex; align-items:center; gap:10px;
+    padding:0 20px 16px; font-weight:700; letter-spacing:.2px;
+  }
+  .brand .mark {
+    display:grid; place-items:center; width:28px; height:28px; border-radius:7px;
+    background:var(--accentdim); color:#04120a; font-size:.8rem; font-weight:800;
+  }
+  .search { padding:0 20px 14px; }
+  .search input {
+    width:100%; padding:8px 10px; border-radius:7px; color:var(--text);
+    background:var(--code); border:1px solid var(--edge); font-size:.92rem;
+  }
+  .search input::placeholder { color:var(--muted); }
+  .sidebar ul { list-style:none; margin:0; padding:0; }
+  .sidebar > ul { padding:0 10px; }
+  .sidebar > ul > li { margin:2px 0 10px; }
+  .sidebar > ul > li > a {
+    display:block; padding:7px 10px; border-radius:7px;
+    color:var(--text); font-weight:650; font-size:.95rem;
+  }
+  .sidebar ul ul { margin:2px 0 0 10px; border-left:1px solid var(--edge); }
+  .sidebar ul ul a {
+    display:block; padding:5px 12px; color:var(--muted); font-size:.9rem;
+  }
+  .sidebar a:hover { background:rgba(255,255,255,.05); text-decoration:none; }
+  .sidebar a.active { color:var(--accent); background:rgba(57,255,136,.08); }
+  .sidebar li.hidden { display:none; }
+
+  /* ---- content ---- */
+  main { padding:44px 46px 140px; max-width:900px; }
+  h1 { font-size:2rem; margin:0 0 6px; }
+  .sub { color:var(--muted); margin:0 0 34px; }
+  section { padding-top:26px; border-top:1px solid var(--edge); margin-top:34px; }
+  section:first-of-type { border-top:0; margin-top:0; }
+  h2 { font-size:1.5rem; margin:0 0 12px; scroll-margin-top:20px; }
+  h3 { font-size:1.13rem; margin:30px 0 8px; scroll-margin-top:20px; }
+  h4 { font-size:1rem; margin:20px 0 6px; color:var(--muted); }
+  p, li { color:var(--text); }
+  code {
+    background:var(--code); border:1px solid var(--edge); border-radius:4px;
+    padding:1px 5px; font-size:.9em;
+  }
+  pre {
+    background:var(--code); border:1px solid var(--edge); border-radius:8px;
+    padding:13px 15px; overflow-x:auto;
+  }
+  pre code { border:0; padding:0; background:none; }
+  kbd {
+    background:#1c232c; border:1px solid var(--edge); border-bottom-width:2px;
+    border-radius:5px; padding:1px 6px; font-size:.85em; font-family:inherit;
+    white-space:nowrap;
+  }
+  table { border-collapse:collapse; width:100%; margin:14px 0; font-size:.95rem; }
+  th, td { border:1px solid var(--edge); padding:8px 11px; text-align:left; vertical-align:top; }
+  th { background:rgba(255,255,255,.04); }
+  blockquote {
+    margin:16px 0; padding:11px 16px; border-left:3px solid var(--accentdim);
+    background:rgba(57,255,136,.05); color:var(--text);
+  }
+  blockquote p:first-child { margin-top:0; }
+  blockquote p:last-child { margin-bottom:0; }
+  .toplink { display:block; margin-top:60px; color:var(--muted); font-size:.9rem; }
+
+  @media (max-width:900px) {
+    .layout { grid-template-columns:1fr; }
+    .sidebar { position:static; height:auto; border-right:0; border-bottom:1px solid var(--edge); }
+    main { padding:28px 20px 90px; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand"><span class="mark">PK</span> PatchKnob Manual</div>
+    <div class="search"><input id="filter" type="search" placeholder="Filter sections&hellip;" aria-label="Filter sections"></div>
+    <nav>
+      <ul>
+    <li><a href="#start">Getting Started</a>
+      <ul>
+        <li><a href="#start-install">Installing</a></li>
+        <li><a href="#start-first-launch">First launch and choosing an audio device</a></li>
+        <li><a href="#start-first-sound">Making a first sound</a></li>
+        <li><a href="#start-tour">A short tour</a></li>
+      </ul>
+    </li>
+    <li><a href="#arrange">Arrangement &amp;amp; Editing</a>
+      <ul>
+        <li><a href="#arrange-view">The arrange view at a glance</a></li>
+        <li><a href="#arrange-navigation">Zooming and scrolling</a></li>
+        <li><a href="#arrange-tracks">Adding tracks</a></li>
+        <li><a href="#arrange-clips">Working with clips</a></li>
+        <li><a href="#arrange-modes">Edit modes</a></li>
+        <li><a href="#arrange-tools">Edit tools</a></li>
+        <li><a href="#arrange-selection">Selection</a></li>
+        <li><a href="#arrange-editing">Cut, copy, paste and the Edit menu</a></li>
+        <li><a href="#arrange-consolidate">Consolidate</a></li>
+        <li><a href="#arrange-fades">Fades and crossfades</a></li>
+        <li><a href="#arrange-loop">The clip loop window</a></li>
+        <li><a href="#arrange-undo">Undo and redo</a></li>
+        <li><a href="#arrange-nudge">Nudge, snap and the grid</a></li>
+      </ul>
+    </li>
+    <li><a href="#seq">Sequencing &amp;amp; Composition</a>
+      <ul>
+        <li><a href="#seq-editors">Opening an editor</a></li>
+        <li><a href="#seq-tracker">The tracker</a></li>
+        <li><a href="#seq-piano">The piano roll</a></li>
+        <li><a href="#seq-patterns">Patterns and clips</a></li>
+        <li><a href="#seq-automation">Automation</a></li>
+        <li><a href="#seq-targets">What can be automated</a></li>
+      </ul>
+    </li>
+    <li><a href="#smp">Sampler &amp;amp; Audio Content</a>
+      <ul>
+        <li><a href="#smp-instrument">The sampler instrument</a></li>
+        <li><a href="#smp-keymap">The key map</a></li>
+        <li><a href="#smp-zones">Zones</a></li>
+        <li><a href="#smp-envelopes">Envelopes and the per-zone filter</a></li>
+        <li><a href="#smp-sf2">SoundFont (SF2) import</a></li>
+        <li><a href="#smp-sf2-export">SoundFont export</a></li>
+        <li><a href="#smp-editor">The sample editor</a></li>
+        <li><a href="#smp-browser">The browser</a></li>
+      </ul>
+    </li>
+    <li><a href="#mod">Modular, Plugins &amp;amp; Sound Design</a>
+      <ul>
+        <li><a href="#mod-patchbay">The patchbay (bottom dock)</a></li>
+        <li><a href="#mod-rack">The modular rack</a></li>
+        <li><a href="#mod-csound">Csound nodes</a></li>
+        <li><a href="#mod-pd">Pure Data nodes</a></li>
+        <li><a href="#mod-cdp">CDP processes</a></li>
+        <li><a href="#mod-plugins">VST2 / VST3 hosting</a></li>
+        <li><a href="#mod-fx">The built-in effects</a></li>
+      </ul>
+    </li>
+    <li><a href="#mix">Mixing, Recording &amp;amp; Setup</a>
+      <ul>
+        <li><a href="#mix-transport">The transport</a></li>
+        <li><a href="#mix-mixer">The mixer and master mixer</a></li>
+        <li><a href="#mix-recording">Recording</a></li>
+        <li><a href="#mix-freeze">Freeze and bounce</a></li>
+        <li><a href="#mix-audio-settings">Audio settings</a></li>
+        <li><a href="#mix-midi">MIDI setup</a></li>
+        <li><a href="#mix-projects">Projects</a></li>
+        <li><a href="#mix-prefs">Preferences and the A/V menu</a></li>
+        <li><a href="#mix-video">Video settings</a></li>
+      </ul>
+    </li>
+      </ul>
+    </nav>
+  </aside>
+
+  <main>
+    <h1>PatchKnob Manual</h1>
+    <p class="sub">Version 0.8.7 &mdash; every feature, and where it falls short.</p>
+
+<section data-title="Getting Started">
+  <h2 id="start">Getting Started</h2>
+  <p>PatchKnob is a DAW that combines a pattern sequencer and timeline with a
+  modular patching environment. This page gets it installed, making sound,
+  and tells you which section of the manual covers what.</p>
+
+  <h3 id="start-install">Installing</h3>
+  <p>On Debian or Ubuntu, install the <code>.deb</code>:</p>
+  <pre>sudo apt install ./patchknob_&lt;version&gt;_amd64.deb</pre>
+  <p>On Arch, install the package:</p>
+  <pre>sudo pacman -U patchknob-&lt;version&gt;-1-x86_64.pkg.tar.zst</pre>
+  <p>Either way you get a <code>patchknob</code> command and a desktop menu
+  entry. To build from source instead, from the repository root:</p>
+  <pre>./scripts/install-deps.sh   # installs the system packages (asks for sudo)
+./scripts/build.sh          # configures and builds; binary at build-linux/PatchKnob</pre>
+  <p><code>install-deps.sh</code> detects Debian/Ubuntu, Fedora and Arch
+  families and prints the generic dependency list for anything else;
+  <code>--dry-run</code> shows the command without running it.
+  <code>build.sh</code> takes <code>--debug</code>, <code>--clean</code>,
+  <code>--jobs N</code> (the script caps parallelism by available RAM — each
+  compile job can want about a gigabyte) and <code>--tests</code>. Everything
+  else PatchKnob needs is vendored and built into the binary. The packages
+  themselves are produced by <code>./packaging/build-deb.sh</code> and
+  <code>./packaging/build-arch.sh</code> after a build, landing in
+  <code>dist/</code>.</p>
+
+  <h3 id="start-first-launch">First launch and choosing an audio device</h3>
+  <p>On first launch PatchKnob opens on the system default audio output at
+  48&nbsp;kHz with a 512-frame buffer, and scans for plugins in the
+  background. If that is not the device you want — or you need JACK, a
+  specific card, or an input for recording — open <strong>A/V &gt; Audio
+  Settings...</strong> and click a backend (ALSA / JACK / PulseAudio), an
+  output device, an input device and a buffer size; changes apply
+  immediately and are remembered. Details, including what happens when a
+  device disappears, are in <a href="#mix">Mixing, Recording &amp;
+  Setup</a>.</p>
+  <p>If no audio device works at all, the app still starts, with audio
+  disabled and "No audio device" shown in Audio Settings.</p>
+
+  <h3 id="start-first-sound">Making a first sound</h3>
+  <ol>
+    <li><strong>Track &gt; Add Instrument Track</strong> adds a lane to the
+      arrange view. A track is just routing — it has no built-in sound.</li>
+    <li>Open the patchbay with <strong>View &gt; Patchbay (bottom
+      dock)</strong>, right-click the empty canvas and add an instrument:
+      <strong>Add Sampler</strong> (the built-in keyzone sampler),
+      <strong>Add Instrument</strong> (a VST plugin), <strong>Add Modular
+      (Rack)</strong>, <strong>Add Pure Data</strong> or <strong>Add
+      Csound</strong>.</li>
+    <li>Back in the arrange view, the track header's instrument dropdown
+      lists every playable node in the patcher. Pick the one you added —
+      PatchKnob wires its MIDI and audio for you, and the track's mixer strip
+      comes alive.</li>
+    <li>Draw a clip on the lane and open it in the piano roll or tracker to
+      enter notes, or arm the track and record — see
+      <a href="#arrange">arrangement</a>, <a href="#seq">note editors</a>
+      and <a href="#mix">recording</a>. Press Play on the transport bar to
+      hear it.</li>
+  </ol>
+
+  <h3 id="start-tour">A short tour</h3>
+  <p>The menu bar runs File, Edit, Track, Options, View, A/V, Help; the
+  transport strip sits with it at the top, and everything else is a window or
+  dock over the Arrange workspace.</p>
+  <ul>
+    <li><strong>Arrange</strong> — the timeline: lanes, clips, fades,
+      editing. Covered in <a href="#arrange">Arrangement &amp;
+      Editing</a>.</li>
+    <li><strong>Piano roll and Tracker</strong> — the two note editors,
+      opened on a clip. Covered in <a href="#seq">the note editors
+      section</a>.</li>
+    <li><strong>Sample Editor and Sampler</strong> — waveform editing and the
+      keyzone sampler instrument. Covered in <a href="#smp">the sampler
+      section</a>.</li>
+    <li><strong>Patchbay</strong> (View &gt; Patchbay) — the modular graph:
+      instruments, effects, MIDI ports, mixers, Rack, Pure Data and Csound
+      nodes, and every cable between them. Covered in <a href="#mod">the
+      patching section</a>.</li>
+    <li><strong>Master Mixer</strong> (View &gt; Master Mixer), the
+      <strong>transport</strong>, recording, audio/MIDI setup, projects and
+      preferences — all in <a href="#mix">Mixing, Recording &amp;
+      Setup</a>.</li>
+    <li>The View menu also switches the main workspace between
+      <strong>Arrange</strong>, <strong>Browse</strong> (the sample and
+      plugin browser), <strong>Auto</strong> (automation),
+      <strong>KeyFlw</strong> and <strong>Wave</strong>.</li>
+  </ul>
+  <p>Projects save to single <code>.s24</code> files with all audio embedded
+  (<strong>File &gt; Save</strong>); undo is <kbd>Ctrl</kbd>+<kbd>Z</kbd>
+  everywhere. The theme is <strong>View &gt; Light / Midnight</strong>.</p>
+</section>
+
+<section data-title="Arrangement &amp; Editing">
+  <h2 id="arrange">Arrangement &amp; Editing</h2>
+  <p>The arrange view is PatchKnob's timeline: one lane per track, with clips —
+  MIDI patterns, audio regions and automation blocks — placed along a bar ruler.
+  Everything you do to a song's structure happens here: placing, moving,
+  trimming, splitting and consolidating clips, fading audio, and selecting
+  material for the editors and the transport to act on.</p>
+
+  <h3 id="arrange-view">The arrange view at a glance</h3>
+  <p>The view has four fixed parts:</p>
+  <ul>
+    <li><strong>The track-header column</strong> (left). One row per lane: a
+    status spine, an INS/AUD type badge, the track name, an instrument dropdown
+    (instrument tracks only), I/O pickers, a level meter, Mute and Solo buttons,
+    a record-arm control and a small <code>x</code> that removes the track. A
+    <code>+</code> row at the bottom adds tracks. Drag a header's bottom edge to
+    resize that lane; heights are per-lane.</li>
+    <li><strong>The topbar</strong> (two rows above the ruler). Row A holds the
+    edit-mode block (SHUFFLE / SLIP / SPOT / GRID), the tool strip, zoom preset
+    buttons 1–5, the Zoom Toggle (<code>Z&lt;&gt;</code>), zoom in/out/FIT, and
+    the vertical zoom buttons (<code>a-</code>/<code>a+</code> for audio
+    waveform height, <code>m-</code>/<code>m+</code> for MIDI preview spread).
+    Row B holds the Main/Start/End/Length counters, the GRID and NUDGE value
+    fields, and the chips: <code>EDIT</code> (the command menu),
+    <code>VIEW</code> (waveform and clip display options), <code>LAY</code>
+    (Layered Editing), <code>T&lt;E</code> (Link Timeline and Edit Selection),
+    <code>TRK</code> (Link Track and Edit Selection), <code>TAB</code> (Tab to
+    Transients), <code>UNI</code> (Universe view) and <code>?</code> (the
+    built-in key reference, also on <kbd>/</kbd>).</li>
+    <li><strong>The ruler</strong> (the time band under the topbar). Bar
+    numbers, the L/R timeline markers and the edit-selection markers. Clicking
+    or dragging in the time band scrubs the playhead; dragging a marker moves
+    that boundary, and <kbd>Alt</kbd>-dragging slides a whole selection along
+    the ruler.</li>
+    <li><strong>The canvas</strong>: the lanes themselves, a bar/beat grid that
+    always lines up with the ruler digits, the clips, the moving playhead, and
+    a shaded band across the lanes showing the transport's L..R loop span. A
+    horizontal song navigator (bottom) and a vertical track navigator (right)
+    are always present; drag their thumbs to scroll.</li>
+  </ul>
+  <p>The <strong>Universe strip</strong> (<kbd>Alt</kbd>+<kbd>7</kbd> or the
+  <code>UNI</code> chip) is a miniature of the whole arrangement drawn under
+  the topbar, with a frame marking what the canvas currently shows. Click or
+  drag inside it to jump anywhere in the song; drag its bottom edge to resize
+  the strip.</p>
+  <p>One lane can carry several clips of the same pattern, and — after splits —
+  several independent sequences. The view groups them by lane, so what you see
+  as "one track" may be many sequences sharing a lane key. This matters for a
+  few commands that act per sequence rather than per lane (the loop flag, for
+  one — see <a href="#arrange-loop">the clip loop window</a>).</p>
+
+  <h3 id="arrange-navigation">Zooming and scrolling</h3>
+  <table>
+    <thead><tr><th>Gesture / key</th><th>Effect</th></tr></thead>
+    <tbody>
+      <tr><td>wheel</td><td>Horizontal zoom, anchored on the pointer</td></tr>
+      <tr><td><kbd>Shift</kbd>+wheel</td><td>Pan horizontally</td></tr>
+      <tr><td><kbd>Alt</kbd>+wheel</td><td>Scroll the lanes vertically</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+wheel</td><td>Lane height (vertical zoom)</td></tr>
+      <tr><td><kbd>Alt</kbd>+<kbd>Shift</kbd>+wheel</td><td>Audio waveform amplitude zoom</td></tr>
+      <tr><td><kbd>Alt</kbd>+<kbd>Ctrl</kbd>+wheel</td><td>MIDI note-preview vertical zoom</td></tr>
+      <tr><td><kbd>+</kbd> / <kbd>-</kbd></td><td>Zoom in / out</td></tr>
+      <tr><td><kbd>F</kbd></td><td>Fit the whole song to the canvas</td></tr>
+      <tr><td><kbd>Shift</kbd>+<kbd>F</kbd></td><td>Fit the edit selection</td></tr>
+      <tr><td><kbd>Z</kbd></td><td>Recall the previous zoom level</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>1</kbd>..<kbd>5</kbd></td><td>Recall zoom preset 1–5 (Shift-click or hold a preset button to store)</td></tr>
+      <tr><td><kbd>E</kbd></td><td>Zoom Toggle: jump to a stored zoom/height/grid state and back (<kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd> cancels without reverting; right-click <code>Z&lt;&gt;</code> for its preferences)</td></tr>
+      <tr><td>arrow keys</td><td>Pan a quarter-screen; <kbd>Up</kbd>/<kbd>Down</kbd> scroll lanes</td></tr>
+      <tr><td><kbd>PgUp</kbd> / <kbd>PgDn</kbd></td><td>Page the lanes</td></tr>
+      <tr><td><kbd>Home</kbd> / <kbd>End</kbd></td><td>Playhead and view to song start / end</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>Left</kbd>/<kbd>Right</kbd></td><td>Step the playhead a bar (works while stopped — this is how you move the edit point for a paste)</td></tr>
+      <tr><td><kbd>L</kbd></td><td>Follow-playhead auto-scroll on/off</td></tr>
+      <tr><td><kbd>T</kbd></td><td>Light / Midnight theme</td></tr>
+    </tbody>
+  </table>
+  <p><kbd>Ctrl</kbd> + a numeric-keypad digit engages <strong>Shuttle
+  Lock</strong>: the playhead winds forward or back at a multiple of realtime
+  (<kbd>5</kbd> = 1x, <kbd>9</kbd> = the custom speed, 50–800%, adjusted with
+  <kbd>Up</kbd>/<kbd>Down</kbd> while shuttling). <kbd>+</kbd>/<kbd>-</kbd>
+  flip direction; <kbd>0</kbd> or <kbd>Space</kbd> stops. This is transport
+  shuttling only — the engine has no varispeed scrub path, so no audio plays
+  at shuttle speeds.</p>
+
+  <h3 id="arrange-tracks">Adding tracks</h3>
+  <p>The <code>+</code> row at the bottom of the header column (and the shell's
+  track menu) offers three kinds:</p>
+  <ul>
+    <li><strong>Instrument Track</strong> — a MIDI lane. It gets MIDI in/out
+    ports on the master mixer and drives one instrument node, picked from the
+    dropdown on the header's second line. Its clips are patterns, opened in the
+    piano roll or tracker.</li>
+    <li><strong>Audio Track</strong> — carries audio regions and gets audio
+    in/out ports. Clips draw their waveform; audio arrives by recording,
+    importing, freezing or consolidating — you do not draw audio clips by hand
+    (except with the Pencil, which edits existing samples destructively).</li>
+    <li><strong>Automation Track</strong> — a lane of automation clips, each
+    drawing its region's curve, loop repeats and a live playhead dot. An
+    automation lane owns no mixer track of its own: <strong>it inherits the
+    track of the nearest non-automation lane above it</strong> (or the first
+    mapped track if there is none above). Nothing on screen says so, but it is
+    why you add an automation lane directly under the track it should control.
+    Double-clicking an automation clip opens the automation editor.</li>
+  </ul>
+  <p>The per-track <code>x</code> removes a track. Because queued undo steps
+  may name the deleted sequence, <strong>deleting a track clears the undo
+  queue</strong> — make sure you mean it.</p>
+
+  <h3 id="arrange-clips">Working with clips</h3>
+  <p><strong>Creating.</strong> On an empty instrument or automation lane:
+  double-click to place a one-pattern-length clip snapped to the grid, drag
+  with the Pencil tool to place and grow one, or right-click for
+  <em>Add Piano Clip</em> / <em>Add Tracker Clip</em> / <em>Add Automation
+  Clip</em>. A single click on empty space just sets the paste anchor and
+  starts a rubber-band selection, so you cannot scribble clips by accident.</p>
+  <p><strong>Moving.</strong> Drag a clip's body. Placement follows the edit
+  mode (snapped in Grid, free in Slip, packed against neighbours in Shuffle —
+  see <a href="#arrange-modes">edit modes</a>). A snapped guide line and a
+  bar.beat readout follow every drag. Grabbing one clip of a multi-selection
+  moves the whole group rigidly; if any lane would hit a neighbour, the whole
+  group clamps rather than shearing apart. Dragging against a view edge
+  auto-scrolls.</p>
+  <p><strong>Trimming.</strong> Drag within 6 px of a clip's left or right
+  edge (any tool), or use the Trimmer, whose whole clip body is a trim zone
+  split at the middle. A left trim keeps the content anchored — pulling the
+  edge in hides material, it does not drag notes or audio along. On audio, the
+  trim edits the region non-destructively: the source audio is untouched and
+  can be revealed again.</p>
+  <p><strong>Slipping (audio).</strong> <kbd>Alt</kbd>+drag an audio clip's
+  body slides the source material under the fixed clip window.</p>
+  <p><strong>Splitting.</strong> Middle-click a clip at the pointer,
+  press <kbd>X</kbd> to split the focused lane at the playhead, click with the
+  scissors (Cut) tool, or use the context menu's <em>Split</em>. Splits land on
+  the snapped tick. The right half of an audio split becomes a new lane-mate
+  region; fades split with the halves (see
+  <a href="#arrange-fades">Preserve Fades</a>).</p>
+  <p><strong>Duplicating.</strong> <kbd>Ctrl</kbd>+drag drags a ghost copy and
+  commits it on release (a plain <kbd>Ctrl</kbd>+click adds to the selection
+  instead and never duplicates). <kbd>Ctrl</kbd>+<kbd>D</kbd> duplicates the
+  selection immediately after itself; the context menu has
+  <em>Duplicate</em> too.</p>
+  <p><strong>Deleting.</strong> <kbd>Delete</kbd> removes the object selection;
+  with a range selection it clears the range; <kbd>Ctrl</kbd>+<kbd>Delete</kbd>
+  clears all track data in the selection. Right-click &gt; <em>Delete</em>
+  removes one clip. Deleted audio clips are cached to disk so undo restores
+  them exactly.</p>
+  <p><strong>Renaming.</strong> <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>
+  or right-click &gt; <em>Rename</em> edits the name in place. Double-click
+  opens the clip's editor (piano roll, sample editor, or automation editor,
+  by clip kind).</p>
+  <p><strong>Audio-clip affordances.</strong> Each audio clip carries a
+  top-right loop chip (see <a href="#arrange-loop">the loop window</a>), a
+  lower-right extend handle (drag to lengthen the region; a looping region
+  wraps its source to fill, and <kbd>Ctrl</kbd> constrains the drag to whole
+  loop iterations), and a horizontal gain line whose centre handle drags the
+  region gain from silence to 2x (+6 dB) with a live dB readout. The
+  right-click menu adds <em>Fades...</em>, <em>Normalize</em>,
+  <em>Reverse</em>, <em>Mute</em>/<em>Unmute</em>, <em>Split Into Mono</em>,
+  <em>Compact...</em> (destructive — it discards unused source audio and
+  cannot be undone), <em>Sync Point</em> and a 1–5 rating.</p>
+  <p><strong>Overlaps.</strong> The <code>LAY</code> chip toggles Layered
+  Editing: ON, a clip dropped over another leaves the covered clip intact
+  underneath; OFF, the covered clip is trimmed to the overlapper on drop.
+  Fully covered clips are removed either way.</p>
+
+  <h3 id="arrange-modes">Edit modes</h3>
+  <p>One of four modes governs how every clip gesture places its result.
+  <kbd>F1</kbd>–<kbd>F4</kbd> select them; <kbd>`</kbd> cycles.</p>
+  <table>
+    <thead><tr><th>Mode</th><th>Key</th><th>Behaviour</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Shuffle</strong></td><td><kbd>F1</kbd></td>
+      <td>Clips pack against each other and cannot overlap: a dragged or pasted
+      clip snaps to the end of the nearest earlier clip, and removing a range
+      slides everything after it left by the range length (gaps between clips
+      are preserved). Trims and pastes ripple the lane the same way.</td></tr>
+      <tr><td><strong>Slip</strong></td><td><kbd>F2</kbd></td>
+      <td>Free placement — no snapping at all. Clips may overlap or leave
+      gaps.</td></tr>
+      <tr><td><strong>Spot</strong></td><td><kbd>F3</kbd></td>
+      <td>Clicking a clip opens the Spot dialog instead of starting a drag:
+      type an exact destination as <code>bar.beat.tick</code> or
+      <code>m:ss.mmm</code>. With the Trimmer, the dialog spots the pressed
+      edge (and in TCE trim mode, time-stretches to it). The dialog also shows
+      the clip's original time stamp.</td></tr>
+      <tr><td><strong>Grid</strong></td><td><kbd>F4</kbd></td>
+      <td>Everything snaps to the current grid value. This is the default.
+      Right-click the GRID mode button to switch between
+      <em>Absolute</em> (clips land on grid lines) and <em>Relative</em>
+      (clips move <em>by</em> grid increments, keeping their offset from the
+      grid).</td></tr>
+    </tbody>
+  </table>
+  <p><strong>Snap To Grid</strong> is a separate flag that combines grid
+  snapping with Shuffle, Slip or Spot: <kbd>Shift</kbd>+<kbd>F4</kbd> toggles
+  it, and <kbd>Shift</kbd>+<kbd>F1</kbd>..<kbd>F3</kbd> select that mode with
+  the flag on. <kbd>Ctrl</kbd>-clicking the SHUFFLE button locks Shuffle out
+  entirely (so a stray <kbd>F1</kbd> cannot ripple your session);
+  <kbd>Ctrl</kbd>-click again to unlock.</p>
+
+  <h3 id="arrange-tools">Edit tools</h3>
+  <p>PatchKnob's four original tools are reachable on bare letters —
+  <kbd>G</kbd> Grabber, <kbd>R</kbd> Selector, <kbd>C</kbd> scissors (Cut),
+  <kbd>D</kbd> Pencil — and the full set lives on the function keys.
+  <kbd>Esc</kbd> cycles tools (after first clearing any selection). Pressing a
+  tool's key again, or clicking its button again, cycles its sub-modes;
+  holding the button opens the sub-mode menu. The right-click context menu
+  carries the tool palette across its top, so you can switch tools where the
+  pointer already is.</p>
+  <table>
+    <thead><tr><th>Tool</th><th>Key</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Zoomer</strong></td><td><kbd>F5</kbd></td>
+      <td>Click zooms in, <kbd>Alt</kbd>-click zooms out, dragging rubber-bands
+      a range to fill the view, <kbd>Ctrl</kbd>+drag zooms continuously
+      (horizontal = time, vertical = lane height). Double-click its button fits
+      the session; <kbd>Ctrl</kbd>-click the button jumps to a 256
+      samples/pixel overview. Sub-modes: Normal, and Single (one zoom gesture,
+      then back to the previous tool).</td></tr>
+      <tr><td><strong>Trimmer</strong></td><td><kbd>F6</kbd></td>
+      <td>The whole clip body trims, split at the middle; <kbd>Alt</kbd>
+      reverses which edge. Standard trim moves the edges of <em>all</em>
+      selected clips together, and <kbd>Ctrl</kbd> on two overlapping clips
+      trims both sides of the joint in tandem. Sub-modes: <em>Standard</em>,
+      <em>TCE</em> (time-compress/expand the audio to the new length, with a
+      live percentage readout), <em>Scrub</em> (audition while trimming;
+      <kbd>Ctrl</kbd> = finer), <em>Loop</em> (top half loops the region out to
+      length; bottom half trims the source iteration while the looped span
+      stays put).</td></tr>
+      <tr><td><strong>Selector</strong></td><td><kbd>F7</kbd></td>
+      <td>The range tool: drag to select a tick range, drag vertically to span
+      more tracks. Double-click selects a clip, triple-click a whole track.
+      <kbd>Shift</kbd>+click moves the nearer end of the selection.
+      <kbd>Ctrl</kbd>+click over a fade bends its curve.</td></tr>
+      <tr><td><strong>Grabber</strong></td><td><kbd>F8</kbd></td>
+      <td>The clip tool: click to select, drag to move, edges to trim.
+      Sub-modes: <em>Time</em>, <em>Separation</em> (dragging inside the edit
+      selection splits it out as its own clip and moves it;
+      <kbd>Alt</kbd>-drag copies it out instead), <em>Object</em>. Also selects
+      fades as objects (see <a href="#arrange-fades">fades</a>).</td></tr>
+      <tr><td><strong>Scrubber</strong></td><td><kbd>F9</kbd></td>
+      <td>Drag to scrub the pressed track: on audio lanes short snippets of the
+      clip play through the track's mixer path (respecting mute/solo and the
+      channel fader); on other lanes the playhead follows silently.</td></tr>
+      <tr><td><strong>Pencil</strong></td><td><kbd>F10</kbd></td>
+      <td>Draws clips on empty instrument lanes (drag to place and grow). On an
+      audio clip it redraws the samples under the pointer —
+      <strong>destructively</strong> — and only at sample-level zoom; further
+      out it refuses with a warning instead of damaging audio.</td></tr>
+      <tr><td><strong>Smart tool</strong></td><td><kbd>F6</kbd>+<kbd>F7</kbd> or <kbd>F7</kbd>+<kbd>F8</kbd></td>
+      <td>Zones pick the function: upper middle = Selector, lower middle =
+      Grabber, edges = trim, top corners pull fades out, over a fade = reshape
+      it, the bottom seam between two adjacent audio clips drags a crossfade,
+      and <kbd>Ctrl</kbd> scrubs.</td></tr>
+    </tbody>
+  </table>
+  <p>The scissors (Cut) tool splits a clip at the snapped click point — one
+  click, one split. <em>Edit/Tool Mode Keyboard Lock</em> (in the grid value
+  pop-up) stops a repeated F-key from cycling sub-modes; mouse clicks still
+  may.</p>
+
+  <h3 id="arrange-selection">Selection</h3>
+  <p>There are two kinds of selection, and most commands accept either:</p>
+  <ul>
+    <li>The <strong>edit selection</strong> — a tick range across one or more
+    lanes, made with the Selector. A zero-length edit selection is the
+    <em>insertion point</em>. While <em>Link Timeline and Edit Selection</em>
+    (<code>T&lt;E</code> chip, <kbd>Shift</kbd>+<kbd>/</kbd>) is on, edit
+    selections mirror into the transport's L/R play range, and clicking an
+    insertion point while stopped moves the playhead.</li>
+    <li>The <strong>object selection</strong> — whole clips, made with the
+    Grabber: click selects one clip exclusively; <kbd>Shift</kbd>+click toggles
+    whole clips in and out of a noncontiguous selection (disabled in Shuffle
+    and Spot modes); <kbd>Shift</kbd>+drag — or a drag started on empty lane
+    space — rubber-bands across lanes, with a live count of the clips inside
+    the band. Holding <kbd>Ctrl</kbd> or <kbd>Shift</kbd> while lassoing adds
+    to the existing selection instead of replacing it.</li>
+  </ul>
+  <p><kbd>Ctrl</kbd>+<kbd>A</kbd> selects every clip in the project.
+  <kbd>Esc</kbd> clears the selection. <em>Link Track and Edit Selection</em>
+  (<code>TRK</code>, <kbd>Shift</kbd>+<kbd>T</kbd>) keeps the two models
+  pointed at the same lanes.</p>
+  <p><strong>Tab navigation.</strong> <kbd>Tab</kbd> moves the insertion point
+  to the next clip boundary, <kbd>Ctrl</kbd>+<kbd>Tab</kbd> to the previous;
+  <kbd>Shift</kbd> extends the selection to the target. With the
+  <code>TAB</code> chip on (<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Tab</kbd>
+  toggles it), the targets are audio transients instead of boundaries.</p>
+  <p><strong>Selection maneuvers.</strong> <kbd>P</kbd> and <kbd>;</kbd> move
+  the selection up / down a lane (<kbd>Shift</kbd> extends it over lanes,
+  <kbd>Alt</kbd> peels a lane off). Numpad <kbd>+</kbd>/<kbd>-</kbd> nudge the
+  range (bare), its start (<kbd>Alt</kbd>) or its end (<kbd>Ctrl</kbd>).
+  <kbd>Alt</kbd>+<kbd>Left</kbd>/<kbd>Right</kbd> moves the selection by its
+  own length; <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>'</kbd> doubles it,
+  <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd> halves it,
+  <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd> duplicates the selected
+  material after itself and extends the selection over both copies.
+  <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>5</kbd> sets the timeline to match the
+  edit selection, <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>6</kbd> the reverse.
+  <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Z</kbd> restores the previous selection.
+  During playback, <kbd>Down</kbd> marks the selection start at the playhead
+  and <kbd>Up</kbd> the end — selection on the fly.</p>
+  <p>The Start/End/Length counters in the topbar are editable: click one (or
+  press keypad <kbd>*</kbd> for the Main counter) and type —
+  <kbd>.</kbd> moves to the next subfield, <kbd>/</kbd> to the next field,
+  <kbd>+</kbd>/<kbd>-</kbd> enter calculator mode, <kbd>Enter</kbd> commits.
+  The mouse wheel over a counter steps its value.</p>
+
+  <h3 id="arrange-editing">Cut, copy, paste and the Edit menu</h3>
+  <p><kbd>Ctrl</kbd>+<kbd>C</kbd> / <kbd>Ctrl</kbd>+<kbd>X</kbd> /
+  <kbd>Ctrl</kbd>+<kbd>V</kbd> work on whichever selection you have. A range
+  copy captures exactly the range — clips are sliced at its boundaries — and
+  the range length becomes the clipboard span. Paste lands at the edit
+  insertion point (or the playhead when there is none) and
+  <strong>overwrites</strong> the material under it, separating leftovers at
+  the paste boundaries; in Shuffle mode it pushes later material right
+  instead. Pasting again at the same spot steps forward by the clipboard span,
+  so repeated pastes tile instead of stacking. A single-lane clipboard pastes
+  onto the <em>focused</em> lane (the highlighted one — the lane you last
+  touched), which is how you copy clips between tracks.</p>
+  <p><kbd>Ctrl</kbd>+<kbd>B</kbd> clears the selection without touching the
+  clipboard. The <code>EDIT</code> chip opens the full command menu: the
+  clipboard commands, clip-gain Copy/Paste/Clear Special, Repeat to Fill
+  Selection, Capture Clip (<kbd>Ctrl</kbd>+<kbd>R</kbd>), Separate At
+  Selection (<kbd>Ctrl</kbd>+<kbd>E</kbd>) / On Grid / At Transients, Heal
+  Separation (<kbd>Ctrl</kbd>+<kbd>H</kbd>), the nine Trim commands
+  (To Selection <kbd>Ctrl</kbd>+<kbd>T</kbd>, Start/End To Insertion
+  <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>7</kbd>/<kbd>8</kbd>, To Fill, To File
+  boundaries), Quantize To Grid (<kbd>Ctrl</kbd>+<kbd>0</kbd>), Consolidate,
+  the TCE commands, Rename, ratings
+  (<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>1</kbd>..<kbd>5</kbd>) and the user
+  time stamp.</p>
+
+  <h3 id="arrange-consolidate">Consolidate</h3>
+  <p>Consolidate (<kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>3</kbd>, or
+  <code>EDIT</code> &gt; <em>Consolidate</em>) stitches material into one new
+  clip. It has two forms:</p>
+  <ul>
+    <li><strong>Clip selection</strong> (no range): per lane, exactly the
+    selected audio clips render — in timeline order, the gaps between them
+    preserved as silence, each piece's gain and fade envelope baked in — into
+    one new clip spanning first start to last end. Unselected material inside
+    that span is neither rendered nor removed. This is the "stitch the cut
+    pieces back into one clip" gesture: lasso the slices, consolidate.</li>
+    <li><strong>Range selection</strong>: each selected lane's boundaries are
+    separated first, then everything inside the range — silence included,
+    muted clips as silence — renders into one new whole clip replacing the
+    range. On MIDI lanes the covered clips' <em>played</em> events (loops
+    unrolled at their window's period) are flattened into one new one-shot
+    pattern spanning the range.</li>
+  </ul>
+  <p>The new audio clip is named "Consolidated" (MIDI results get the source
+  name plus "cons"). The removed pieces and the new clip land in one undo
+  entry, so a single <kbd>Ctrl</kbd>+<kbd>Z</kbd> takes it all back.</p>
+  <blockquote>The audio mix Consolidate performs is engine code with an
+  automated rendered-sample test covering gap placement, source offsets, gain
+  and fade curves — but nothing in the project records a listening check of
+  the result. Sample-accuracy is machine-verified; if a consolidated clip
+  sounds wrong to you, undo restores the pieces exactly.</blockquote>
+
+  <h3 id="arrange-fades">Fades and crossfades</h3>
+  <p>Audio clips (including frozen ones) carry a per-clip fade-in and
+  fade-out. The fade you see is evaluated by the same curve function the
+  engine plays, so the drawn envelope is the audible one.</p>
+  <p><strong>By hand.</strong> Drag a clip's top corner inward to set a fade
+  length; drag the mid-fade point to bend a Standard or S-Curve fade. With the
+  Smart tool, the top corners pull fades out and the zone over an existing
+  fade reshapes it; with the Selector, <kbd>Ctrl</kbd>+click does the same.</p>
+  <p><strong>From the selection.</strong> <kbd>Ctrl</kbd>+<kbd>F</kbd> creates
+  fades from the edit selection: a selection reaching a clip's start makes a
+  fade-in, one reaching its end a fade-out, one crossing the joint between two
+  clips a crossfade, and one covering whole clips opens the
+  <strong>Batch Fades</strong> dialog (fade-in/crossfade/out at typed
+  millisecond lengths, placed pre-splice, centred or post-splice, optionally
+  adjusting existing fades' shapes and lengths). <kbd>Ctrl</kbd>+<kbd>F</kbd>
+  opens the Fades dialog — curve editing, shape preset thumbnails, waveform
+  views, an Audition button that plays the fade through the real signal path,
+  and five storable presets — while
+  <kbd>Ctrl</kbd>+<kbd>Win</kbd>+<kbd>F</kbd> (or
+  <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F</kbd>, for window managers that grab
+  the Start key) applies your default fade settings with no dialog.
+  <kbd>Win</kbd>+<kbd>D</kbd> fades from the clip start to the insertion
+  point, <kbd>Win</kbd>+<kbd>G</kbd> from the insertion point to the clip
+  end.</p>
+  <blockquote><kbd>Win</kbd>+<kbd>D</kbd> and <kbd>Win</kbd>+<kbd>G</kbd> have
+  no <kbd>Ctrl</kbd>+<kbd>Alt</kbd> fallback, so on desktops where the Super
+  key is owned by the window manager they may be unreachable from the
+  keyboard; use <code>EDIT</code> &gt; <em>Fade To Start</em> /
+  <em>Fade To End</em> instead.</blockquote>
+  <p><strong>Shapes and slopes.</strong> Fades come in Standard, S-Curve and
+  seven parabolic preset shapes, each with an Equal Gain or Equal Power slope;
+  a crossfade's halves are linked Equal Power, Equal Gain, or not at all.
+  <kbd>Alt</kbd>+<kbd>Win</kbd>+<kbd>Left</kbd>/<kbd>Right</kbd> cycles every
+  fully selected fade through the shapes; the right-click
+  <em>Fades...</em> submenu sets shape and slope directly (a <code>~</code>
+  marker means the selection mixes values).</p>
+  <p><strong>Crossfades.</strong> A crossfade is two lane-mates whose regions
+  overlap — the left clip fading out and the right fading in across the
+  overlap. The engine sums both enveloped regions, so the crossfade is heard,
+  not just drawn. Drag the bottom seam between two adjacent audio clips with
+  the Smart tool to create or resize one; the window clamps to the source
+  material actually available beyond each clip's edges. Trimming or nudging a
+  contributor re-clamps the crossfade; pushed past any possible overlap it is
+  removed. Deleting a crossfade retracts the two regions to a butt joint at
+  the overlap midpoint. The <em>Overlapped Crossfades</em> view option
+  (<code>VIEW</code> chip) draws each contributor's hidden material as a ghost
+  overlay.</p>
+  <p><strong>Fades as objects.</strong> Clicking a fade (not its handles) with
+  the Grabber selects it: <kbd>Delete</kbd> removes it, numpad
+  <kbd>+</kbd>/<kbd>-</kbd> nudges it, and dragging slides it within its
+  clips. <code>EDIT</code> &gt; <em>Delete Fades</em> removes every fade the
+  selection covers.</p>
+  <p><strong>Preferences.</strong> Right-click a clip &gt; <em>Fades...</em>
+  &gt; <em>Fade Preferences...</em>: default shapes, slopes and link for new
+  fades and crossfades, audition pre/post-roll, <em>AutoFades</em> (0–10 ms of
+  automatic micro-fade applied by the player at every clip boundary; saved
+  with the session), <em>Smart fade-adjust needs Ctrl</em>, and
+  <strong>Preserve Fades when Editing</strong>. With Preserve Fades ON
+  (default), splitting a clip keeps the fade-in on the left half and the
+  fade-out on the right, trimmed to the new boundaries, and clips separated
+  out of a crossfade keep their halves as plain fades; OFF, fades touched by
+  an edit are dropped.</p>
+  <blockquote>After a project reload, fade settings reappear in the view only
+  on clips restored through freeze records (frozen, recorded and consolidated
+  clips). On a plain audio lane rebound by the loader the view starts with no
+  fade record, so fade handles that existed before the reload can be missing
+  from the display even where the saved region still carries them.</blockquote>
+
+  <h3 id="arrange-loop">The clip loop window</h3>
+  <p>Do not confuse two loops that meet on this timeline:</p>
+  <ul>
+    <li>The <strong>transport loop</strong> — the L/R markers on the ruler,
+    shown as a shaded band across the lanes. It repeats <em>playback</em> of a
+    song span and belongs to the transport.</li>
+    <li>The <strong>clip loop</strong> — each clip's own repeat flag, toggled
+    by the chip in its top-right corner (or the context menu's
+    <em>Loop On</em> / <em>Loop Off (1-Shot)</em>). It decides what the clip
+    plays <em>inside its own block</em>, wherever that block sits.</li>
+  </ul>
+  <p>A looping MIDI clip repeats its <strong>loop window</strong> — the
+  [loop start, loop end) span set in the pattern editors, or the whole pattern
+  when no window is set — at the window's period, for the clip's whole length.
+  That is how a 3-step figure tiles polyrhythmically across a 4/4 bar. A
+  one-shot clip plays its data once from the clip start; the dead air after
+  the data is drawn as a hatched tail, so a one-shot and a looping clip are
+  distinguishable at a glance. The note preview drawn on the clip mirrors
+  exactly what the player will sound, repeats and all.</p>
+  <p>The loop flag and window live on the <em>pattern</em>, not on the block:
+  every clip of the same pattern flips together when you click one chip.
+  Splitting a MIDI clip copies the window and flag onto the new half, so both
+  halves keep playing what they played.</p>
+  <p>Audio clips have their own version: the region's loop flag wraps the
+  source to fill the block (the same chip position, a different mechanism).
+  The Loop Trimmer's bottom half sets the iteration length; dragging the
+  extend handle on a looping region fills the new span with repeats, and the
+  automation-clip equivalent repeats its curve on the region's own loop
+  length.</p>
+
+  <h3 id="arrange-undo">Undo and redo</h3>
+  <p>The arrange view keeps one <strong>multiple-undo queue</strong> covering
+  every arrangement edit — clip moves and trims, deletes (audio deletes are
+  disk-cached and restored exactly), fades, pastes, consolidates, record
+  takes. <kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes,
+  <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> or
+  <kbd>Ctrl</kbd>+<kbd>Y</kbd> redoes. A compound edit (say, a delete that
+  tears down three audio clips) unwinds as one step. When this queue has
+  nothing left, the keys fall through to the shell's project-wide snapshot
+  undo, so patch and mixer edits still undo with the arrange view focused. A
+  status line names each step ("Undo: Move Clip", "Can't Undo").</p>
+  <p><kbd>U</kbd> opens the <strong>Undo History</strong> window: the queue as
+  a list with creation times, done steps bold, and an Options pop-up (show
+  times, Undo All, Redo All, clear the queue, and the Levels of Undo setting —
+  default 32, settable 1–64; beyond the limit the oldest step falls off). A
+  fresh edit truncates any redo tail, as usual.</p>
+  <p>Three things empty the queue outright: loading another project, deleting
+  a track, and <em>Compact</em> (which is itself destructive and warns
+  first). Note also that bare <kbd>Z</kbd> is <em>previous zoom</em>, not
+  undo.</p>
+
+  <h3 id="arrange-nudge">Nudge, snap and the grid</h3>
+  <p><strong>The grid.</strong> The GRID field in the topbar shows the current
+  value; <kbd>S</kbd> cycles it (BAR, 1/2, 1/4, 1/8 ... 1/128, OFF),
+  <kbd>Shift</kbd>+<kbd>=</kbd> / <kbd>Shift</kbd>+<kbd>-</kbd> step it larger
+  / smaller, and the wheel over the field does the same. The field's pop-up
+  adds <em>Dotted</em> and <em>Triplet</em> modifiers and the time scale:
+  <em>Bars|Beats</em>, <em>Min:Secs</em> (a wall-clock ladder from a minute
+  down to a millisecond), <em>Samples</em> (one source sample), or
+  <em>Clips/Markers</em> — free placement with magnetic snap to nearby clip
+  boundaries, the L/R markers and the selection edges. Whether the grid
+  actually bites depends on the <a href="#arrange-modes">edit mode</a>: Grid
+  mode always snaps, the Snap To Grid flag snaps the other modes, Slip alone
+  is free.</p>
+  <p><strong>Nudge.</strong> The NUDGE field has its own value ladder (same
+  steps as the grid), a <em>Follow Main Time Scale</em> option, and a typed
+  custom value (plain ticks, or <code>Nms</code> for milliseconds);
+  <kbd>Shift</kbd>+<kbd>Alt</kbd>+<kbd>=</kbd>/<kbd>-</kbd> step it. With
+  clips selected, numpad <kbd>+</kbd>/<kbd>-</kbd> nudges them by the nudge
+  value; <kbd>Alt</kbd> trims their start instead, <kbd>Ctrl</kbd> their end,
+  and <kbd>Shift</kbd> slides the contents inside the fixed boundaries.
+  <kbd>/</kbd> and <kbd>M</kbd> nudge forward / back by the next larger nudge
+  value. With only a range selection, the same keys nudge the range (bare),
+  its start (<kbd>Alt</kbd>) or its end (<kbd>Ctrl</kbd>); with a fade
+  selected they move the fade. Nudging a crossfade contributor stretches the
+  crossfade to keep its outer edges where they were.</p>
+  <p><kbd>Ctrl</kbd>+<kbd>0</kbd> quantizes the selected clips' start points
+  to the grid.</p>
+
+  <blockquote>Known reload caveat: an ordinary audio lane (one not backed by a
+  freeze record) is re-linked to its engine audio after a project load by
+  matching the lane's clip start against the saved regions on its mixer track,
+  to within one tick. This association is recovered heuristically rather than
+  stored, and it is the mechanism behind the fade-display gap noted under
+  <a href="#arrange-fades">fades</a>. Historically these lanes did not rebind
+  at all — edits on a freshly loaded audio lane silently did nothing — so if a
+  loaded audio clip ever refuses to split or trim, this is the machinery that
+  failed; save and reload, and check the clip still sits where its region
+  starts.</blockquote>
+</section>
+
+<section data-title="Sequencing &amp; Composition">
+  <h2 id="seq">Sequencing &amp; Composition</h2>
+  <p>PatchKnob gives you two editors for writing notes — a tracker and a piano
+  roll, both editing the same pattern data — plus an automation editor for
+  drawing parameter curves. This section covers all three, and the pattern and
+  clip model that decides how what you write actually plays back on the
+  timeline.</p>
+
+  <h3 id="seq-editors">Opening an editor</h3>
+  <p>Double-click a MIDI clip in the <a href="#arrange">arrangement</a> to open
+  it in the piano roll; double-click an automation clip to open the automation
+  editor. Right-click a clip for the full choice: <em>Open Piano</em>,
+  <em>Open Tracker</em>, <em>Split</em>, <em>Duplicate</em> (automation clips
+  offer <em>Open Automation</em> instead of the two note editors, deliberately —
+  they hold no notes for those editors to edit).</p>
+  <p>The tracker and the piano roll are two views of the <strong>same</strong>
+  sequence: a note entered in one appears in the other, and both share one undo
+  history for the note data. Loop settings made in either editor (see
+  <a href="#seq-patterns">patterns and clips</a>) apply to the clip identically.</p>
+
+  <h3 id="seq-tracker">The tracker</h3>
+  <p>The tracker renders one pattern as a vertical grid: time runs downward,
+  one row per step, with the playhead row highlighted during playback. Each
+  <strong>note column</strong> is a group of sub-columns:</p>
+  <ul>
+    <li><strong>Note</strong> — three characters, e.g. <code>C-4</code> or
+    <code>OFF</code>.</li>
+    <li><strong>Velocity</strong> — two hex digits, <code>00</code>–<code>7F</code>.</li>
+    <li><strong>FX</strong> — zero to eight four-digit hex command columns
+    (see below).</li>
+  </ul>
+  <p>A pattern can show 1–8 note columns. The toolbar band above the header has
+  bracket buttons for everything you would otherwise reach by shortcut:
+  <code>[-]</code>/<code>[+]</code> pairs for NOTE columns, FX columns, LPB,
+  OCT (base octave) and the secondary row highlight; a LINES box showing the
+  pattern length in rows (click it, type a number 1–4096, press Enter); and a
+  LOOP / 1-SHOT chip in the row-number gutter that toggles clip looping —
+  the same state the piano roll's chip shows.</p>
+
+  <h4>Rows, LPB and pattern length</h4>
+  <p>LPB (lines per beat) is the grid resolution of the view, not of the data.
+  Valid values are 1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64, 96, 128, 192,
+  256, 384 and 768 — every one divides the engine's fixed 768 ticks per beat
+  exactly, so a row always lands on a whole tick (the triplet values 3, 6, 12…
+  stay exact too). The default is 4. Changing LPB never touches the notes: a
+  note that sits between rows at the current resolution is <em>hidden</em> at
+  that resolution, and its row is marked so it cannot be lost silently. Raise
+  the LPB to see and edit it again.</p>
+  <p>The LINES box sets the pattern length as <code>rows × ticks-per-row</code>.
+  Shrinking a pattern <strong>hides</strong> the data past the new end rather
+  than deleting it — type the old number back and the notes, their column
+  assignments, their OFFs and their FX automation all return.</p>
+
+  <h4>Note entry</h4>
+  <p>With the cursor on a note cell, the computer keyboard is a two-octave
+  piano: <kbd>Z</kbd> <kbd>S</kbd> <kbd>X</kbd> <kbd>D</kbd> <kbd>C</kbd>
+  <kbd>V</kbd> <kbd>G</kbd> <kbd>B</kbd> <kbd>H</kbd> <kbd>N</kbd> <kbd>J</kbd>
+  <kbd>M</kbd> is the lower octave (C, C#, D … B) and <kbd>Q</kbd> <kbd>2</kbd>
+  <kbd>W</kbd> <kbd>3</kbd> <kbd>E</kbd> <kbd>R</kbd> <kbd>5</kbd> <kbd>T</kbd>
+  <kbd>6</kbd> <kbd>Y</kbd> <kbd>7</kbd> <kbd>U</kbd> the upper. At the default
+  base octave (4), <kbd>Z</kbd> writes C-4 (MIDI 60). The key also previews the
+  note through the clip's instrument, sustaining until you release it. After
+  each entry the cursor advances by the edit step (1–8 rows, default 1).</p>
+  <p>A tracker note sustains until something releases it: entering
+  <kbd>`</kbd> (backtick) on a note cell writes an explicit <code>OFF</code>,
+  and striking a new note in the same column releases the previous one.
+  <kbd>Delete</kbd>, <kbd>.</kbd> or <kbd>Backspace</kbd> clears the cell under
+  the cursor (or the whole selection). On a velocity cell, hex keys
+  (<kbd>0</kbd>–<kbd>9</kbd>, <kbd>A</kbd>–<kbd>F</kbd>) roll digits in; on an
+  FX cell they accumulate up to four digits, left-aligned — typing <code>8</code>
+  alone means <code>8000</code> (half scale), <code>FFFF</code> is full scale.</p>
+
+  <h4>One column is one voice</h4>
+  <p>Column assignment is not cosmetic. Every note remembers which column it
+  was entered in, and the engine treats each column as a monophonic voice for
+  <em>every</em> instrument type: striking a column cuts whatever that column
+  was holding, one tick before the new note, so retriggers are deterministic.
+  Notes moved between columns change voice allocation accordingly.</p>
+
+  <h4>FX columns</h4>
+  <p>Each note column carries its own FX command columns
+  (<kbd>Ctrl</kbd>+<kbd>=</kbd> adds one, <kbd>Ctrl</kbd>+<kbd>-</kbd> removes
+  one, 0–8 per note column). Click an FX column's header label to open the
+  target menu: <em>None</em>, a MIDI CC number, or drill into an instrument /
+  rack device for one of its parameters. New patterns arrive with two columns
+  bound to CC 74 (filter cutoff, header <code>C74</code>) and CC 7 (channel
+  volume, <code>C07</code>).</p>
+  <ul>
+    <li>A CC-bound column stores real control-change events inside the
+    pattern, played through the normal engine path. The 16-bit cell value is
+    quantised to the CC's 7 bits.</li>
+    <li>A parameter-bound column (instrument, patch node or rack module
+    parameter) stores full 16-bit values in a per-pattern store and fires them
+    as the playhead crosses each row — for every active pattern on the track,
+    not only the one currently shown.</li>
+  </ul>
+  <p>FX bindings and values are <strong>per pattern</strong>: switching the
+  tracker to another clip saves the current pattern's FX state and loads the
+  other's, so automation never bleeds between patterns.
+  <kbd>Ctrl</kbd>+<kbd>I</kbd> interpolates an FX column linearly across the
+  selected rows.</p>
+
+  <h4>Navigation and editing keys</h4>
+  <table>
+    <thead><tr><th>Keys</th><th>Action</th></tr></thead>
+    <tbody>
+      <tr><td><kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd></td><td>Move the cursor (wraps across columns)</td></tr>
+      <tr><td><kbd>Tab</kbd> / <kbd>Shift</kbd>+<kbd>Tab</kbd></td><td>Next / previous note column</td></tr>
+      <tr><td><kbd>PgUp</kbd> <kbd>PgDn</kbd> <kbd>Home</kbd> <kbd>End</kbd></td><td>Page / first / last row; with <kbd>Ctrl</kbd>, first / last column</td></tr>
+      <tr><td><kbd>Shift</kbd>+arrows</td><td>Extend the cell selection</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>A</kbd></td><td>Select the whole pattern</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>C</kbd> / <kbd>X</kbd> / <kbd>V</kbd></td><td>Copy / cut / paste cells at the cursor</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd></td><td>Undo note edits</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>↑</kbd> / <kbd>↓</kbd></td><td>Transpose selection a semitone (octave with <kbd>Shift</kbd>)</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>D</kbd></td><td>Duplicate the block below itself</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>H</kbd></td><td>Humanise velocities</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd></td><td>Interpolate velocity across the selection</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>.</kbd> / <kbd>Ctrl</kbd>+<kbd>,</kbd></td><td>Velocity +8 / −8</td></tr>
+      <tr><td><kbd>Insert</kbd> / <kbd>Shift</kbd>+<kbd>Delete</kbd></td><td>Insert a blank row / delete the row (shifting the rest)</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>Delete</kbd></td><td>Clear the whole row</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Backspace</kbd></td><td>Clear the whole pattern</td></tr>
+      <tr><td><kbd>[</kbd> / <kbd>]</kbd></td><td>Base octave down / up (0–8)</td></tr>
+      <tr><td><kbd>-</kbd> / <kbd>=</kbd>, or <kbd>Alt</kbd>+<kbd>↑</kbd> / <kbd>↓</kbd></td><td>Edit step down / up (1–8)</td></tr>
+      <tr><td><kbd>Alt</kbd>+<kbd>←</kbd> / <kbd>→</kbd></td><td>Previous / next LPB value</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>F</kbd></td><td>Follow playback (cursor pinned to the playhead)</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>M</kbd></td><td>Mute the cursor's note column (visual)</td></tr>
+      <tr><td><kbd>Shift</kbd>+<kbd>L</kbd> / <kbd>Ctrl</kbd>+<kbd>L</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd></td><td>Loop on/off · loop from selection · clear loop window</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>Cancel selection and silence preview notes</td></tr>
+    </tbody>
+  </table>
+  <blockquote><p><kbd>Ctrl</kbd>+<kbd>M</kbd> column mute is a
+  <strong>visual</strong> marker only: the engine still plays every event in
+  the pattern. Do not rely on it to silence a column during playback.</p></blockquote>
+
+  <h3 id="seq-piano">The piano roll</h3>
+  <p>The piano roll shows the same pattern horizontally: a bar/beat ruler on
+  top (with the END marker and the loop window), a keyboard strip on the left
+  (click a key to preview it), the note grid, and a data lane underneath for
+  velocities. Six tools sit on the number keys — <kbd>1</kbd> edit,
+  <kbd>2</kbd> draw, <kbd>3</kbd> erase, <kbd>4</kbd> select, <kbd>5</kbd>
+  zoom, <kbd>6</kbd> pan.</p>
+
+  <h4>Entering and editing notes</h4>
+  <ul>
+    <li>Click empty grid to add a note at the snap position; drag in empty
+    grid to lasso-select.</li>
+    <li>Click a note to select it (<kbd>Ctrl</kbd>-click adds to the
+    selection); drag to move the whole selection. Drag a note's right edge to
+    resize (<kbd>Shift</kbd> stretches the selection proportionally).</li>
+    <li>Drag across the data lane to ramp velocities; <kbd>V</kbd> cycles what
+    the lane shows (velocity, pitch bend, program, channel pressure, CCs).</li>
+    <li>The wheel zooms time around the pointer; <kbd>Shift</kbd>+wheel
+    scrolls vertically, <kbd>Ctrl</kbd>+wheel zooms row height.</li>
+  </ul>
+
+  <h4>Keys</h4>
+  <table>
+    <thead><tr><th>Keys</th><th>Action</th></tr></thead>
+    <tbody>
+      <tr><td><kbd>Q</kbd></td><td>Quantise selected note starts to the snap (lengths kept)</td></tr>
+      <tr><td><kbd>G</kbd></td><td>Cycle the snap size: 1/1, 1/2, 1/4, 1/8, 1/16, 1/32</td></tr>
+      <tr><td><kbd>↑</kbd> / <kbd>↓</kbd></td><td>Transpose a semitone (octave with <kbd>Shift</kbd>, or <kbd>PgUp</kbd>/<kbd>PgDn</kbd>)</td></tr>
+      <tr><td><kbd>←</kbd> / <kbd>→</kbd></td><td>Nudge one snap step (one beat with <kbd>Ctrl</kbd>)</td></tr>
+      <tr><td><kbd>A</kbd></td><td>Select all</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>C</kbd> / <kbd>X</kbd> / <kbd>V</kbd></td><td>Copy / cut / paste</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd>, <kbd>U</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd>, <kbd>Ctrl</kbd>+<kbd>Y</kbd></td><td>Undo / redo</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>D</kbd></td><td>Duplicate the selection after itself</td></tr>
+      <tr><td><kbd>Delete</kbd> / <kbd>Backspace</kbd></td><td>Remove selected notes</td></tr>
+      <tr><td><kbd>]</kbd> / <kbd>[</kbd></td><td>Lengthen / shorten by one snap; with <kbd>Ctrl</kbd>, scale lengths ×2 / ×0.5; with <kbd>Shift</kbd>, time-stretch the selection ×2 / ×0.5</td></tr>
+      <tr><td><kbd>=</kbd></td><td>Give the selection one uniform length</td></tr>
+      <tr><td><kbd>.</kbd> / <kbd>,</kbd></td><td>Velocity +8 / −8 · <kbd>N</kbd> normalise (loudest → 127)</td></tr>
+      <tr><td><kbd>L</kbd> / <kbd>H</kbd></td><td>Legato / humanise</td></tr>
+      <tr><td><kbd>R</kbd> / <kbd>I</kbd></td><td>Reverse in time / invert pitch</td></tr>
+      <tr><td><kbd>D</kbd> / <kbd>B</kbd></td><td>Drum mode (diamond heads) / note-name labels</td></tr>
+      <tr><td><kbd>K</kbd> / <kbd>Shift</kbd>+<kbd>K</kbd></td><td>Cycle snap-to-scale / cycle scale root</td></tr>
+      <tr><td><kbd>Shift</kbd>+<kbd>L</kbd> / <kbd>Ctrl</kbd>+<kbd>L</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd></td><td>Loop on/off · loop the selected notes · clear the loop window</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>Deselect</td></tr>
+    </tbody>
+  </table>
+
+  <h4>The ruler: END marker and loop window</h4>
+  <p>The END marker on the ruler is where the pattern's data ends — drag it to
+  resize the pattern. The grey band on the ruler is the pattern's
+  <strong>loop window</strong>: drag in empty ruler to select a new window
+  (a bare click changes nothing), drag the band to move it, drag an edge to
+  resize it. The LOOP / 1-SHOT chip at the ruler's right end toggles whether
+  the clip loops at all — the same three keys and the same chip labels as the
+  tracker, because both edit the one window the pattern owns.</p>
+  <p>As in the tracker, dragging END inward hides data rather than deleting
+  it; drag it back out and the notes return.</p>
+
+  <h3 id="seq-patterns">Patterns and clips</h3>
+  <p>A <strong>pattern</strong> is the container the editors edit: a list of
+  events plus a length (the END marker). A <strong>clip</strong> is a placement
+  of that pattern on the timeline — start tick, end tick, and a
+  <strong>content offset</strong> saying where in the pattern's data the clip
+  begins. All clips of one pattern share its data: edit the pattern and every
+  placement changes. Placing, trimming, splitting and fading clips is
+  <a href="#arrange">section 2's</a> territory; what follows is how the
+  engine turns a clip into sound.</p>
+
+  <h4>Looping clips and the loop window</h4>
+  <p>By default a clip <strong>loops</strong>: it repeats its pattern for as
+  long as the clip is, so dragging the clip longer on the timeline repeats the
+  bars. What repeats is the pattern's <em>loop window</em>
+  (<code>loop_start</code>–<code>loop_end</code>), which defaults to the whole
+  pattern but can be any sub-region — set it from the piano roll ruler or with
+  <kbd>Ctrl</kbd>+<kbd>L</kbd> in either editor. A 4-step window over a 1-bar
+  pattern plays those 4 steps over and over. The window may even reach past
+  the END marker, which is how an odd-length loop (say 3 beats) is laid over a
+  shorter phrase: the ticks past the data play as silence, then the window
+  wraps.</p>
+  <p>Repetitions are anchored on the clip's own left edge, not on bar 1 of the
+  song — so a clip with a 3-step loop starts on the same step wherever you
+  place it, and moving a clip moves its content with it.</p>
+
+  <h4>One-shot clips</h4>
+  <p>Turn looping off (the LOOP / 1-SHOT chip, or <kbd>Shift</kbd>+<kbd>L</kbd>)
+  and the clip becomes a <strong>one-shot</strong>: its data plays exactly once
+  from the clip's start, and dragging the clip longer just moves its end point
+  — nothing repeats. Anything still sounding when the data reaches the END
+  marker is released there.</p>
+
+  <h4>Content offset</h4>
+  <p>The content offset is set when a clip is split or trimmed: the right half
+  of a split carries offset <code>+ (cut&nbsp;−&nbsp;clip&nbsp;start)</code>,
+  so it carries on playing exactly where the left half stopped. But the offset
+  means something different in the two modes, and this is easy to be caught
+  out by:</p>
+  <ul>
+    <li>In a <strong>looping</strong> clip, the offset is a <em>phase</em>: it
+    <strong>rotates</strong> the loop window. The clip starts playing from the
+    offset position, and the content <em>before</em> the offset comes back
+    round at the tail of each repetition. The offset is folded by the window's
+    period, so splitting a looping clip anywhere leaves every repetition
+    intact.</li>
+    <li>In a <strong>one-shot</strong> clip, the offset is a
+    <em>trim-in</em>: content before it is skipped, nothing wraps, and an
+    offset at or past the END marker legitimately means "this clip's content
+    has run out" — silence. Split a one-shot past the end of its data and the
+    right half is quiet, as it should be, rather than replaying the pattern
+    from the top.</li>
+  </ul>
+
+  <h4>Notes across a loop boundary</h4>
+  <p>A note still sounding when a repetition ends is <strong>cut at the
+  boundary</strong>, not held and not re-struck — the hard cut every DAW
+  performs at a clip or loop edge. The one exception is a note whose note-off
+  was recorded wrapping the pattern (a key held across the loop point while
+  recording): that pair is kept, and the next repetition releases it where the
+  off actually sits.</p>
+
+  <h3 id="seq-automation">Automation</h3>
+  <p>Automation clips live on <strong>automation tracks</strong> in the
+  arrangement. Double-click one to open the automation editor: a toolbar, a
+  bar/beat ruler, and a stack of <strong>lanes</strong>, each binding one
+  target parameter to a breakpoint curve. Values are normalised 0–1 and mapped
+  onto the target's real range at playback.</p>
+
+  <h4>Lanes</h4>
+  <p>The <code>+</code> toolbar button adds a lane and opens the target picker
+  (a drilldown: node → device → parameter, or a CC number 0–127). Each lane's
+  gutter carries its name (click to re-pick the target, <kbd>F2</kbd> to
+  rename), delete, mute, solo and bypass toggles, a colour swatch, value-axis
+  zoom buttons, a resize grip and a reorder handle. Toolbar chips duplicate
+  and remove the selected lane, cycle its interpolation, toggle snap and cycle
+  the snap size (whole note down to 1/128), zoom to fit, follow the playhead,
+  and drive the editor's own undo/redo (<kbd>Ctrl</kbd>+<kbd>Z</kbd>,
+  <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> or <kbd>Ctrl</kbd>+<kbd>Y</kbd>
+  — automation history is separate from note history).</p>
+
+  <h4>Breakpoints</h4>
+  <ul>
+    <li><strong>Add</strong>: click empty lane space (a click that does not
+    move; the tick snaps, the value is where you clicked). At most one
+    breakpoint per tick.</li>
+    <li><strong>Move</strong>: drag a point; drag one of several selected
+    points to move them together. <kbd>Ctrl</kbd>-click toggles a point in and
+    out of the selection; <kbd>Ctrl</kbd>-drag draws a marquee over points
+    (<kbd>Shift</kbd> adds the box to the selection, <kbd>Alt</kbd> subtracts
+    it).</li>
+    <li><strong>Nudge</strong>: arrow keys move selected points by a snap step
+    horizontally or 1/64 vertically; <kbd>Shift</kbd> makes it fine (one tick /
+    1/512).</li>
+    <li><strong>Exact values</strong>: <kbd>Enter</kbd> opens numeric entry
+    for the selected point's value and tick.</li>
+    <li><strong>Delete</strong>: <kbd>Delete</kbd> removes the selected points,
+    or clears the selected range; <kbd>Shift</kbd>+<kbd>Delete</kbd> removes
+    the whole lane (a structural edit, deliberately a separate gesture).</li>
+  </ul>
+
+  <h4>Interpolation and curve tension</h4>
+  <p>Each lane has one interpolation mode, cycled with <kbd>I</kbd> or the
+  toolbar chip:</p>
+  <ul>
+    <li><strong>Linear</strong> (<code>LIN</code>) — a straight (or bent) line
+    between neighbouring breakpoints.</li>
+    <li><strong>Step</strong> (<code>STEP</code>) — holds the left
+    breakpoint's value across the segment, jumping at the next one: the
+    classic sample-and-hold step sequencer shape.</li>
+    <li><strong>Hold</strong> (<code>HOLD</code>) — jumps to the right
+    breakpoint's value immediately after the left one and holds it.</li>
+  </ul>
+  <p>In Linear mode every segment has a tension handle at its midpoint: drag
+  it vertically to bend the segment (−1…+1; positive bows the curve toward the
+  start value, negative toward the end, zero is a straight line). Tension
+  survives moving the breakpoint.</p>
+
+  <h4>Range selections and processes</h4>
+  <p>Drag in the ruler to select a tick range across all lanes, or drag in one
+  lane to select just that lane (<kbd>Shift</kbd> extends,
+  <kbd>Ctrl</kbd>-click a gutter adds or removes a lane from the set). With a
+  range active, <kbd>P</kbd> or the toolbar's process button opens the range
+  processes: Quantise, Humanise, Stretch, Reverse, Shift Time, Duplicate
+  Range; Insert Time and Delete Time (ripple edits); Scale, Offset, Invert,
+  Normalise, Clamp; Smooth, Thin, Densify; the generators LFO Fill, Ramp Fill,
+  S-Curve Fill, Bend Curve, Step Quantise, Random Walk and Noise Fill; and
+  the multi-lane ops Copy Shape, Mirror Lanes, Phase Offset Lanes and Average
+  Lanes. Breakpoints outside the range are untouched (except by the ripple
+  ops, whose whole point is moving what follows), and the random processes
+  are deterministic — re-running one with the same settings gives the same
+  result.</p>
+
+  <h4>Automation clips on the timeline</h4>
+  <p>An automation clip behaves like a looping note clip: its curve repeats
+  the clip's loop window for as long as the clip is, its content offset is a
+  trim into the curve, and the handles at the top of each lane edit the same
+  loop window the pattern owns. The curve drawn on the arrange clip is sampled
+  from the same data that plays, repeats included.</p>
+  <blockquote><p>Automation clips have no one-shot mode: a clip dragged longer
+  than its loop window always repeats the curve, even where a note clip with
+  looping off would fall silent.</p></blockquote>
+
+  <h4 id="seq-lane-track">Track lanes versus automation clips</h4>
+  <p>The engine holds automation in two places. An <strong>automation
+  clip</strong> owns its lanes: they start, loop and end with the clip, in
+  clip-local time. A <strong>track lane</strong> belongs to a mixer track and
+  runs in absolute song time for the whole arrangement, independent of any
+  clip. Both play back, both are saved with the project, and both are honoured
+  when a track is frozen or bounced.</p>
+  <blockquote><p>In the current shell, the automation editor only ever opens
+  bound to an automation <em>clip</em> (double-click one in the arrangement).
+  Track lanes play, save and freeze correctly if a project contains them, but
+  there is no menu or window that opens the editor on a track's own lane set —
+  in practice, clips are how you write automation.</p></blockquote>
+
+  <h3 id="seq-targets">What can be automated</h3>
+  <p>An automation lane (and a tracker FX column — they share one target
+  inventory) can drive:</p>
+  <ul>
+    <li><strong>Patch-graph node parameters</strong> — a parameter on a plugin
+    node in the patchbay, addressed by node.</li>
+    <li><strong>Rack module parameters</strong> — a parameter on one module
+    inside a rack node, denormalised into the module's real range.</li>
+    <li><strong>MIDI CC</strong> — controller 0–127 on the destination track's
+    output.</li>
+    <li><strong>Instrument parameters</strong> — a parameter of the
+    destination track's hosted instrument.</li>
+  </ul>
+  <p>All four kinds reach the engine from an automation clip during playback,
+  locate and bounce. The first two route by node and need no track; CC and
+  instrument-parameter targets need to know <em>which</em> mixer track to send
+  to — and an automation track owns none of its own (it makes no sound). So:</p>
+  <p><strong>An automation lane inherits the mixer track of the lane above
+  it</strong> — the nearest non-automation lane upward in the arrangement,
+  the convention every DAW with sub-lane automation uses. Nothing on screen
+  says this, but it decides where the lane's CCs go and which instrument's
+  parameter list the picker shows. Put the automation lane directly under the
+  track it should control. If nothing sits above it, the first track in the
+  project is used.</p>
+  <blockquote><p>Two timing caveats. Patch-graph and rack targets are applied
+  at the start of the next audio block rather than at the exact scheduled
+  tick — fine for filter sweeps, audible on very fast stepped moves at large
+  buffer sizes. And tracker FX columns bound to parameters (as opposed to
+  CCs) are fired from the interface thread as the playhead crosses each row,
+  so they carry the same block-rate granularity.</p></blockquote>
+</section>
+
+<section data-title="Sampler &amp; Audio Content">
+  <h2 id="smp">Sampler &amp; Audio Content</h2>
+  <p>PatchKnob's built-in Sampler is a keyzone instrument: it maps samples onto
+  key and velocity ranges, plays them back with per-zone envelopes, filtering
+  and tuning, and imports whole SoundFont presets. This section covers the
+  Sampler window, its zones, the shared sample editor, and the disk browsers
+  that feed them. Audio clips on the arrangement timeline and the mixer are
+  covered in their own sections.</p>
+
+  <h3 id="smp-instrument">The sampler instrument</h3>
+  <p>To create a sampler, right-click empty space in the Patchbay and choose
+  <strong>Add Sampler</strong>. The new node arrives fully wired: it gets its
+  own MIDI channel, its own channel on the master mixer, and its own arrange
+  lane, so it is immediately playable. To edit it, right-click the node and
+  choose <strong>Open Sampler Editor</strong> (the same menu also offers
+  <strong>Parameters</strong> for the raw parameter list). The editor opens in
+  a window titled <em>Sampler</em>.</p>
+  <p>The engine side is an ordinary plugin instance: the sampler's parameters
+  surface in the tracker FX picker like any other instrument's, and its
+  volume, pan and pitch respond per note-column when driven from the
+  tracker.</p>
+  <p>The editor window contains, left to right: a disk browser (the sample
+  library), the zone list, the key map, the selected zone's waveform (the full
+  sample editor, embedded in place), the per-zone inspector, the envelope
+  editor, and the instrument's parameter sliders. The toolbar holds three
+  buttons:</p>
+  <ul>
+    <li><strong>REPLACE WAV</strong> — load a WAV file into the selected zone.
+    Only the audio and the display name are replaced; the zone's key range,
+    root, velocity band and playback settings survive.</li>
+    <li><strong>ADD ZONE</strong> — load a WAV as a new zone (full key range,
+    root C-4 by default).</li>
+    <li><strong>DELETE ZONE</strong> — delete the selected zones
+    (<kbd>Del</kbd>; undoable with <kbd>Ctrl</kbd>+<kbd>Z</kbd>).</li>
+  </ul>
+  <p>Samples can also arrive by drag and drop from the library pane (see
+  <a href="#smp-browser">the browser</a>) or, for SoundFont presets, from the
+  Sample Editor window's browser (see <a href="#smp-sf2">SoundFont
+  support</a>).</p>
+
+  <h4>How a note picks a zone</h4>
+  <p>On note-on, the engine considers every zone whose key range covers the
+  played note and whose velocity range covers the note's velocity, skipping
+  zones flagged as note-off layers. Among the candidates it plays the
+  <strong>one</strong> zone whose root key is nearest the played note (ties go
+  to the earlier zone). Overlapping zones therefore do not stack: exactly one
+  zone sounds per note.</p>
+  <blockquote><p>The per-zone overlap mode shown in the zone context menu
+  (<em>Overlap: play all / cycle / random</em>) is stored, saved with the
+  project and round-trips faithfully — but the playback engine never consults
+  it. Whatever mode you pick, a note plays the single nearest-root zone.
+  Likewise, a zone marked as a <em>note-off layer</em> is correctly excluded
+  from note-on triggering, but nothing currently triggers it when the note is
+  released — the flag mutes the zone rather than deferring it.</p></blockquote>
+
+  <h3 id="smp-keymap">The key map</h3>
+  <p>The key map draws every zone as a rectangle on a grid of keys (horizontal)
+  by velocity (vertical), above a keyboard strip. Selection and editing:</p>
+  <ul>
+    <li>Click a zone to select it. Where zones stack in velocity, the hit test
+    honours both the key <em>and</em> the velocity under the pointer, so lower
+    layers are selectable directly.</li>
+    <li><kbd>Ctrl</kbd>+click toggles a zone in and out of the selection;
+    <kbd>Shift</kbd>+click in the zone list extends a range.
+    <kbd>Shift</kbd>+drag on the grid is always a marquee, even when it starts
+    over a zone; a plain drag on empty grid is a marquee too.</li>
+    <li>Drag a zone's body to move it; drag its left/right edges to resize the
+    key range, its top/bottom edges to resize the velocity range, and its root
+    marker to move the root key. The nearest handle wins, so a one-key drum
+    zone remains movable and its velocity edges stay reachable.</li>
+    <li>Mouse wheel over the keyboard strip nudges the selected zone's root;
+    <kbd>Ctrl</kbd>+wheel over the grid zooms the visible key window around
+    the pointer (12–128 keys).</li>
+    <li>Dropping a library file on the grid maps a new zone to the key under
+    the pointer; dropping it on a zone row replaces that zone's audio; dropping
+    it in the empty space under the zone list appends a zone. The highlight
+    shown during the drag is exactly what the release will do.</li>
+  </ul>
+  <p>Keyboard commands (with the key map focused, not the browser):</p>
+  <table>
+    <thead><tr><th>Keys</th><th>Action</th></tr></thead>
+    <tbody>
+      <tr><td><kbd>Up</kbd> / <kbd>Down</kbd></td><td>Select the previous / next zone</td></tr>
+      <tr><td><kbd>Left</kbd> / <kbd>Right</kbd> (or <kbd>Alt</kbd>+<kbd>Up</kbd>/<kbd>Down</kbd>)</td><td>Move the selected zones one key; <kbd>Shift</kbd> moves an octave</td></tr>
+      <tr><td><kbd>R</kbd> / <kbd>Home</kbd> / <kbd>End</kbd></td><td>Set root to the centre / low key / high key of each selected zone</td></tr>
+      <tr><td><kbd>F</kbd></td><td>Fill gaps: spread the selected zones' key ranges to meet halfway between their roots</td></tr>
+      <tr><td><kbd>V</kbd></td><td>Layer the selected zones into equal velocity bands</td></tr>
+      <tr><td><kbd>W</kbd></td><td>Edit the selected zone's waveform</td></tr>
+      <tr><td><kbd>L</kbd></td><td>Lock / unlock map editing</td></tr>
+      <tr><td><kbd>M</kbd></td><td>Toggle whether the root follows a zone move</td></tr>
+      <tr><td><kbd>S</kbd></td><td>Solo the selected zones in the display</td></tr>
+      <tr><td><kbd>O</kbd></td><td>Show / hide zones that overlap the selection</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>A</kbd> / <kbd>Ctrl</kbd>+<kbd>I</kbd></td><td>Select all zones / invert the selection</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>C</kbd> / <kbd>X</kbd> / <kbd>V</kbd> / <kbd>D</kbd></td><td>Copy / cut / paste / duplicate zones (paste and duplicate land one key up; <kbd>Shift</kbd>+<kbd>V</kbd> pastes an octave up)</td></tr>
+      <tr><td><kbd>Del</kbd></td><td>Delete the selected zones</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd></td><td>Undo / redo. When the waveform pane has focus this undoes the sample edit; everywhere else it undoes the zone edit</td></tr>
+    </tbody>
+  </table>
+  <p>The right-click menu on a zone or the key map repeats most of these
+  (Rename, Duplicate, Delete, Edit waveform, Set root to this key, Shrink to
+  one key, Spread selection over keys, Fill gaps, Layer by velocity, select
+  and display toggles, Undo/Redo).</p>
+
+  <h3 id="smp-zones">Zones</h3>
+  <p>Each zone owns: its sample, a key range (low–high), a velocity range, a
+  root key, loop points, and a set of playback parameters. Loop on/off,
+  reverse, gain and the source trim are baked into the audio the engine
+  receives, so changing them re-uploads the zone's sample; everything else is
+  an engine-side parameter and updates live while you drag.</p>
+  <p>The <strong>ZONE PARAMETERS</strong> inspector edits the engine-side set
+  (drag to set, <kbd>Shift</kbd> for fine, right-click for the default):</p>
+  <table>
+    <thead><tr><th>Field</th><th>Range</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td>PAN</td><td>L100 … C … R100</td><td>Zone pan, applied by the engine (not baked into the sample)</td></tr>
+      <tr><td>ATTEN</td><td>0 … 96 dB</td><td>Attenuation; positive is quieter</td></tr>
+      <tr><td>CUTOFF</td><td>OFF, 20 Hz … 20 kHz</td><td>Low-pass filter cutoff; the leftmost sliver of the slider means no filter</td></tr>
+      <tr><td>RESO</td><td>0 … 30 dB</td><td>Filter resonance</td></tr>
+      <tr><td>COARSE</td><td>−48 … +48 st</td><td>Coarse tune in semitones</td></tr>
+      <tr><td>FINE</td><td>−99 … +99 ct</td><td>Fine tune in cents</td></tr>
+      <tr><td>KEYTRACK</td><td>0 … 1200 ct (steps of 5)</td><td>Cents of pitch per key. 100 is normal tracking; 0 is fixed pitch (drums)</td></tr>
+      <tr><td>CHOKE</td><td>OFF, 1 … 16</td><td>Exclusive class: a new note in a class chokes every other sounding voice of the same class (closed hi-hat kills open). Choked voices fade, they are not cut</td></tr>
+      <tr><td>MOD&gt;PITCH</td><td>−12000 … +12000 ct</td><td>Modulation-envelope depth into pitch</td></tr>
+      <tr><td>MOD&gt;CUTOFF</td><td>−12000 … +12000 ct</td><td>Modulation-envelope depth into filter cutoff</td></tr>
+      <tr><td>LOOP START / LOOP END</td><td>0 … 100%</td><td>Loop points as a fraction of the zone; also draggable as markers in the waveform editor</td></tr>
+    </tbody>
+  </table>
+  <p>The remaining playback switches live in the waveform pane's right-click
+  menu: <em>Reverse playback</em>, <em>Note-on layer</em> / <em>Note-off
+  layer</em>, <em>Key follows pitch</em> / <em>Fixed pitch</em>,
+  <em>Velocity controls volume</em> / <em>Fixed volume</em>, the three overlap
+  modes, plus two whole-map commands, <em>Distribute zones across keys</em>
+  (equal key bands) and <em>Layer zones by velocity</em> (equal velocity
+  bands).</p>
+  <ul>
+    <li><strong>Key follows pitch / fixed pitch</strong> — with fixed pitch
+    the zone always plays at its root pitch regardless of the key (equivalent
+    to KEYTRACK 0).</li>
+    <li><strong>Velocity controls volume / fixed volume</strong> — with fixed
+    volume every velocity plays at full level.</li>
+    <li><strong>Loop</strong> — a looped zone cycles between its loop points
+    while the note is held. A looped zone with no amplitude envelope gets a
+    short declick fade on release; one-shot zones always play to the end, as
+    hardware samplers do. Degenerate loop points (start at or past end) turn
+    the loop off rather than being repaired into an invented loop.</li>
+  </ul>
+  <p><strong>Slices.</strong> The waveform editor supports slice markers on a
+  sampler zone (double-click the waveform to add one). Slices automatically
+  expand into generated sibling zones: the source zone keeps the first
+  region and each slice becomes a one-key zone on the next key up, named
+  <code>name [slice N]</code>. Moving a marker rebuilds the regions but
+  preserves any root/key/velocity edits you made to individual slices.</p>
+  <blockquote><p>The shell's hand-editing path manages at most 128 zones. A
+  SoundFont import bypasses it and can install thousands of zones, and the
+  editor will happily select and edit any of them — parameter and envelope
+  edits reach every zone — but a <em>mapping</em> or <em>structural</em> edit
+  (move, resize, add, delete) is only re-pushed to the engine for the first
+  128 zones. On a large imported bank, treat the key map as read-mostly and do
+  mapping surgery before or during import, not after.</p></blockquote>
+
+  <h3 id="smp-envelopes">Envelopes and the per-zone filter</h3>
+  <h4>Instrument envelopes (AMP, PIT, CUT, RES, PAN)</h4>
+  <p>The envelope pane's first five tabs are instrument-wide envelopes for
+  amplitude, pitch, cutoff, resonance and pan. Each is a freely drawable
+  curve:</p>
+  <ul>
+    <li>Double-click empty canvas to add a node (a single click is
+    deliberately harmless).</li>
+    <li>Drag a node to move it; right-click an interior node to delete it.</li>
+    <li><kbd>Shift</kbd>+click a node to make it the sustain point (the level
+    held until note-off); <kbd>Shift</kbd>+click again to clear it.</li>
+    <li>Each segment has a small curve handle at its midpoint — drag it to
+    bend the segment between concave and convex.</li>
+  </ul>
+  <p>A fresh sampler is seeded with a default amplitude ADSR. Internally the
+  curves are resampled into up to 64 linear points and handed to the engine,
+  so what you draw is what plays (within that resolution).</p>
+  <h4>Per-zone DAHDSR envelopes (Z-AMP, Z-MOD)</h4>
+  <p>The last two tabs edit the <em>selected zone's</em> envelopes: the
+  amplitude override and the modulation envelope, in SoundFont's six-stage
+  form — <strong>delay, attack, hold, decay, sustain, release</strong>
+  (times in seconds; sustain is a level). Times span 1 ms to 120 s on a
+  logarithmic slider, which covers SoundFont's full legal range — an SF2
+  stage can legitimately exceed 100 seconds (8000 timecents ≈ 101.6 s), and
+  imported values that long are preserved, not clamped. Right-click a stage
+  slider to reset it.</p>
+  <p>By default a zone has no envelope of its own and <strong>inherits the
+  instrument envelope</strong>; the editor says so in words rather than
+  showing an empty curve. Dragging any stage turns the zone override on;
+  the toggle button releases it again (stage values are kept). The
+  modulation envelope only does something once you give it a destination via
+  MOD&gt;PITCH or MOD&gt;CUTOFF in the inspector. A zone with its own
+  amplitude envelope runs its own release from wherever its level is at
+  note-off — the release of one voice can never leak into another.</p>
+  <h4>Filter</h4>
+  <p>Each zone has an optional low-pass filter (CUTOFF/RESO in the
+  inspector). CUTOFF at the far left means no filter at all — imported
+  SoundFont zones whose cutoff sits above audibility are normalized to
+  "off" rather than wasting a filter on nothing.</p>
+
+  <h3 id="smp-sf2">SoundFont (SF2) import</h3>
+  <p>PatchKnob reads <code>.sf2</code> banks (and Vorbis-compressed
+  <code>.sf3</code>) with its own parser, resolving the generator layering
+  rules of the SF2 spec, so imported zones become ordinary sampler zones you
+  can edit, slice and process like any other.</p>
+  <h4>Browsing a bank without loading it</h4>
+  <p>In either browser (the Sampler window's library or the Sample Editor
+  window's browser), a soundfont file shows a <code>+</code> affordance and
+  expands <em>in place</em> like a folder: click or double-click it and its
+  presets splice in below as rows labelled <code>[bank:program] Name</code>.
+  Expanding parses headers only — a few milliseconds even on an 800 MB bank —
+  and the parse is cached, so collapsing and re-expanding is free. No sample
+  data is read until you actually import a preset. A soundfont row is never
+  auditioned as audio (it is not a decodable audio file).</p>
+  <h4>Importing a preset</h4>
+  <p>Two ways in, one import path:</p>
+  <ul>
+    <li><strong>Click</strong> a preset row in the Sampler window's own
+    library — that browser already lives inside the sampler it imports
+    into.</li>
+    <li><strong>Drag</strong> a preset row out of the Sample Editor window's
+    browser and drop it on the Sampler window.</li>
+  </ul>
+  <p>The import is <strong>asynchronous</strong>. Decoding a preset out of a
+  large bank can cost hundreds of milliseconds of disk on a cold cache, so
+  the file reading and decoding run on a worker thread while the UI stays
+  live; the status line shows progress ("Importing … 34/120 samples (28%)").
+  Clicking a second preset before the first finishes <strong>supersedes</strong>
+  it — the queue has depth one and the latest click wins, so auditioning down
+  a preset list always ends on the preset you clicked last, and a stale
+  import can never land after you have moved on. After each import the next
+  preset in the bank is quietly prefetched into the disk cache, so stepping
+  down a list gets faster, not slower.</p>
+  <p>What gets imported: every zone's key and velocity range, root key,
+  tuning (coarse/fine/scale), pan, attenuation, filter cutoff and resonance,
+  both envelopes (volume and modulation, including their pitch/filter
+  routing), exclusive class, loop points and loop flag. Stereo instruments —
+  stored in SF2 as two linked mono samples — are interleaved into single
+  stereo zones (a broken link degrades to mono rather than failing the
+  preset). The import replaces the sampler's previous contents, and the
+  status line reports the result: zones loaded, distinct samples interned,
+  stereo pairs, and anything skipped.</p>
+  <h4>Memory: zones are lazily materialized</h4>
+  <p>Zones that reuse one recording share one immutable buffer in the engine
+  — a 2976-zone concert grand drawing on 192 recordings holds roughly 85 MB,
+  not the 1.3 GB per-zone copies would cost. The editor keeps only zone
+  metadata; a zone's audio is pulled from the engine when you
+  <em>select</em> that zone (to show its waveform and let you edit it). This
+  is why a freshly imported bank uses far less memory than its file size
+  suggests, and why selecting a zone for the first time can do a little
+  work. Editing one zone's audio affects only that zone: the engine copies
+  never mutate shared buffers.</p>
+  <blockquote><p>The import engine supports two options — a hard cap on zones
+  loaded (a cheap preview import) and collapsing redundant velocity layers —
+  but no UI currently exposes them: every import runs uncapped with layers
+  intact. Also, SF2's "loop until release" mode (sampleModes 3) is imported
+  as a plain sustained loop; the until-release distinction is not kept.</p></blockquote>
+
+  <h3 id="smp-sf2-export">SoundFont export</h3>
+  <p>The engine contains a full SF2 writer aimed at two audiences at once.
+  For everyone else, it emits a strictly conformant SF2 2.04 file: real
+  generators for zones, key/velocity ranges, root keys, loops, tuning, pan,
+  attenuation, filter and both envelopes, terminal records, the 46 zero
+  frames the spec demands after each sample — so the file plays correctly in
+  FluidSynth, Polyphone or a hardware sampler. Writing goes to a temporary
+  file and renames on success, so a failed export can never destroy an
+  existing bank.</p>
+  <p>For PatchKnob itself, the writer adds a private <code>PKST</code> chunk
+  carrying the state that has no SF2 generator to live in: the native FX
+  tail (gain/pan/width/drive/filters/bitcrush/downsample/noise), tracker
+  note-column configuration, and the <em>exact</em> drawn envelope curves.
+  SF2 readers are required to skip unknown chunks, so the file stays fully
+  standard — other samplers simply ignore the extra chunk, while PatchKnob
+  reading its own file back restores the patch exactly. A
+  <em>standard-only</em> mode omits the chunk for pure interchange; drawn
+  envelopes are then fitted to six-stage DAHDSR, and the fit reports its
+  worst-case error so a caller can warn before writing, not after. A 24-bit
+  option writes the SF2.04 <code>sm24</code> chunk (low bytes of 24-bit
+  samples); older readers ignore it and play the 16-bit data.</p>
+  <blockquote><p>As of this writing the export is engine-only: the writer,
+  the 24-bit path and the <code>PKST</code> round-trip are implemented and
+  covered by tests, but no menu item or button in the UI invokes them yet.
+  There is currently no way to export a patch to SF2 from inside the
+  program.</p></blockquote>
+
+  <h3 id="smp-editor">The sample editor</h3>
+  <p>One sample editor serves the whole program: it edits anything that holds
+  a sample — a sampler zone (embedded in the Sampler window, or via
+  <kbd>W</kbd> / <em>Edit waveform…</em>) and the modular rack's SMPL-1
+  module (in the <em>Sample Editor</em> window, which pairs the editor with a
+  disk browser). It edits a sampler's playback region and knows nothing about
+  the timeline; time-stretching a clip on the arrangement is a different
+  editor.</p>
+  <h4>Display and navigation</h4>
+  <ul>
+    <li>Bipolar min/max waveform; <strong>ST</strong> switches between one
+    overlaid lane and two stacked L/R lanes.</li>
+    <li>Wheel zooms <em>at the pointer</em>; <kbd>Shift</kbd>+wheel scrolls;
+    <kbd>Ctrl</kbd>+wheel zooms amplitude. <kbd>Home</kbd> (or
+    <strong>FIT</strong>) shows the whole file, <kbd>E</kbd> zooms to the
+    selection, <kbd>Left</kbd>/<kbd>Right</kbd> scroll (fine with
+    <kbd>Shift</kbd>), <kbd>PgUp</kbd>/<kbd>PgDn</kbd> page,
+    <kbd>+</kbd>/<kbd>-</kbd> zoom.</li>
+    <li>Four draggable markers: <strong>S</strong> (region start),
+    <strong>E</strong> (region end), <strong>LS</strong>/<strong>LE</strong>
+    (loop start/end). They clamp so they can never cross. Drag on empty
+    waveform makes a selection; <kbd>Esc</kbd> unwinds one thing at a time —
+    first an in-flight drag, then the selection.</li>
+    <li><strong>0X</strong> toggles snapping of edits and markers to zero
+    crossings (on by default — this is what stops clicks).</li>
+    <li>The footer shows position, selection length, and peak/RMS of the
+    selected span.</li>
+  </ul>
+  <h4>Operations</h4>
+  <p>Operations apply to the selection, or to the whole file when there is no
+  selection. Everything is in the right-click menu; the common ones also have
+  keys:</p>
+  <table>
+    <thead><tr><th>Operation</th><th>Key</th></tr></thead>
+    <tbody>
+      <tr><td>Cut / Copy / Paste (insert) / Delete</td><td><kbd>Ctrl</kbd>+<kbd>X</kbd> / <kbd>Ctrl</kbd>+<kbd>C</kbd> / <kbd>Ctrl</kbd>+<kbd>V</kbd> / <kbd>Del</kbd></td></tr>
+      <tr><td>Paste (mix), Duplicate, Insert silence</td><td>menu</td></tr>
+      <tr><td>Trim to selection</td><td><kbd>T</kbd></td></tr>
+      <tr><td>Normalize</td><td><kbd>N</kbd></td></tr>
+      <tr><td>Gain +1.5 dB / −1.5 dB</td><td>menu</td></tr>
+      <tr><td>Reverse / Invert phase</td><td><kbd>R</kbd> / menu</td></tr>
+      <tr><td>Fade in / Fade out</td><td><kbd>I</kbd> / <kbd>O</kbd></td></tr>
+      <tr><td>Silence</td><td><kbd>M</kbd></td></tr>
+      <tr><td>Remove DC, Declick edges, Auto-trim silence</td><td><kbd>D</kbd> / menu / menu</td></tr>
+      <tr><td>Swap L/R, Sum to mono, Bitcrush, Half / Double speed</td><td>menu</td></tr>
+      <tr><td>Region = selection / Loop = selection</td><td><kbd>[</kbd> / <kbd>]</kbd></td></tr>
+      <tr><td>Loop playback on/off</td><td><kbd>L</kbd></td></tr>
+      <tr><td>Crossfade loop (seamless loop; length shown and draggable in the footer, default 20 ms)</td><td>menu</td></tr>
+      <tr><td>Save as WAV…</td><td><kbd>Ctrl</kbd>+<kbd>S</kbd></td></tr>
+      <tr><td>Undo / Redo</td><td><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd></td></tr>
+    </tbody>
+  </table>
+  <p>Edits are destructive to the zone's working copy and undoable; the undo
+  history is bounded (16 steps, capped at 256 MB of retained audio), so on
+  very long recordings the oldest steps fall off first. When the editor is
+  hosting a sampler zone, its context menu also carries the zone playback
+  switches listed under <a href="#smp-zones">Zones</a>. Double-click the
+  waveform to add a slice marker (sampler zones only); right-click a slice
+  for <em>Remove</em>, <em>Snap to zero crossing</em> and <em>Clear all
+  slices</em> (the last one asks twice).</p>
+
+  <h3 id="smp-browser">The browser</h3>
+  <p>Two disk browsers feed the samplers, sharing one design.</p>
+  <h4>The Sample Editor window's browser</h4>
+  <p>A plain directory list — folders first, then audio files — with a
+  clickable path breadcrumb and a draggable divider. It lists
+  <code>wav</code>, <code>aif</code>, <code>aiff</code>, <code>flac</code>,
+  <code>ogg</code> and <code>mp3</code> files, plus <code>sf2</code>/<code>sf3</code>
+  soundfonts (which expand in place; see <a href="#smp-sf2">above</a>).
+  Selecting a file with the arrow keys auditions it; <kbd>Space</kbd>
+  re-auditions the current row; <kbd>Enter</kbd> or double-click loads it
+  into the editor; <kbd>Backspace</kbd> goes up a folder; <kbd>F5</kbd>
+  rescans. Typing letters filters the list (a filter chip appears — click it
+  or press <kbd>Esc</kbd> to clear). Rows are drag sources: drop a file on
+  the editor to load it, or drop a soundfont preset row on the Sampler
+  window to import it.</p>
+  <blockquote><p>The browser lists more formats than the sample loader can
+  decode: loading goes through a WAV-only reader (16/24/32-bit PCM and
+  32-bit float RIFF/WAVE), so <code>aif</code>, <code>flac</code>,
+  <code>ogg</code> and <code>mp3</code> rows appear in the list but fail
+  with a load error when you try to use them. Stick to WAV for now.</p></blockquote>
+  <h4>The Sampler window's library</h4>
+  <p>The Sampler's own left-hand pane is a simpler list: folders, WAV files
+  and soundfonts only. Clicking a WAV previews its waveform and auditions it
+  (click inside the preview to play from that position); clicking a preset
+  row inside an expanded soundfont imports it immediately. Keys while the
+  browser pane is active: <kbd>Up</kbd>/<kbd>Down</kbd> step and audition,
+  <kbd>PgUp</kbd>/<kbd>PgDn</kbd> page, <kbd>Home</kbd>/<kbd>End</kbd> jump,
+  <kbd>Backspace</kbd> parent folder, <kbd>F5</kbd> rescan,
+  <kbd>Space</kbd> re-audition, <kbd>Enter</kbd> re-select. A breadcrumb
+  drive menu switches roots (drive letters on Windows, <code>/</code>
+  elsewhere). The pane says <em>why</em> it is empty — an unreadable folder
+  and a folder with no WAVs report differently. Press-and-drag a row past a
+  small threshold to pick it up and drop it on the key map, a zone row, or
+  the zone list; an ordinary click never starts a drag.</p>
+</section>
+
+<section data-title="Modular, Plugins &amp; Sound Design">
+  <h2 id="mod">Modular, Plugins &amp; Sound Design</h2>
+  <p>Every sound source and processor in PatchKnob lives in one place: the
+  <strong>patch graph</strong>, a node canvas where instruments, effects, MIDI
+  ports and mixers are wired together with cables. This is different from most
+  DAWs: an instrument is not loaded "into a track" — it is a node in the graph,
+  and the mixer, the sequencer and the audio device connect to it with cables
+  like everything else. That is also why an automation target is usually a
+  patch-node parameter: the parameters worth automating belong to the nodes in
+  this graph, not to a slot on a mixer strip.</p>
+
+  <h3 id="mod-patchbay">The patchbay (bottom dock)</h3>
+  <p>The patchbay is a window docked to the bottom of the screen, visible by
+  default. It shares the bottom dock with the Sample Editor as two tabs;
+  <em>View &gt; Patchbay (bottom dock)</em> shows or hides the whole dock.
+  Showing or hiding the patchbay never changes what you hear — whether audio
+  renders through the patch graph is a separate engine state, and it switches
+  on automatically the first time you wire something into <code>Audio Out</code>.</p>
+  <p>Canvas navigation: the mouse wheel pans vertically, <kbd>Shift</kbd>+wheel
+  pans horizontally, and <kbd>Ctrl</kbd>+wheel zooms around the pointer
+  (35–250%, with a zoom read-out bottom-left). Scrollbars appear along the
+  edges when the patch outgrows the view. Drag a node body to move it.</p>
+  <p>A new project seeds the canvas with five permanent nodes:</p>
+  <ul>
+    <li><strong>Instrument out</strong> — the sequencer's MIDI source. It grows
+    one output plug per arrange track, so each track's notes are a separate
+    cable.</li>
+    <li><strong>Hardware MIDI In</strong> — the default hardware MIDI input.</li>
+    <li><strong>Audio Out</strong> — the audio device sink.</li>
+    <li><strong>Master Mixer</strong> — the singleton master mixer node
+    (right-click &gt; <em>Open Mixer</em> opens the strip view; the mixer
+    itself is covered in the mixer section).</li>
+    <li><strong>Instrument Virtual MIDI Ports</strong> — a PipeWire-style
+    virtual patch panel; right-click &gt; <em>Configure MIDI Ports...</em> sets
+    how many ins and outs it has, and wiring one of its outputs to one of its
+    inputs stores an internal route rather than drawing a cable.</li>
+  </ul>
+
+  <h4 id="mod-patchbay-add">Adding nodes</h4>
+  <p>Right-click empty canvas. The menu lists the node categories:
+  <em>Instrument</em>, <em>Sampler</em>, <em>Effect</em>, <em>MIDI Ports</em>
+  (a submenu: virtual MIDI in/out plus every hardware MIDI in and out port on
+  the machine), <em>Audio I/O</em> (a submenu: <em>Audio In</em>,
+  <em>Audio Out</em>, <em>Mono to Stereo</em>), <em>Mixer</em>,
+  <em>Pure Data</em>, <em>Modular (Rack)</em> and <em>Csound</em>, followed by
+  <em>Add Module...</em>. The node is created where you right-clicked.</p>
+  <p>An <em>Instrument</em> or <em>Effect</em> node is created <strong>empty</strong>
+  — it is a plugin host with nothing loaded. Adding an Instrument immediately
+  opens the plugin picker so you choose what it hosts; an Effect waits until
+  you right-click it and pick <em>Choose Plugin...</em>.</p>
+
+  <h4 id="mod-patchbay-wiring">Connecting and disconnecting</h4>
+  <p>Ports are drawn as discs on the node edges: inputs on the left, outputs on
+  the right. Audio ports are filled, MIDI ports are hollow, and MIDI cables are
+  drawn dashed so the two never look alike. To connect:</p>
+  <ul>
+    <li><strong>Drag</strong> from an output port to an input port of the same
+    kind. The target highlights when the drop would connect.</li>
+    <li><strong>Click-to-connect</strong>: click a node body (it lights up,
+    "armed"), then click a second node. PatchKnob wires the first matching
+    output→input pair for each kind the two nodes share — so one click-click
+    links MIDI In → Instrument (MIDI), Instrument → Audio Out (audio), or both
+    at once. Order does not matter; you can click source or sink first.
+    <kbd>Esc</kbd> or clicking empty canvas cancels an armed node.</li>
+    <li><strong>Click a cable</strong> on empty canvas to delete it.</li>
+  </ul>
+  <p>The engine validates every connection; a refused one (kind mismatch, a
+  cycle, or a full fan-in) simply disappears again so the canvas always matches
+  the real graph.</p>
+
+  <h4 id="mod-patchbay-tracks">Instruments get their own mixer track</h4>
+  <p>Adding any instrument-like node — Instrument, Sampler, Pure Data,
+  Modular (Rack) or Csound — does three things at once: the engine creates a
+  dedicated master-mixer audio track for it, wires the sequencer's MIDI and the
+  node's audio through that track (the cables appear on canvas), and creates an
+  arrange lane routed to it. A fresh instrument is therefore playable and
+  mixable immediately, with its own live mixer strip; you can still reassign
+  lanes to other instruments from the track header dropdown.</p>
+  <p><strong>Per-node MIDI channel:</strong> every instrument-like node carries
+  a MIDI channel filter in the engine (default omni), so several instruments
+  hanging off one MIDI cable could each answer a different channel. The current
+  UI does not expose the filter: which instrument a track or MIDI source drives
+  is decided by which node the cable ends at, and PatchKnob sets new
+  instruments to omni. Csound is the place where channels still matter — see
+  <a href="#mod-csound-midi">live MIDI in Csound</a>.</p>
+
+  <h4 id="mod-patchbay-menu">The node menu</h4>
+  <p>Right-click a node for its actions. All nodes offer <em>Remove</em>; the
+  rest depends on the category:</p>
+  <ul>
+    <li><em>Instrument</em> / <em>Effect</em>: <em>Load Plugin from Disk...</em>,
+    <em>Choose Plugin...</em> (the scanned-plugin picker), <em>Open GUI</em>
+    (the plugin's own editor) and <em>Parameters</em> (the built-in panel).</li>
+    <li><em>Sampler</em>: <em>Open Sampler Editor</em> and <em>Parameters</em>
+    (the sampler itself is documented in its own section).</li>
+    <li><em>Pure Data</em>: <em>Open Pd Editor</em>.</li>
+    <li><em>Modular (Rack)</em>: <em>Open Rack Editor</em>, plus a
+    <em>Polyphony</em> list (1, 2, 4, 8 or 16 voices).</li>
+    <li><em>Csound</em>: <em>Edit CSD</em>.</li>
+    <li><em>Mixer</em>: <em>Open Mixer</em>.</li>
+    <li>A <em>MIDI In</em> node: choose how many virtual ports it exposes and
+    which hardware MIDI input feeds it (or <em>None</em>).</li>
+  </ul>
+
+  <h3 id="mod-rack">The modular rack</h3>
+  <p>A <em>Modular (Rack)</em> node hosts a small VCV-Rack-style modular patch.
+  Its patch-graph ports track the rack's contents: each <em>Audio Out</em>
+  module inside the rack becomes a stereo output port on the node, each
+  <em>Audio In</em> module a stereo input port, and there is always one MIDI
+  input, which feeds the rack's <em>MIDI-CV</em> modules. Right-click the node
+  &gt; <em>Open Rack Editor</em> to edit it.</p>
+
+  <h4 id="mod-rack-add">Adding modules and wiring</h4>
+  <p>Right-click empty rack canvas (or just click, when the rack is empty — it
+  says so) to open the module palette: a searchable list of module cards with a
+  category filter at the top. Type to filter by name, slug or category, and
+  <strong>drag a card onto the canvas</strong> to place the module.
+  <kbd>Esc</kbd> or right-click closes the palette.</p>
+  <p>Wiring works like the patchbay: drag from an output jack to an input jack,
+  or click an output jack (it arms) and then click an input jack. Right-click a
+  cable to remove it. Right-click a module for <em>Duplicate</em> and
+  <em>Delete</em>; <kbd>Delete</kbd> or <kbd>Backspace</kbd> removes the
+  selected module. Knobs are dragged vertically (panels with a value display
+  show the parameter's value while you turn it). Cables are colored
+  per-connection so parallel runs stay readable.</p>
+
+  <h4 id="mod-rack-modules">What ships</h4>
+  <p>The built-in set follows VCV conventions (±5 V audio, ±10 V CV, 0/10 V
+  gates, 1 V/octave pitch), so modules interoperate the way Rack users expect.
+  It includes:</p>
+  <ul>
+    <li>The core voice modules — VCO, VCF, VCA, ADSR, LFO, Mixer, 8vert, Merge,
+    Split, Sum, Mid/Side, Octave, VCA-2, VCA Mix, Mutes, Pulses, Random, SEQ-3,
+    sequential switches — built from the VCV <em>Fundamental</em> DSP through a
+    GUI-free bridge, plus Noise, Audio In/Out and MIDI-CV.</li>
+    <li>Native translations of <em>Cardinal</em> modules (currently the Befaco
+    ATTE and ABC utilities; the original source stays vendored under
+    <code>vendor/Cardinal</code>).</li>
+    <li>A second utility set: Clock, Clock Div, a 16×16 step sequencer, S&amp;H,
+    Quantizer, Attenuverter, Slew, Multiple, Delay, Waveshaper, Wavefolder,
+    Ring Mod, Panner, Crossfader, Comparator, AD Envelope, LFO2 and more.</li>
+    <li>PatchKnob originals: the 303 Oscillator, 303 Sequencer and three Acid
+    303 filter variants, VCO-4 SSE, ZDF Multi, Z-Plane Filter, Harmonic Forge,
+    Env-8 Tempo, Buffer Retrig, and a Sampler module (right-click it for
+    <em>Edit Sample</em> / <em>Load Sample...</em>).</li>
+    <li>The <a href="#mod-cdp">CDP processes</a> as rack modules, under a
+    <em>CDP</em> category.</li>
+    <li>Two <em>Scripting</em> modules, <strong>Csound</strong> and
+    <strong>Pd</strong>, which run a .csd or .pd inside the rack. Their jacks
+    and knobs are declared in the script itself (<code>chnget "jack-N"</code> /
+    <code>"knob-N"</code> channels in Csound; <code>adc~</code>/<code>dac~</code>
+    and <code>[r knob-N]</code> in Pd). Right-click one for <em>Edit DSP</em>
+    (the Csound or Pd editor bound to that module) and <em>Edit Panel</em>
+    (drag and resize its faceplate controls).</li>
+  </ul>
+  <p>PatchKnob also scans a <code>modules/</code> directory next to the
+  executable for externally built bridge modules and registers whatever it
+  finds there.</p>
+
+  <h4 id="mod-rack-poly">Polyphony</h4>
+  <p>A rack is monophonic by default. Right-click the rack <em>node</em> in the
+  patchbay and pick a <em>Polyphony</em> of 2, 4, 8 or 16: incoming notes are
+  then allocated across voices and the MIDI-CV pitch/gate/velocity outputs
+  become polyphonic signals of that width (VCV-style), so a chain of
+  poly-capable modules plays chords. The scripting Csound module understands
+  this too and runs one instrument instance per voice.</p>
+
+  <h3 id="mod-csound">Csound nodes</h3>
+  <p>A Csound node runs a complete <code>.csd</code> document inside the patch
+  graph, compiled by a real embedded Csound. Right-click the node &gt;
+  <em>Edit CSD</em> opens the editor.</p>
+
+  <h4 id="mod-csound-editor">The editor and compiling</h4>
+  <p>The editor is a plain text editor with the usual keys
+  (<kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>X</kbd>/<kbd>V</kbd>/<kbd>A</kbd>, undo
+  with <kbd>Ctrl</kbd>+<kbd>Z</kbd>). The status bar along the bottom holds
+  <em>OPEN</em>, <em>SAVE</em> and <em>SAVE AS</em> buttons for .csd files on
+  disk, and a <em>COMPILE</em> button; <kbd>Ctrl</kbd>+<kbd>E</kbd> compiles
+  too. The compile result lands in the same status bar: dimmed
+  "compiled OK" text on success, the compiler's error highlighted on failure.
+  A successful compile also re-mirrors the node's ports, because the CSD header
+  decides them: <code>nchnls</code> sets the outputs (one stereo port per pair)
+  and <code>nchnls_i</code> the inputs. Recompiling never glitches the audio
+  thread — the old engine keeps running until the new one is ready.</p>
+  <p>A fresh node compiles immediately with this starter document:</p>
+  <pre>&lt;CsoundSynthesizer&gt;
+&lt;CsInstruments&gt;
+sr = 48000
+ksmps = 32
+nchnls = 2
+nchnls_i = 2
+0dbfs = 1
+
+instr 1
+endin
+
+&lt;/CsInstruments&gt;
+&lt;CsScore&gt;
+f 0 86400
+&lt;/CsScore&gt;
+&lt;/CsoundSynthesizer&gt;</pre>
+
+  <h4 id="mod-csound-midi">Live MIDI: how the host drives your instrument</h4>
+  <p>PatchKnob feeds the node's <em>midi in</em> port straight into Csound's
+  realtime MIDI input, so instruments are triggered the classic Csound way, by
+  live events rather than score lines:</p>
+  <ul>
+    <li><code>massign &lt;channel&gt;, &lt;instr&gt;</code> routes a MIDI
+    channel to an instrument. Take pitch with <code>icps cpsmidi</code> and
+    velocity with <code>iamp ampmidi 0.5</code>.</li>
+    <li>Use MIDI-aware envelopes — <code>madsr</code> / <code>mxadsr</code> —
+    so the voice responds to note-off and releases instead of cutting.</li>
+    <li>The score's <code>f 0 86400</code> line is the <strong>keep-alive</strong>:
+    it holds the performance open for 24 hours so a MIDI instrument or effect
+    has time to run. Delete it and the performance ends immediately — the node
+    goes silent until the next compile.</li>
+  </ul>
+  <p><strong>The channel-stealing trap:</strong> <code>massign 0, N</code>
+  claims <em>every</em> MIDI channel for instrument N. With two or more
+  instruments in one CSD, a later <code>massign 0</code> silently takes the
+  earlier instrument's input — the last one wins and nothing warns you. Give
+  each instrument its own channel (<code>massign 1, 1</code> /
+  <code>massign 2, 2</code>) as soon as there is more than one.</p>
+  <p>For effects, read the node's audio inputs with <code>ins</code> (stereo)
+  or <code>inch</code>. If you forget to declare <code>nchnls_i</code>,
+  PatchKnob infers it from the <code>in</code>/<code>ins</code>/<code>inch</code>
+  opcodes it finds in the orchestra and injects it at compile time, so those
+  opcodes produce input jacks instead of silently reading nothing. The node
+  also has a <em>midi out</em> port: whatever the orchestra sends with
+  <code>midiout</code> is published there, sample-accurately, for wiring to a
+  hardware MIDI output or another node.</p>
+  <blockquote>Csound is an optional build dependency. If it was not found when
+  this binary was built, Csound nodes still exist and load in projects, but
+  compiling reports "Csound support was not built into this binary" and the
+  node produces silence. The assistant's compile check is skipped (it says so)
+  rather than failing.</blockquote>
+
+  <h4 id="mod-csound-manual">The reference manual drawer</h4>
+  <p>The small tab at the editor's top-right corner (marked <code>&gt;</code>)
+  slides out the complete Csound Reference Manual as a browsable drawer. It has
+  <em>BACK</em> and <em>HOME</em> buttons, a find-in-page box
+  (<kbd>Ctrl</kbd>+<kbd>F</kbd> focuses it; <kbd>F3</kbd> or
+  <kbd>Ctrl</kbd>+<kbd>G</kbd> steps through matches, with <kbd>Shift</kbd>
+  going backwards, and the box shows a match counter), and ordinary links —
+  click an opcode reference to follow it. Text can be selected and copied with
+  <kbd>Ctrl</kbd>+<kbd>C</kbd>, and the drawer's left edge drags to resize.
+  This is the <em>same</em> manual the assistant validates opcodes against:
+  its index of about 1,720 opcode signatures is parsed from these very pages,
+  so the documentation you read and the audit that checks generated code can
+  never disagree.</p>
+  <p>The manual is a local mirror staged next to the executable (or in
+  <code>vendor/csound-manual</code> in a source tree). If it was never
+  fetched, the drawer says so and names the fetch script
+  (<code>tools/fetch_csound_manual.py</code>) instead of showing a broken
+  page.</p>
+
+  <h4 id="mod-csound-ai">The Csound assistant</h4>
+  <p>Directly under the manual tab sits an <em>AI</em> tab (the two share the
+  right edge; opening one closes the other). It is a chat panel that writes and
+  fixes Csound for the document you are editing, and it does the whole job, not
+  just the first draft:</p>
+  <ol>
+    <li>Your request is sent together with the <strong>live</strong> editor
+    buffer and the last compile error, plus facts the model must know: which
+    <code>instr</code> numbers are already taken, whether the score has an
+    <code>f 0</code> keep-alive, and how <code>massign</code> routing stands.</li>
+    <li>The reply streams in; extended thinking is shown as a collapsible
+    "thinking" block and a progress line replaces the silence while the model
+    reasons.</li>
+    <li>Every fenced Csound block is <strong>audited against the shipped
+    manual's opcode signatures</strong> — argument rates, counts, overloads.</li>
+    <li>Code that passes the audit is then <strong>compiled by the real Csound
+    compiler</strong> on a throwaway instance (a bare <code>instr</code> block
+    is spliced into your document first, since it is not compilable alone).</li>
+    <li>Audit mismatches or compiler diagnostics are fed back to the model
+    automatically, up to four correction rounds. Superseded replies stay
+    visible but greyed, and their code is never offered.</li>
+    <li>Only code that actually <strong>compiled</strong> is auto-applied to
+    the editor — a whole document replaces the buffer, a bare instrument is
+    inserted at the cursor — and the apply goes through the normal undo, so one
+    <kbd>Ctrl</kbd>+<kbd>Z</kbd> takes it back. Code that never compiled is
+    only available behind an explicit <em>APPLY UNVERIFIED</em> button, with
+    the mismatches listed so you can judge it yourself.</li>
+  </ol>
+  <p>The audit is deliberately conservative: expressions, user-defined opcodes,
+  macros, arrays and plugin opcodes are <em>skipped</em> rather than guessed
+  at, because a false complaint would train you to ignore the checker and waste
+  a correction round. Everything it does report should be a real defect.</p>
+  <p><strong>Backends.</strong> <em>SET..</em> opens the settings window. The
+  default backend is <em>Claude Code</em>: PatchKnob shells out to a locally
+  installed <code>claude</code> executable and spends your existing
+  subscription — no API key is held, stored or transmitted, and hitting the
+  subscription's rate limit is reported as a calm "please wait" notice, not an
+  error. The alternative is the <em>Anthropic API</em> with your own key,
+  billed per token, for machines without Claude Code. The key field is always
+  masked, the key is stored only in your user preferences bound to this
+  machine and user (a key copied from another machine is refused, with the
+  reason shown), and it is never written to a project file. Settings also pick
+  the model — <code>claude-opus-5</code> (the default; the code has to
+  compile), <code>claude-sonnet-5</code> or <code>claude-haiku-4-5</code> —
+  toggle extended thinking, and cycle the reply-token cap.</p>
+  <p>While a reply is generating, a <em>STOP GENERATING</em> bar sits above the
+  composer; the worker unwinds and the panel reports "(cancelled)". When the
+  editor holds a compile error, that bar becomes a one-click <em>FIX THE
+  COMPILE ERROR</em>. <em>NEW</em> clears the transcript (disabled
+  mid-generation, on purpose).</p>
+  <blockquote>The pieces of this pipeline are individually tested — the stream
+  decoders, the opcode audit, the compile oracle and the panel logic all have
+  unit tests — but writing this manual we did not run a live end-to-end
+  exchange against a real backend from the panel. If the assistant misbehaves,
+  the settings window's backend status lines ("detected: &lt;version&gt;" /
+  "Claude Code was NOT found on your PATH") are the first thing to check.</blockquote>
+
+  <h3 id="mod-pd">Pure Data nodes</h3>
+  <p>A Pure Data node hosts an embedded Pd instance via libpd — real Pd
+  vanilla, one private instance per node. The patch lives <em>in the
+  project</em>, not as a file on disk: right-click the node &gt;
+  <em>Open Pd Editor</em> edits the node's stored patch text, and every commit
+  reloads it live. The editor's <em>OPEN</em> / <em>SAVE</em> /
+  <em>SAVE AS</em> buttons import and export ordinary <code>.pd</code> files
+  when you do want them on disk.</p>
+  <p>The editor is a visual patcher: <kbd>Ctrl</kbd>+<kbd>E</kbd> toggles
+  between EDIT and RUN mode (like Pd itself, and the current mode is shown as a
+  badge), objects are placed from a palette organized into
+  All / Sig~ / Ctrl / Math / MIDI / GUI / List / Array / Time / Data
+  categories, and the GUI atoms — toggles, bangs, sliders, number boxes,
+  radios — are drawn as live widgets you can operate in RUN mode, with their
+  values fed to the running patch. The palette's object list is generated from
+  the vanilla class registry, so everything placeable in Pd vanilla (including
+  the FFT and analysis objects) is available. Records the editor does not
+  understand — subpatches, arrays, scalars — are preserved verbatim rather
+  than dropped, so a patch made in Pd proper round-trips safely even where it
+  cannot be edited visually. Externals are not supported: what libpd vanilla
+  can load is what runs.</p>
+  <p>The node's ports follow the patch: one stereo output port per
+  <code>dac~</code> channel pair, one stereo input port per <code>adc~</code>
+  pair, plus a MIDI in (feeding <code>[notein]</code>, <code>[ctlin]</code>,
+  <code>[midiin]</code>...) and a MIDI out (carrying <code>[noteout]</code>,
+  <code>[ctlout]</code>, <code>[midiout]</code>).</p>
+
+  <h3 id="mod-cdp">CDP processes</h3>
+  <p>PatchKnob embeds the Composer's Desktop Project as a callable library: 56
+  processes lifted out of the original CDP8 command-line programs (blur,
+  focus, combine, distort, extend, filter, grain, modify, spectral and more),
+  each with its original parameters and documentation lines. They appear in two
+  places: as rack modules (the <em>CDP</em> palette category), and in the
+  <strong>CDP editor</strong> — an offline transformation patcher opened from a
+  clip's right-click <em>CDP...</em> entry in the arrangement.</p>
+  <p>The clip you invoked it from arrives as a source node with a waveform
+  strip. Right-click empty canvas to add a process from the palette
+  (grouped as "group / name"), wire source → process → process by dragging
+  between ports, and drag a parameter row's value to tune it — every node shows
+  a rendered waveform of its own output, cached and recomputed only when
+  something upstream changes. You can drop further clips from the timeline
+  into the same graph.</p>
+  <p>The bottom strip has <em>RENDER TO TRACK</em> — renders the chain and
+  places the result as a new audio track with its own mixer channel — and
+  <em>PREVIEW</em>, which plays the render without committing it. Next to the
+  buttons a read-out states the chain's honesty about realtime: spectral
+  (phase-vocoder) processes report their analysis-window latency, and
+  processes that need the whole file up front are marked "offline only"
+  rather than pretending to stream.</p>
+
+  <h3 id="mod-plugins">VST2 / VST3 hosting</h3>
+  <p>PatchKnob hosts 64-bit VST2 and VST3 plugins inside Instrument and Effect
+  nodes.</p>
+  <h4 id="mod-plugins-scan">Scanning and picking</h4>
+  <p>At startup PatchKnob loads its plugin cache if one exists (instant) and
+  otherwise scans the standard directories — on Linux
+  <code>/usr/lib/vst</code>, <code>/usr/local/lib/vst</code> and
+  <code>~/.vst</code> for VST2, <code>/usr/lib/vst3</code>,
+  <code>/usr/local/lib/vst3</code> and <code>~/.vst3</code> for VST3; on
+  Windows the usual <code>Program Files</code> VST locations — probing each
+  candidate and writing the cache. <em>View &gt; Rescan Plugins</em> forces a
+  fresh scan. The picker (from <em>Choose Plugin...</em>, or automatically on
+  a new Instrument node) lists every scanned plugin with its format tag and an
+  I/O summary; multi-output instruments show their bus layout
+  ("2x8" = eight stereo buses) so you can see there is more than one pair to
+  patch. <em>Load Plugin from Disk...</em> probes a single file directly, and
+  if a VST3 bundle exports several audio classes you choose the exact class
+  rather than silently getting the first.</p>
+  <h4 id="mod-plugins-editors">The plugin's editor vs. the parameter panel</h4>
+  <p>Every plugin node offers two views. <em>Parameters</em> is PatchKnob's own
+  panel: every parameter as a slider, always available, and the header lists
+  the plugin's bus layout. <em>Open GUI</em> opens the plugin's own editor,
+  embedded in a PatchKnob window frame when the platform allows it; a plugin
+  with no native editor falls back to the parameter panel automatically. The
+  same two views serve the mixer's insert slots.</p>
+  <p><strong>Linux/Wayland:</strong> a plugin editor cannot be embedded in a
+  Wayland session. Every Linux VST editor is an X11 window (VST3's only Linux
+  platform type is X11 window-ID embedding; there is no Wayland type at all),
+  and under Wayland the SDL window has no X11 id to parent into. So the editor
+  opens as a <strong>separate top-level window</strong> (via XWayland), and
+  PatchKnob shows a small companion frame that says so. The frame is not
+  decoration: hiding it hides the plugin window, and closing it closes the
+  editor. On an X11 session, and on Windows, editors embed normally.</p>
+
+  <h3 id="mod-fx">The built-in effects</h3>
+  <p>Four effects are compiled into PatchKnob and appear in the plugin picker
+  and browser alongside scanned plugins (their "path" is a
+  <code>builtin://</code> identifier). They have no native GUI; the parameter
+  panel gives the compressor and drum bus a dial layout of their own.</p>
+
+  <h4 id="mod-fx-comp">PatchKnob Compressor</h4>
+  <p>A feed-forward compressor implemented from the Giannoulis/Massberg/Reiss
+  design tutorial (JAES 2012), computing gain in the log domain and smoothing
+  the gain-reduction curve — not a rectified envelope — so attack and release
+  do not change with level.</p>
+  <table>
+    <thead><tr><th>Parameter</th><th>Range</th><th>Default</th></tr></thead>
+    <tbody>
+      <tr><td>Threshold</td><td>−60..0 dB</td><td>−18 dB</td></tr>
+      <tr><td>Ratio</td><td>1:1..10:1</td><td>4:1</td></tr>
+      <tr><td>Attack</td><td>0.1..50 ms</td><td>10 ms</td></tr>
+      <tr><td>Release</td><td>10..500 ms</td><td>120 ms</td></tr>
+      <tr><td>Makeup</td><td>0..30 dB</td><td>0 dB</td></tr>
+      <tr><td>Detector HPF</td><td>0..500 Hz</td><td>off</td></tr>
+      <tr><td>Knee</td><td>0..24 dB</td><td>6 dB</td></tr>
+      <tr><td>Lookahead</td><td>0..20 ms</td><td>5 ms</td></tr>
+      <tr><td>SC Attack</td><td>0..50 ms</td><td>0 ms</td></tr>
+      <tr><td>SC Release</td><td>0..500 ms</td><td>20 ms</td></tr>
+      <tr><td>Stereo Link</td><td>on/off</td><td>on</td></tr>
+      <tr><td>Mix</td><td>0..100%</td><td>100%</td></tr>
+    </tbody>
+  </table>
+  <p>The node has <strong>four inputs</strong>: the main stereo pair plus a
+  real stereo <strong>sidechain key</strong> on inputs 3/4. Unpatched, the
+  detector reads the main input and it behaves like an ordinary compressor;
+  patch anything into the key and that signal drives the gain instead —
+  kick-ducks-bass without workarounds. The key has its own shaping: the
+  detector high-pass filters only the key (never the audio path), and SC
+  Attack/Release smooth the key independently of the main gain timing. The
+  soft knee eases reduction in across its width instead of switching at the
+  threshold; lookahead delays the audio so the detector's gain lands on the
+  transient it was computed from; stereo link derives one gain from the louder
+  channel so a hard-panned hit cannot tug the image; and Mix blends dry signal
+  back in for parallel ("New York") compression on one track.</p>
+
+  <h4 id="mod-fx-trans">PatchKnob Transient Shaper</h4>
+  <p>Two envelope followers track the input at different speeds; their ratio is
+  the transient measure, so the effect is level-independent — a ghost note gets
+  the same treatment as an accent, which no threshold design can do.
+  Parameters: <em>Attack</em> and <em>Sustain</em> (each a ±12 dB bipolar
+  amount, centre = neutral), <em>Speed</em> (slides the follower pair between
+  responding to individual hits and whole phrases), <em>Output</em> (±12 dB)
+  and <em>On</em>.</p>
+
+  <h4 id="mod-fx-drum">PatchKnob Drum Bus</h4>
+  <p>A drum-bus channel strip in the spirit of a drum buss: one control per
+  job, in signal order. <em>Drive</em> is tanh-shaped soft saturation on the
+  whole signal; <em>Crunch</em> is a harder distortion applied only above a
+  200 Hz split, for snare bite without kick mush; <em>Damp</em> is an output
+  low-pass (20 kHz down to 3 kHz) to tame what drive added; <em>Boom</em> is a
+  tuned resonator (<em>Boom Freq</em> 40–120 Hz, <em>Boom Decay</em>
+  60–600 ms) struck by the signal's own transients — generated sub-thump, so it
+  works on material with no low end to boost; <em>Transients</em> is the
+  two-envelope shaper as a single bipolar knob; and <em>Compress</em> is a
+  fixed-character 4:1 soft-knee bus compressor whose threshold walks down and
+  makeup walks up together, so the knob only ever adds density. <em>Dry/Wet</em>
+  and <em>On</em> complete the set.</p>
+
+  <h4 id="mod-fx-lim">Classic Master Limiter</h4>
+  <p>A native adaptation of AnClark's ClassicMasterLimiter-RE01 (GPL-3.0),
+  keeping the original's fixed 580-sample lookahead and independent left/right
+  gain-reduction meters. One control — <em>Threshold</em>, −20..0 dB — plus
+  the two read-only meters; output is capped just under full scale.</p>
+</section>
+
+<section data-title="Mixing, Recording &amp; Setup">
+  <h2 id="mix">Mixing, Recording &amp; Setup</h2>
+  <p>This section covers the parts of PatchKnob that sit around the music: the
+  transport, the mixer, recording and punch recording, freezing tracks,
+  choosing an audio device, MIDI routing, project files, and the preferences —
+  including the built-in Claude assistant's settings.</p>
+
+  <h3 id="mix-transport">The transport</h3>
+  <p>The transport lives in a compact strip at the top of the main window; a
+  larger version of the same panel opens from <strong>View &gt; Transport
+  (large window)</strong>. Both drive the same clock, so it does not matter
+  which one you use. From left to right the buttons are:</p>
+  <ul>
+    <li><strong>To start</strong> — locate to tick 0.</li>
+    <li><strong>Rewind / Fast-forward</strong> — step the playhead one bar
+      back or forward. These work while stopped; the playhead visibly moves
+      and play resumes from wherever you put it.</li>
+    <li><strong>Play</strong> — start the transport. Pressing Play while
+      already rolling (or while a count-in is running) does nothing rather
+      than restarting.</li>
+    <li><strong>Stop</strong> — stop, leaving the playhead where it stopped.
+      Play then resumes from that spot. Stop is also the punch-out and
+      record-commit button (see <a href="#mix-recording">Recording</a>).
+      Cancelling a pending count-in with Stop puts the playhead back where the
+      count-in started.</li>
+    <li><strong>Record</strong> — arm or punch, depending on the record mode.
+      The button shows a solid red field while actually capturing, flashes
+      while armed-and-waiting, and carries a <code>P</code>, <code>T</code> or
+      <code>DP</code> badge when a punch mode is active.</li>
+    <li><strong>To end</strong> — locate to the end of the arrangement
+      (this understands audio-only projects, not just pattern triggers).</li>
+    <li><strong>Loop</strong> — toggle loop playback between the loop
+      markers.</li>
+    <li><strong>Metronome</strong> — toggle the click. It is off by default.
+      Right-click it (on the full panel) to toggle <strong>Count in
+      (4 beats)</strong>.</li>
+  </ul>
+  <p>Below the buttons sit the meter, the <strong>SONG/LIVE</strong> chip, a
+  large <strong>bar|beat|tick</strong> clock, and the tempo field. Click the
+  BPM value, type a new tempo and press <kbd>Enter</kbd> to commit
+  (<kbd>Esc</kbd> cancels; clicking elsewhere commits rather than dropping
+  what you typed). Tempo is clamped to 20–500 BPM and fractional values
+  survive end-to-end.</p>
+
+  <h4>Song mode and live mode</h4>
+  <p>The SONG/LIVE chip toggles the two playback models. In <strong>SONG</strong>
+  mode (the default) the timeline gates playback: a clip sounds only where it
+  is placed in the arrange view. In <strong>LIVE</strong> mode armed patterns
+  loop freely, the classic pattern-jamming model. The chip is bright in SONG
+  mode and dim in LIVE mode.</p>
+
+  <h4>The loop braces</h4>
+  <p>The left and right loop markers are the bracket handles in the arrange
+  ruler; drag them to move them, or drag a range in the ruler with the
+  Selector tool to set both at once. Looping itself is done inside the audio
+  engine, sample-accurately — the transport is never seeked to loop, so loops
+  are click-free and survive very short lengths.</p>
+  <p>The markers enforce a <strong>minimum loop window of one sixteenth
+  note</strong> rather than refusing a short loop: pushing one brace into (or
+  past) the other moves the other brace just far enough to keep a
+  sixteenth-note window, so a deliberately short loop stays short instead of
+  snapping back or ballooning to a bar.</p>
+
+  <h4>Locate</h4>
+  <p>Click or drag in the arrange ruler to move the playhead (it snaps to the
+  grid; hold <kbd>Alt</kbd> for a free position). Every locate — ruler, the
+  transport's step buttons, stop — moves both the sequencer and engine clocks
+  together, and each locate or stop also releases every sounding note
+  (an automatic MIDI panic), so nothing hangs.</p>
+
+  <blockquote>There is no global keyboard shortcut for play/stop. Transport
+  control is by the on-screen buttons (plus the arrange view's shuttle keys,
+  described in the arrangement section).</blockquote>
+
+  <h4>Count-in</h4>
+  <p>With count-in enabled, Play and Record first run a four-beat click
+  pre-roll (beat one accented), then start from where you were. The Play and
+  Record buttons stay lit through the pre-roll. A second press during the
+  count-in is ignored — Stop is the way out, and it returns the playhead to
+  the point the count-in started from.</p>
+
+  <h4>Record quantize</h4>
+  <p>Three chips on the transport bar shape MIDI takes as they are committed
+  (they are greyed out when record quantize is off):</p>
+  <ul>
+    <li><strong>Quantize grid</strong> — click to cycle off &rarr; whole &rarr;
+      half &rarr; quarter &rarr; eighth &rarr; sixteenth &rarr; thirty-second
+      note.</li>
+    <li><strong>Q-Range</strong> — 0/25/50/75%. A note already within this
+      fraction of the largest possible deviation from its grid line is left
+      exactly as played, so only what is audibly off gets corrected.
+      Left-click steps forward, right-click steps back.</li>
+    <li><strong>Swing</strong> — 50–70% in steps of 4. 50% is straight.</li>
+  </ul>
+
+  <h3 id="mix-mixer">The mixer and master mixer</h3>
+  <p>Open the master mixer from <strong>View &gt; Master Mixer</strong>. It is
+  a row of Ardour-style channel strips: one per track, then one
+  <strong>aux-return strip</strong> per aux bus, a slim <strong>+ AUX</strong>
+  column, and the <strong>MASTER</strong> strip on the right. The same window
+  also serves plain patchable Mixer nodes (right-click a Mixer module in the
+  patchbay and choose Open Mixer — see the <a href="#mod">patching
+  section</a>); those show no aux machinery, because aux buses belong to the
+  master only.</p>
+  <p>Each track strip carries, top to bottom:</p>
+  <ul>
+    <li><strong>Name header</strong> — right-click for Rename, Clear Inserts,
+      Unity Gain and (on an aux strip) Remove Bus.</li>
+    <li><strong>Input button</strong> — what feeds the strip.</li>
+    <li><strong>Processor box</strong> — the strip's insert-FX chain.
+      Right-click for New Plugin..., bypass, remove, Move to Pre-Fader / Move
+      to Post-Fader; drag entries to reorder. The <strong>fader is shown as
+      its own entry</strong> in the list, so the pre/post split is visible and
+      inserts can be dragged across it. A bypassed entry keeps its place but
+      processes nothing.</li>
+    <li><strong>Aux send knobs</strong> — one per aux bus; drag for level,
+      <kbd>Ctrl</kbd>+click to reset to zero, right-click for the send menu
+      (below). The send section only exists while at least one bus does.</li>
+    <li><strong>Pan</strong>, <strong>Mute / Solo</strong> (with a
+      solo-isolate LED), the <strong>gain fader</strong> (+6&nbsp;dB at the
+      top, on Ardour's fader taper) with a stereo meter, a numeric dB entry
+      and a click-to-reset peak readout, then <strong>Output</strong> and
+      <strong>Comments</strong> buttons.</li>
+  </ul>
+  <p>Solo is real engine state, not a UI trick: soloing a strip implicitly
+  mutes the others, the display distinguishes "muted by you" from "muted
+  because something else is soloed", and solo state is saved with the project
+  (format v18 and later). The strip menu (right-click the name header) also
+  carries Solo Isolate, Solo Safe, Reset Peak, and <strong>Meter Type</strong>:
+  PPM, DIN, Nordic, VU, K20, K14, K12 or Peak ballistics.</p>
+
+  <h4>Aux buses and sends</h4>
+  <p>Click the <strong>+ AUX</strong> column to create a bus (you are dropped
+  straight into naming it). Each track strip then grows a send knob for it,
+  and an aux-return strip appears between the track strips and the master.
+  Right-clicking a send knob opens a menu named for its destination bus with
+  three entries: <strong>Enabled</strong>, <strong>Pre-Fader</strong> (a
+  checkbox — post-fader is the default) and <strong>Level 0</strong>.</p>
+  <p>A <strong>post-fader</strong> send follows the strip's fader and mute —
+  what a reverb send normally wants. A <strong>pre-fader</strong> send ignores
+  the fader, mute <em>and solo</em>, which makes it usable as a headphone or
+  monitor feed. The aux bus runs its own insert chain (always pre-fader; its
+  "fader" is the return gain at the very end of the bus), and its output
+  returns into the master mix. The master strip's own inserts are the mirror
+  image: always post-fader, sitting between the mix bus and the audio
+  device.</p>
+  <p>A disabled send remembers its level so it can be toggled back. Send
+  levels are normalized 0–1; zero is silence, not merely quiet.</p>
+
+  <h3 id="mix-recording">Recording</h3>
+
+  <h4>Arming a track</h4>
+  <p>Click a track's record button in the arrange track header to arm it.
+  Exactly one track holds the arm at a time (punch modes extend this — see
+  below), and you cannot re-arm while a take is rolling. Arming an
+  <em>instrument</em> track records MIDI; arming an <em>audio</em> track
+  records audio.</p>
+
+  <h4>MIDI recording</h4>
+  <p>With an instrument track armed, press Record. From a standstill the
+  transport starts at the playhead (after the count-in, if enabled) and every
+  live event — hardware MIDI input and on-screen preview playing alike — is
+  captured, timestamped against the transport. Press Record or Stop to end
+  the take; the events become a clip at the record position, with record
+  quantize applied if it is on.</p>
+  <p>Routing is strict and explicit: a track armed on a virtual MIDI input
+  that has nothing patched into it records nothing, and the status line says
+  so ("Armed on ... but nothing is patched into it") rather than silently
+  producing an empty clip. There is no hidden hardware side channel — see
+  <a href="#mix-midi">MIDI setup</a>.</p>
+
+  <h4>Audio recording</h4>
+  <p>With an audio track armed, Record opens a capture tap on that track's
+  strip inlet. The tap is <strong>pre-fader</strong> and copies exactly what
+  is patched <em>into</em> the track — an Audio In device module, an
+  instrument, a rack — so fader, pan and mute are monitoring only and never
+  bake into the take. A track whose inlet has nothing patched into it records
+  silence, and the UI says so. The engine keeps eight independent taps, so
+  the punch modes below can genuinely record several tracks at once.</p>
+  <blockquote>Audio capture buffers are a fixed 120 seconds. A normal take —
+  or a QuickPunch/TrackPunch pass — longer than that is truncated and the
+  status line says so ("hit the 120 s capture limit"). Stop, commit, and
+  roll again for longer material. DestructivePunch takes are bounded by the
+  DP File Length preference instead.</blockquote>
+
+  <h4>Punch recording</h4>
+  <p>PatchKnob implements the Pro Tools punch model. Choose the mode in the
+  <strong>Options</strong> menu, with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>
+  (QuickPunch), <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>T</kbd> (TrackPunch) or
+  <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>D</kbd> (DestructivePunch) — each
+  toggles against Normal — or by right-clicking the transport's Record button,
+  which opens the mode picker. <kbd>Ctrl</kbd>+click on Record cycles the
+  modes.</p>
+  <ul>
+    <li><strong>Normal</strong> — the plain take described above. MIDI tracks
+      always punch in Normal mode.</li>
+    <li><strong>QuickPunch</strong> — works on the record-enabled audio
+      track. Stopped, Record toggles <em>Record Ready</em> (the button
+      flashes); Play starts the pass, and Record then punches in and out on
+      the fly as often as you like. Each punch becomes its own clip, cut from
+      one continuous background capture, so punching never drops audio.</li>
+    <li><strong>TrackPunch</strong> — like QuickPunch, but per track.
+      Punch-enable any number of audio tracks (<kbd>Super</kbd>+click a
+      track's record button; <kbd>Ctrl</kbd>+click is accepted as the same
+      gesture because many Linux window managers grab
+      <kbd>Super</kbd>+click). While rolling, each punch-enabled track's
+      record button punches that track independently, and the transport's
+      Record button punches all of them at once.
+      <kbd>Alt</kbd>+<kbd>Super</kbd>+click toggles punch-enable on all audio
+      tracks (<kbd>Shift</kbd> restricts that to tracks with a selected
+      clip).</li>
+    <li><strong>DestructivePunch</strong> — writes each punch <em>into the
+      existing clip on the track</em>, in place, with a crossfade at the in
+      and out points; no new clips are created. A track is only eligible if
+      it carries one continuous audio clip at unity clip gain, starting at
+      the beginning of the timeline and at least as long as the DP file
+      length; the menu item <strong>Options &gt; Prepare DPE Tracks</strong>
+      (run it with DestructivePunch already enabled, transport stopped)
+      consolidates a track's existing material into such a clip.
+      Trying to DP-enable an ineligible track is refused with the reason and
+      its remedy. Each punch is committed at punch-out, without stopping the
+      pass.</li>
+  </ul>
+  <p>Punch clips are named after their lane with a pass and punch number
+  (<code>Audio 1_01-02</code> is the second punch of the first pass).</p>
+
+  <h4>Record preferences</h4>
+  <p>These live at the bottom of the <strong>Options</strong> menu and persist
+  in <code>punch_prefs.txt</code> in the preferences directory:</p>
+  <ul>
+    <li><strong>QP/TP Crossfade</strong> — the crossfade written at each
+      punch boundary: none, 5, 10 (default), 20 or 50&nbsp;ms. At "none" no
+      crossfade is written into the edit, but a 4&nbsp;ms monitor-only fade
+      still smooths what you hear at the punch moment.</li>
+    <li><strong>DP File Length</strong> — the length of the destructive-punch
+      take buffer: 1, 2, 5 (default), 10 or 25 minutes. Audio clips live in
+      RAM (roughly 23&nbsp;MB per stereo minute at 48&nbsp;kHz), which is why
+      the default is 5 rather than Pro Tools' 25.</li>
+    <li><strong>Transport RecordLock</strong> — on: the transport stays
+      record-ready after a stop, so the next pass needs only Play. Off (the
+      default): stop disarms. Its effect is suspended while DestructivePunch
+      is active (the stored preference survives).</li>
+    <li><strong>Audio Track RecordLock</strong> — on (the default): track
+      record and punch enables survive a transport stop. Off: they clear on
+      every stop, tape-machine style.</li>
+    <li><strong>Mute Record-Armed Tracks While Stopped</strong> — mutes an
+      armed track's monitoring whenever the transport is stopped, so an open
+      microphone is not live between takes.</li>
+  </ul>
+
+  <h3 id="mix-freeze">Freeze and bounce</h3>
+  <p>Freezing renders a track's output to audio so its instrument and effects
+  stop costing CPU. Right-click a clip in the arrange view:</p>
+  <ul>
+    <li><strong>Freeze</strong> — renders just that clip's span to audio and
+      plays the result in its place. The source pattern is song-muted, the
+      lane is tinted, and the waveform is shown.</li>
+    <li><strong>Freeze Track</strong> — renders the whole lane (from its
+      first clip to its last, including any release tail) onto a
+      <em>new audio lane</em> named "<em>name</em> (frozen)", song-mutes the
+      source, and disables the source track's devices to free CPU. The source
+      lane and its clips stay in place for editing later.</li>
+    <li><strong>Unfreeze</strong> — the same menu entries flip to Unfreeze on
+      a frozen lane. Unfreezing removes the rendered audio, restores the
+      source's previous mute state and re-enables its devices. Deleting a
+      frozen clip instead removes only the audio and leaves the source
+      muted.</li>
+  </ul>
+  <p>Track freezes are saved with the project: the rendered audio is embedded
+  like any other project clip, and the frozen lane comes back after a load
+  with its waveform and its link to the source, so Unfreeze still works.</p>
+  <p><strong>File &gt; Render to WAV...</strong> is the whole-mix bounce: it
+  plays the project once in real time, taps every master block, and writes a
+  16-bit stereo WAV.</p>
+  <blockquote>Render to WAV currently writes to a fixed file name,
+  <code>render.wav</code>, in the directory PatchKnob was started from —
+  there is no file picker — and it estimates the capture length from pattern
+  lengths assuming 120 BPM, so at slower tempos the tail of a long project
+  can be cut off. Check the result.</blockquote>
+
+  <h3 id="mix-audio-settings">Audio settings</h3>
+  <p>Open <strong>A/V &gt; Audio Settings...</strong>. The window is a list of
+  clickable rows in four groups; the current choice in each group is marked
+  with <code>*</code>, and selecting a row applies it immediately (the engine
+  stops, reopens on the new setting and carries on):</p>
+  <ul>
+    <li><strong>Driver Type / Backend</strong> — on Linux: ALSA, JACK,
+      PulseAudio (PipeWire is reached through its ALSA/JACK/Pulse
+      compatibility layers). Windows builds list ASIO, WASAPI, WDM-KS,
+      DirectSound and MME.</li>
+    <li><strong>Output Device</strong> and <strong>Input Device</strong> —
+      the input device feeds the patcher's Audio In module; when a capture
+      device is selected the stream opens duplex, which is what audio
+      recording taps.</li>
+    <li><strong>Buffer Size (latency)</strong> — 64 to 65536 frames in powers
+      of two. 512 is the default. Smaller is lower latency and higher CPU
+      risk; if you hear crackles, go up a step.</li>
+  </ul>
+  <p>Choices persist in <code>~/.config/patchknob/audio_preferences.txt</code>
+  (on Windows, <code>%APPDATA%\PatchKnob\</code>) and are restored by name at
+  the next launch.</p>
+  <blockquote>The sample rate (default 48&nbsp;kHz) is stored in that
+  preferences file but has no row in the Audio Settings window; to change it,
+  quit PatchKnob and edit the <code>sample_rate=</code> line by hand.</blockquote>
+  <p><strong>If the device is lost</strong> — unplugged, or the server went
+  away — the engine notices the stream dying and PatchKnob automatically
+  reopens on the default output device. If you started with no working device
+  at all, the app still runs (with audio disabled and "No audio device" in
+  Audio Settings); fix the device and restart.</p>
+
+  <h3 id="mix-midi">MIDI setup</h3>
+  <p>MIDI I/O is patched, not configured in a dialog. The building blocks
+  (all patch modules — see the <a href="#mod">patching section</a> for the
+  patcher itself):</p>
+  <ul>
+    <li><strong>MIDI In</strong> — the built-in hardware MIDI input node.
+      Its menu lists the hardware inputs; pick one to bind it. Its events
+      flow to whatever it is wired to.</li>
+    <li><strong>MIDI-in / MIDI-out port nodes</strong> — additional nodes,
+      each bound to a hardware MIDI input or output device, or acting as a
+      pure virtual routing point. MIDI-out nodes send whatever is patched
+      into them to their device.</li>
+    <li><strong>Virtual MIDI</strong> — a configurable bank of virtual
+      inputs and outputs (right-click the node to set the port counts) that
+      acts as the routing fabric between tracks, hardware and instruments.
+      Routes between virtual ports are real graph edges: they show up in the
+      patcher and can be edited or removed there.</li>
+  </ul>
+  <p>Tracks route through this fabric automatically: each instrument track
+  shows its MIDI input and output in the arrange header, and the wiring from
+  input to instrument is rebuilt for you when you change it. Clips can also
+  be pointed at a specific instrument node, which routes their MIDI to it by
+  channel. The contract throughout is explicit: if nothing is patched into
+  an input, nothing arrives on it — arming a track on an unpatched input
+  records nothing, and the UI says so instead of pretending.</p>
+
+  <h3 id="mix-projects">Projects</h3>
+  <p><strong>File &gt; New / Open... / Save / Save As...</strong> Projects are
+  single <code>.s24</code> files, currently format version 20. Older versions
+  load and are migrated (including pre-v13 files written at the old
+  192-PPQN resolution). Saves are atomic and flushed to disk before the old
+  file is replaced.</p>
+  <p>A project file stores everything needed to reopen the session on another
+  machine with no external files:</p>
+  <ul>
+    <li>Global state: theme (Light/Midnight), tempo, loop on/off and the loop
+      markers, virtual MIDI port counts, and the session AutoFades length.</li>
+    <li>Every sequence: name, routing, length, loop markers, its events with
+      their tracker columns, per-pattern FX, and its arrange triggers.</li>
+    <li>Per-track mixer state — gain, pan, mute, solo, sends, aux buses,
+      insert chains with each plugin's own state blob.</li>
+    <li>The whole patch graph: nodes (plugins, samplers, mixers, Rack, Pure
+      Data and Csound patches with their documents), connections, and
+      port-level wiring.</li>
+    <li>Audio clips, <strong>embedded</strong> — the samples themselves, not
+      paths — with each region's trim, source offset, loop period, gain,
+      mute, and fade shapes/slopes including crossfade links.</li>
+    <li>Automation tracks, lanes and breakpoints, and freeze
+      relationships.</li>
+  </ul>
+  <p>Plain audio lanes are re-linked to their clips after a load by matching
+  each lane's clip position against the stored regions on its track, so
+  waveforms reappear and clip edits (splits, trims, fades) work in a freshly
+  loaded project. Loading also runs undo bookkeeping: undo history is kept as
+  whole-project snapshots on disk, so <strong>Edit &gt; Undo</strong>
+  (<kbd>Ctrl</kbd>+<kbd>Z</kbd>) and <strong>Redo</strong>
+  (<kbd>Ctrl</kbd>+<kbd>Y</kbd> or
+  <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd>) span every kind of edit.</p>
+
+  <h3 id="mix-prefs">Preferences and the A/V menu</h3>
+  <p>PatchKnob has no single modal preferences dialog. Settings live where
+  they act: record preferences in <strong>Options</strong>
+  (<a href="#mix-recording">above</a>), the theme in <strong>View &gt; Light /
+  Midnight</strong>, and the rest in the <strong>A/V</strong> menu:</p>
+  <ul>
+    <li><strong>Audio Settings... / Video Settings... / Claude
+      Settings...</strong> — open the respective windows.</li>
+    <li><strong>Fullscreen (exclusive)</strong> — also on <kbd>F11</kbd> —
+      and <strong>VSync</strong>.</li>
+    <li><strong>Playback redraw 60 / 30 / 15 Hz</strong> — a ceiling on
+      animation frames during playback, for weak GPUs. Clicks and drags
+      always repaint at full rate.</li>
+    <li>A read-only line showing the SDL version and renderer in use, and —
+      only when a sibling build is installed alongside — a "Restart
+      with SDL2/SDL3..." item to relaunch the other build.</li>
+  </ul>
+  <p>On mobile builds the View menu additionally offers a UI scale of 100,
+  125, 150 or 175%; desktop builds scale with the system automatically.
+  Preferences files live in the per-user application directory
+  (<code>~/.config/patchknob/</code> and the SDL preferences path).</p>
+
+  <h4>The Claude assistant settings</h4>
+  <p><strong>A/V &gt; Claude Settings...</strong> (also reachable from the
+  chat panel's SET.. button) configures the assistant that writes Csound
+  instruments in the Csound editor. Two backends:</p>
+  <ul>
+    <li><strong>Claude Code</strong> (the default) runs your locally installed
+      Claude Code CLI and spends your existing subscription. No API key is
+      held, stored or transmitted by PatchKnob at all, and no metered credits
+      are consumed. It only requires <code>claude</code> to be on your
+      <code>PATH</code>; the settings row says plainly whether it was
+      found.</li>
+    <li><strong>Anthropic API</strong> posts to the Messages API with your own
+      key and bills per token — for machines without Claude Code, or if you
+      prefer metered use.</li>
+  </ul>
+  <p>The API key entry is masked while typing and the key is never shown
+  again after saving. It is stored <strong>per user and per machine</strong>,
+  in your preferences directory (the window shows the exact path), and the
+  stored blob is <em>bound to the machine that wrote it</em>: copying the
+  preferences file to another computer — or syncing your home directory —
+  does not carry the account over. The other machine reports the key as
+  foreign and asks for one of its own, by design; the window shows this
+  machine's fingerprint so two machines can be told apart. The key is never
+  written into a project file.</p>
+  <blockquote>On Windows the binding is real encryption (DPAPI). On Linux and
+  macOS it is obfuscation keyed to the machine identity plus a 0600 file: it
+  stops the key travelling between machines and being read by other users,
+  but it is not protection against someone who can already run code as
+  you.</blockquote>
+  <p>The window also selects the model — <code>claude-opus-5</code> (the
+  default; the generated code has to compile, so the strongest model earns
+  its keep), <code>claude-sonnet-5</code> or <code>claude-haiku-4-5</code> —
+  and toggles extended thinking (on by default) and the reply token
+  budget.</p>
+  <blockquote>If neither backend is usable — no <code>claude</code> on the
+  PATH and no key (or, on the API side, a build without HTTPS support) — the
+  chat panel does not break: it shows a plain notice explaining exactly what
+  is missing and how to fix it, and sending is disabled until one backend
+  works.</blockquote>
+
+  <h3 id="mix-video">Video settings</h3>
+  <p><strong>A/V &gt; Video Settings...</strong> configures the built-in
+  screen recorder, which captures the PatchKnob window together with the
+  mixer's master output — the audio is taken from the engine's master tap,
+  so it cannot drift against the picture the way a re-recorded soundcard
+  capture would. Rows (left-click steps a value forward, right-click back):
+  codec, height (width follows the window), frame rate, encoder threads
+  (1 keeps encoding off the audio thread), mixer audio on/off, and the output
+  folder. Recording requires <code>ffmpeg</code> on the system; the window
+  says so if it is not found. Start and stop recording from the chip at the
+  right end of the transport bar; settings changed while recording apply to
+  the next take.</p>
+</section>
+
+    <a class="toplink" href="#">Back to top</a>
+  </main>
+</div>
+
+<script>
+//  Highlight the section you are reading.  IntersectionObserver rather than a
+//  scroll handler so it costs nothing while you are just reading.
+(function () {
+  var links = {};
+  document.querySelectorAll('.sidebar a[href^="#"]').forEach(function (a) {
+    links[a.getAttribute('href').slice(1)] = a;
+  });
+  var targets = Object.keys(links)
+    .map(function (id) { return document.getElementById(id); })
+    .filter(Boolean);
+  var current = null;
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (!e.isIntersecting) return;
+      var a = links[e.target.id];
+      if (!a || a === current) return;
+      if (current) current.classList.remove('active');
+      a.classList.add('active');
+      current = a;
+    });
+  }, { rootMargin: '0px 0px -75% 0px', threshold: 0 });
+  targets.forEach(function (t) { io.observe(t); });
+
+  //  Filter box: hides navigation entries that do not match, keeping a parent
+  //  visible when one of its children does.
+  var filter = document.getElementById('filter');
+  filter.addEventListener('input', function () {
+    var q = filter.value.trim().toLowerCase();
+    document.querySelectorAll('.sidebar > nav > ul > li').forEach(function (top) {
+      var kids = top.querySelectorAll('ul li');
+      var anyKid = false;
+      kids.forEach(function (li) {
+        var hit = !q || li.textContent.toLowerCase().indexOf(q) !== -1;
+        li.classList.toggle('hidden', !hit);
+        if (hit) anyKid = true;
+      });
+      var selfHit = !q || top.querySelector('a').textContent.toLowerCase().indexOf(q) !== -1;
+      top.classList.toggle('hidden', !(selfHit || anyKid));
+      if (selfHit && q) kids.forEach(function (li) { li.classList.remove('hidden'); });
+    });
+  });
+})();
+</script>
+</body>
+</html>

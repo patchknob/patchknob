@@ -1,0 +1,91 @@
+<section id="start" data-title="Getting Started">
+  <h2 id="start">Getting Started</h2>
+  <p>PatchKnob is a DAW that combines a pattern sequencer and timeline with a
+  modular patching environment. This page gets it installed, making sound,
+  and tells you which section of the manual covers what.</p>
+
+  <h3 id="start-install">Installing</h3>
+  <p>On Debian or Ubuntu, install the <code>.deb</code>:</p>
+  <pre>sudo apt install ./patchknob_&lt;version&gt;_amd64.deb</pre>
+  <p>On Arch, install the package:</p>
+  <pre>sudo pacman -U patchknob-&lt;version&gt;-1-x86_64.pkg.tar.zst</pre>
+  <p>Either way you get a <code>patchknob</code> command and a desktop menu
+  entry. To build from source instead, from the repository root:</p>
+  <pre>./scripts/install-deps.sh   # installs the system packages (asks for sudo)
+./scripts/build.sh          # configures and builds; binary at build-linux/PatchKnob</pre>
+  <p><code>install-deps.sh</code> detects Debian/Ubuntu, Fedora and Arch
+  families and prints the generic dependency list for anything else;
+  <code>--dry-run</code> shows the command without running it.
+  <code>build.sh</code> takes <code>--debug</code>, <code>--clean</code>,
+  <code>--jobs N</code> (the script caps parallelism by available RAM — each
+  compile job can want about a gigabyte) and <code>--tests</code>. Everything
+  else PatchKnob needs is vendored and built into the binary. The packages
+  themselves are produced by <code>./packaging/build-deb.sh</code> and
+  <code>./packaging/build-arch.sh</code> after a build, landing in
+  <code>dist/</code>.</p>
+
+  <h3 id="start-first-launch">First launch and choosing an audio device</h3>
+  <p>On first launch PatchKnob opens on the system default audio output at
+  48&nbsp;kHz with a 512-frame buffer, and scans for plugins in the
+  background. If that is not the device you want — or you need JACK, a
+  specific card, or an input for recording — open <strong>A/V &gt; Audio
+  Settings...</strong> and click a backend (ALSA / JACK / PulseAudio), an
+  output device, an input device and a buffer size; changes apply
+  immediately and are remembered. Details, including what happens when a
+  device disappears, are in <a href="#mix">Mixing, Recording &amp;
+  Setup</a>.</p>
+  <p>If no audio device works at all, the app still starts, with audio
+  disabled and "No audio device" shown in Audio Settings.</p>
+
+  <h3 id="start-first-sound">Making a first sound</h3>
+  <ol>
+    <li><strong>Track &gt; Add Instrument Track</strong> adds a lane to the
+      arrange view. A track is just routing — it has no built-in sound.</li>
+    <li>Open the patchbay with <strong>View &gt; Patchbay (bottom
+      dock)</strong>, right-click the empty canvas and add an instrument:
+      <strong>Add Sampler</strong> (the built-in keyzone sampler),
+      <strong>Add Instrument</strong> (a VST plugin), <strong>Add Modular
+      (Rack)</strong>, <strong>Add Pure Data</strong> or <strong>Add
+      Csound</strong>.</li>
+    <li>Back in the arrange view, the track header's instrument dropdown
+      lists every playable node in the patcher. Pick the one you added —
+      PatchKnob wires its MIDI and audio for you, and the track's mixer strip
+      comes alive.</li>
+    <li>Draw a clip on the lane and open it in the piano roll or tracker to
+      enter notes, or arm the track and record — see
+      <a href="#arrange">arrangement</a>, <a href="#seq">note editors</a>
+      and <a href="#mix">recording</a>. Press Play on the transport bar to
+      hear it.</li>
+  </ol>
+
+  <h3 id="start-tour">A short tour</h3>
+  <p>The menu bar runs File, Edit, Track, Options, View, A/V, Help; the
+  transport strip sits with it at the top, and everything else is a window or
+  dock over the Arrange workspace.</p>
+  <ul>
+    <li><strong>Arrange</strong> — the timeline: lanes, clips, fades,
+      editing. Covered in <a href="#arrange">Arrangement &amp;
+      Editing</a>.</li>
+    <li><strong>Piano roll and Tracker</strong> — the two note editors,
+      opened on a clip. Covered in <a href="#seq">the note editors
+      section</a>.</li>
+    <li><strong>Sample Editor and Sampler</strong> — waveform editing and the
+      keyzone sampler instrument. Covered in <a href="#smp">the sampler
+      section</a>.</li>
+    <li><strong>Patchbay</strong> (View &gt; Patchbay) — the modular graph:
+      instruments, effects, MIDI ports, mixers, Rack, Pure Data and Csound
+      nodes, and every cable between them. Covered in <a href="#mod">the
+      patching section</a>.</li>
+    <li><strong>Master Mixer</strong> (View &gt; Master Mixer), the
+      <strong>transport</strong>, recording, audio/MIDI setup, projects and
+      preferences — all in <a href="#mix">Mixing, Recording &amp;
+      Setup</a>.</li>
+    <li>The View menu also switches the main workspace between
+      <strong>Arrange</strong>, <strong>Browse</strong> (the sample and
+      plugin browser), <strong>Auto</strong> (automation),
+      <strong>KeyFlw</strong> and <strong>Wave</strong>.</li>
+  </ul>
+  <p>Projects save to single <code>.s24</code> files with all audio embedded
+  (<strong>File &gt; Save</strong>); undo is <kbd>Ctrl</kbd>+<kbd>Z</kbd>
+  everywhere. The theme is <strong>View &gt; Light / Midnight</strong>.</p>
+</section>
