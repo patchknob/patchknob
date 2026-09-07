@@ -170,6 +170,7 @@
         <li><a href="#mix-freeze">Freeze and bounce</a></li>
         <li><a href="#mix-audio-settings">Audio settings</a></li>
         <li><a href="#mix-midi">MIDI setup</a></li>
+        <li><a href="#mix-midi-live">Recording a hardware keyboard to a track</a></li>
         <li><a href="#mix-projects">Projects</a></li>
         <li><a href="#mix-prefs">Preferences and the A/V menu</a></li>
         <li><a href="#mix-video">Video settings</a></li>
@@ -2331,32 +2332,72 @@ f 0 86400
   Audio Settings); fix the device and restart.</p>
 
   <h3 id="mix-midi">MIDI setup</h3>
-  <p>MIDI I/O is patched, not configured in a dialog. The building blocks
-  (all patch modules — see the <a href="#mod">patching section</a> for the
-  patcher itself):</p>
+  <p>MIDI I/O is patched, not configured in a dialog. Three building blocks,
+  all of them patch modules &mdash; see <a href="#mod-patchbay">the patchbay</a>
+  for the patcher itself:</p>
   <ul>
-    <li><strong>MIDI In</strong> — the built-in hardware MIDI input node.
-      Its menu lists the hardware inputs; pick one to bind it. Its events
-      flow to whatever it is wired to.</li>
-    <li><strong>MIDI-in / MIDI-out port nodes</strong> — additional nodes,
-      each bound to a hardware MIDI input or output device, or acting as a
-      pure virtual routing point. MIDI-out nodes send whatever is patched
-      into them to their device.</li>
-    <li><strong>Virtual MIDI</strong> — a configurable bank of virtual
-      inputs and outputs (right-click the node to set the port counts) that
-      acts as the routing fabric between tracks, hardware and instruments.
-      Routes between virtual ports are real graph edges: they show up in the
-      patcher and can be edited or removed there.</li>
+    <li><strong>Hardware MIDI In</strong> &mdash; the built-in hardware input
+      node, seeded into every new project. Its menu lists the MIDI inputs the
+      system reports; pick one to bind the node to it.</li>
+    <li><strong>MIDI-in / MIDI-out port nodes</strong> &mdash; additional nodes
+      bound to a hardware device, or acting as a pure routing point. A
+      MIDI-out node sends whatever is patched into it to its device.</li>
+    <li><strong>Virtual MIDI</strong> &mdash; a bank of numbered virtual
+      inputs (<code>i-1</code>, <code>i-2</code>&hellip;) and outputs
+      (<code>o-1</code>, <code>o-2</code>&hellip;). This is the fabric tracks
+      route through. Right-click the node, or open
+      <em>Instrument Virtual MIDI Ports</em>, to change how many of each
+      exist.</li>
   </ul>
-  <p>Tracks route through this fabric automatically: each instrument track
-  shows its MIDI input and output in the arrange header, and the wiring from
-  input to instrument is rebuilt for you when you change it. Clips can also
-  be pointed at a specific instrument node, which routes their MIDI to it by
-  channel. The contract throughout is explicit: if nothing is patched into
-  an input, nothing arrives on it — arming a track on an unpatched input
-  records nothing, and the UI says so instead of pretending.</p>
+  <p>A track's header does not name a device. It names a <em>virtual port</em>.
+  What that port carries is decided by a cable you draw in the patcher. This
+  indirection is what lets you repatch a keyboard to a different track, or fan
+  one keyboard out to several, without touching any track's settings &mdash;
+  but it does mean selecting an input on a track is only half of the job.</p>
 
-  <h3 id="mix-projects">Projects</h3>
+  <h3 id="mix-midi-live">Recording a hardware keyboard to a track</h3>
+  <p>This is the one routing job that catches people out, because the track
+  header will happily show an input that has nothing behind it. Both halves
+  are required:</p>
+  <ol>
+    <li><strong>Patch the keyboard into a virtual input.</strong> Open the
+      patchbay, click the <strong>Hardware MIDI In</strong> node and pick your
+      device from its menu. Then drag a cable from its output to the
+      <strong>Virtual MIDI</strong> node's <code>i-1</code> input.</li>
+    <li><strong>Point the track at that same virtual input.</strong> On the
+      instrument track's header, open the MIDI input selector and choose
+      <code>i-1</code>.</li>
+    <li><strong>Give the track an instrument.</strong> Assign one from the
+      clip's instrument list. The wiring from the track to the instrument's
+      MIDI input is made for you; you do not patch that by hand.</li>
+    <li><strong>Arm the track.</strong> Live input is monitored only on the
+      <em>armed</em> track &mdash; an unarmed track is silent even when its
+      routing is correct.</li>
+    <li>Record.</li>
+  </ol>
+  <p><strong>How to tell it worked.</strong> Once a cable reaches a virtual
+  input, the track header stops showing a bare <code>i-1</code> and shows the
+  name of the device patched into it. That label is the check: if it still
+  reads <code>i-1</code> with no device name, nothing is patched into that
+  port and you will record silence. Selecting an unpatched input also puts a
+  message in the status line saying so.</p>
+  <blockquote>
+    <p>Choosing an input on the track header alone routes nothing. Steps 1 and
+    2 are separate on purpose &mdash; the header selects a port, the cable
+    decides what that port carries &mdash; and doing only the second is the
+    usual reason a correctly-armed track records silence.</p>
+  </blockquote>
+  <p>The same shape works in reverse for sending MIDI out: set the track's
+  MIDI <em>output</em> to <code>o-1</code>, then patch the Virtual MIDI node's
+  <code>o-1</code> output to a MIDI-out node bound to your hardware. Routing a
+  track's output to another track's input is also just a cable between the
+  matching virtual ports.</p>
+  <p>Every route made this way is a real edge in the patch graph: it is visible
+  in the patcher, and can be edited or deleted there. Cables that PatchKnob
+  makes for you are rebuilt whenever routing changes; cables you draw yourself
+  are yours and are left alone.</p>
+
+<h3 id="mix-projects">Projects</h3>
   <p><strong>File &gt; New / Open... / Save / Save As...</strong> Projects are
   single <code>.s24</code> files, currently format version 20. Older versions
   load and are migrated (including pre-v13 files written at the old
